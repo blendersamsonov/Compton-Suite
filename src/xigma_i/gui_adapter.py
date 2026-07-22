@@ -132,6 +132,19 @@ class BinnedTemporalEnvelope:
 
 
 @dataclass
+class BinnedSpatialDistribution:
+    """Transverse (x, y) areal density of photon emission, read off
+    ``Compton``'s ``spatial_envelope``/``spatial_x_edges``/``spatial_y_edges``
+    (a dedicated deposition kernel added alongside ``particle_kernel``'s
+    existing time_envelope mechanism -- see core.py's ``particle_kernel``
+    and ``calculate_intersection``)."""
+
+    x_centers: np.ndarray
+    y_centers: np.ndarray
+    density: np.ndarray
+
+
+@dataclass
 class AngularRangeSpectrumResult:
     """Result of an on-demand spectrum computed over a user-picked angular
     sub-range (see ``spectrum_in_angular_range``)."""
@@ -192,7 +205,7 @@ def capabilities() -> dict:
         supports_seed_reproducibility=False,
         requires_recompute_on_collimation_change=False,
         supports_temporal_envelope=True,
-        supports_spatial_distribution=False,
+        supports_spatial_distribution=True,
         supports_angular_distribution=True,
         supports_angular_range_spectrum=True,
         trust_level="experimental-C/D",
@@ -365,6 +378,15 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         t_seconds=cp.asnumpy(compton.env_ts),
         rate=cp.asnumpy(compton.time_envelope))
 
+    # core.py's spatial_envelope/edges are in cm (photons/cm^2); convert to
+    # SI (m, photons/m^2) to match dfe5's SampledSpatialDistribution units.
+    x_edges = cp.asnumpy(compton.spatial_x_edges) / _M_TO_CM
+    y_edges = cp.asnumpy(compton.spatial_y_edges) / _M_TO_CM
+    spatial_distribution = BinnedSpatialDistribution(
+        x_centers=(x_edges[:-1] + x_edges[1:]) / 2.0,
+        y_centers=(y_edges[:-1] + y_edges[1:]) / 2.0,
+        density=cp.asnumpy(compton.spatial_envelope) * (_M_TO_CM ** 2))
+
     total_yield = float(compton.calculate_total())
 
     gamma_0 = cfg.eps0
@@ -413,7 +435,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         electron_state=None,
         photon_multiplicity=None,
         temporal_envelope=temporal_envelope,
-        spatial_distribution=None,
+        spatial_distribution=spatial_distribution,
         final_distribution_path=None,
         _compton=compton, _gamma_0=gamma_0, _sigma_gamma_0=sigma_gamma_0,
     )
