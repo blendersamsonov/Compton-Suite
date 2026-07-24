@@ -226,6 +226,20 @@ def available() -> tuple[bool, str]:
     return True, ""
 
 
+def extra_params() -> list[tuple[str, float, str]]:
+    """Model-specific numeric fields with no dfe5 analogue, for the GUI to
+    render in a model-specific pane (see compton_gui.model_api.ModelAdapter.
+    extra_params). Each entry is (label, default, key) -- the same shape as
+    the (label, default, key) specs app.py's add_field_grid already expects,
+    so the GUI can lay these out with its existing helper. ``key`` must match
+    the Config field name; params_to_config reads it straight out of the
+    fields dict."""
+    return [
+        ("Flying-focus factor (0=static, 1=co-moving)", 0.0, "beta_ff"),
+        ("Polarization angle [rad]", 0.0, "phi_pol"),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # GUI-field parsing
 # ---------------------------------------------------------------------------
@@ -272,6 +286,9 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
     theta_x_col = g("theta_x_col_mrad") * 1e-3
     theta_y_col = g("theta_y_col_mrad") * 1e-3
 
+    beta_ff = g("beta_ff")
+    phi_pol = g("phi_pol")
+
     warnings = []
     if crossing_angle != 0.0:
         raise ParamError(
@@ -301,6 +318,7 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
         crossing_angle=crossing_angle,
         quantum=quantum,
         Theta_x=theta_x_col, Theta_y=theta_y_col,
+        beta_ff=beta_ff, phi_pol=phi_pol,
     )
     extra = dict(n_mc=int(g("n_mc")), seed=int(g("seed")),
                  rep_rate_hz=rep_rate_hz, warnings=warnings)
@@ -504,6 +522,9 @@ class XigmaAdapter:
 
     def available(self) -> tuple[bool, str]:
         return available()
+
+    def extra_params(self) -> list[tuple[str, float, str]]:
+        return extra_params()
 
     def params_to_config(self, fields: dict, quantum: bool = False):
         return params_to_config(fields, quantum)
