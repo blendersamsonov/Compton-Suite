@@ -561,7 +561,7 @@ def build_table_streaming(compton, n_particles, n_steps, *, chunk_particles,
                            gamma0, sigma_gamma0, chirp=0.0, angle_energy_corr=0.0, rng=None,
                            push_backend='numpy', grid=None, scheme='nearest', device=None,
                            n_bins=(128, 128, 128, 32), margin=0.05, accumulate_dtype=np.float64,
-                           gamma_quantile=1e-4, quiet=True, **scheme_kwargs):
+                           gamma_quantile=1e-4, a0_kind='ahat', quiet=True, **scheme_kwargs):
     """Stage 0+1 combined, for n_particles too large (times n_steps) to draw
     and push in one call: draws and pushes `chunk_particles` macroparticles
     at a time (particles.sample_bunch + particles.push_and_sample), deposits
@@ -583,9 +583,15 @@ def build_table_streaming(compton, n_particles, n_steps, *, chunk_particles,
         'numpy' (default, matching push_and_sample's own default -- always
         available, no GPU required), 'cupy', or 'numba'.
     grid, scheme, device, n_bins, margin, accumulate_dtype, gamma_quantile,
-        **scheme_kwargs: same meaning as build_table's (device=None
+        a0_kind, **scheme_kwargs: same meaning as build_table's (device=None
         auto-detects from push_backend's output the same way build_table
-        auto-detects from its `gamma` argument).
+        auto-detects from its `gamma` argument). a0_kind='ahat' (default)
+        assumes the `a0` column push_and_sample returns is already the
+        physical trajectory-averaged intensity; pass a0_kind='shape' if
+        it's the a0-independent shape factor instead (see push_and_sample's
+        docstring), then retarget_a0() the returned table before using it
+        with spectrum4d/reference -- this function does not rescale `a0`
+        itself, only labels what's already in the samples it's given.
     quiet: if False, prints per-chunk progress.
 
     Each chunk's macroparticle weight is rescaled by n_chunk/n_particles:
@@ -658,7 +664,7 @@ def build_table_streaming(compton, n_particles, n_steps, *, chunk_particles,
     return Table(
         H=H_density, grid=grid, scheme=scheme, n_particle_samples=n_samples_total,
         total_weight=float(H_raw.sum()), n_discarded=n_discarded_total, occupancy=occupancy,
-        gamma_bracket=bracket,
+        gamma_bracket=bracket, a0_kind=a0_kind,
     )
 
 
