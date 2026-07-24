@@ -58,7 +58,15 @@ per output point.
   flagged, not chased further. The two other
   blockers on validating correlated bunches (chirp, divergence-energy
   correlation) -- `reference.direct_binning_spectrum`'s normalisation and
-  this `coef` bug -- are both now fixed.
+  this `coef` bug -- are both now fixed. New this session:
+  `push_and_sample`'s `a0` output can now be an `a0`-independent shape
+  factor (`a0_shape`) instead of the physical `ahat`, with
+  `deposition.retarget_a0` converting a `a0_shape`-table to a physical,
+  spectrum-ready table for any chosen `a0` by a cheap rebin -- see "a0
+  factorises out of the table" in "Architecture: new path". Bit-exact
+  against the old formula and numpy/numba cross-checked; not yet exercised
+  through a full end-to-end `spectrum_kernel_4d` run (that still needs a
+  CUDA device) or compared against a from-scratch multi-`a0` scan.
 - **Not done**: systematic resolution/convergence scans (tooling exists,
   see "Convergence testing" below -- no results recorded yet); chasing the
   narrow-angle `spectrum_kernel_4d` sampling-noise caveat above further; the
@@ -200,6 +208,38 @@ discussion), where the formation length spans the *whole* trajectory: an
 electron radiates one line, shaped by the single effective intensity value
 it experienced over its entire passage, not a sequence of per-instant
 emissions. **Do not reintroduce per-timestep a0 deposition.**
+
+**a0 factorises out of the table -- `a0_shape` and `deposition.retarget_a0`.**
+`ahat(zeta)` above splits *exactly* as `ahat(zeta) = compton.a0**2 *
+a0_shape(zeta)`, because `a0_local(t)**2 = compton.a0**2 * ratio(t)` with
+`ratio(t) = local intensity / peak intensity` depending only on the
+particle's (ballistic, `a0`-independent) trajectory -- never on
+`compton.a0` itself. `push_and_sample` computes and returns `a0_shape`
+(built without referencing `compton.a0` at all), not the physical `ahat`,
+so one Stage 0/1 run's table can be re-targeted to *any* actual `a0` (any
+pulse energy) after the fact, without rerunning particle push or
+deposition -- previously each `a0`/pulse-energy point needed its own full
+Stage 0/1 run. `deposition.Table.a0_kind` (`'shape'` or `'ahat'`, default
+`'ahat'` for old tables/scripts) records which one a table's 4th axis
+holds; `deposition.retarget_a0(table, a0, n_bins=, a0_min=, a0_max=)`
+converts a `'shape'` table into a spectrum-ready `'ahat'` table for one
+specific `a0` via a conservative (mass-preserving) 1D histogram regrid of
+the (already-built, can be finer-resolution) `a0_shape` axis onto a small
+fixed-size target grid spanning `[a0_min, a0_max]` (the *model's* valid
+`a0` range, not whatever range the current `a0_shape` table happens to
+span) -- source-bin mass below `a0_min`/above `a0_max` folds fully into
+the corresponding edge target bin rather than being lost, so a small
+actual `a0` collapses most/all of the table into one low bin (cheap,
+effectively-linear-Compton case) and a large one spreads mass across the
+full target range. `spectrum_kernel_4d`/`spectrum_from_table` require
+`a0_kind='ahat'` and assert it -- passing a `'shape'` table straight to
+either is a real trap (silently wrong resonance condition, since the axis
+values wouldn't be physical `ahat`), guarded against explicitly. Verified
+bit-exact against the pre-`a0_shape` formula (max relative diff ~1e-15)
+and cross-checked numpy vs numba backends; `retarget_a0` verified to
+conserve total table weight exactly (mod overflow folded to edge bins) and
+to produce the expected single-bin collapse / edge-fold behaviour at small/
+large `a0`.
 
 **Stage 1 -- `deposition.py`.** `Grid4D.from_samples` derives axis extents
 from the sample data plus a margin (not hard-coded like the legacy
@@ -473,6 +513,14 @@ devices default to float64, see Conventions).
   calibration error. Not applicable to the new path (`spectrum_kernel_4d`
   never has this flag), but a trap if you ever compare the two paths'
   outputs directly.
+- **`Table.a0_kind` mismatch.** A `'shape'` table (built from
+  `push_and_sample`'s `a0_shape`) is not spectrum-ready -- its 4th axis
+  isn't a physical `ahat`, so feeding it straight to `spectrum_kernel_4d`/
+  `spectrum_from_table` would silently evaluate the resonance condition at
+  the wrong `a0` values. Both now assert `a0_kind='ahat'` and raise instead
+  of computing garbage; always route a `'shape'` table through
+  `deposition.retarget_a0(table, a0)` first. See "a0 factorises out of the
+  table" above.
 - **Depositing `a0` per timestep instead of trajectory-averaged.** A real
   mistake made and fixed on this branch, not hypothetical -- see
   "Architecture: new path"'s "a0 is a trajectory average, not an

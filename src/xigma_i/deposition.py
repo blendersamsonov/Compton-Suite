@@ -6,6 +6,15 @@ that function's docstring and CLAUDE.md. Deposition itself is agnostic to
 what a0 physically means; only Stage 0 (particles.py) needed to change when
 this was corrected.
 
+Deposition is also agnostic to *which* a0 quantity it's binning: the 4th
+axis can hold either the physical per-a0 ahat, or push_and_sample's
+a0-independent a0_shape (ahat = a0**2 * a0_shape for any chosen a0 -- see
+push_and_sample's docstring for the derivation). Table.a0_kind records
+which one a given table holds ('ahat' or 'shape'); retarget_a0(table, a0)
+converts a 'shape' table into a spectrum-ready 'ahat' table for a specific
+a0 via a cheap rebin, without re-running Stage 0/1 -- see its docstring.
+spectrum4d/reference's table consumers require a0_kind='ahat' and assert it.
+
 Consumes the per-timestep samples produced by particles.push_and_sample and
 bins them into the tabulated overlap function described in plan.md /
 CLAUDE.md "Planned work". Two deposition schemes share the grid/indexing
@@ -138,6 +147,20 @@ class Table:
     """A deposited H table plus everything Stage 2 needs to consume it
     without re-deriving anything from the original particle set. Always
     holds host (numpy) arrays, regardless of which device built it.
+
+    a0_kind distinguishes what the 4th axis physically holds:
+      - 'ahat': the axis is the physical trajectory-averaged effective
+        intensity (Paper/xigma.tex eq. "ahattraj") for one specific a0 --
+        what spectrum4d.calculate_angular_spectrum_4d and
+        reference.spectrum_from_table expect and require (both assert this).
+      - 'shape': the axis is particles.push_and_sample's a0-independent
+        a0_shape (ahat = a0**2 * a0_shape for whatever a0 you choose) --
+        not directly spectrum-ready. Call retarget_a0(table, a0) to get an
+        'ahat' table for a specific a0 before handing it to spectrum4d/
+        reference. See particles.push_and_sample's docstring for the
+        derivation of why this split is exact.
+    Default 'ahat' so existing scripts/saved tables that never used the
+    a0_shape route keep working unchanged.
     """
     H: np.ndarray
     grid: Grid4D
@@ -147,6 +170,7 @@ class Table:
     n_discarded: int
     occupancy: np.ndarray  # int32, same shape as H: raw (unweighted) deposit counts per cell
     gamma_bracket: tuple  # (gamma_lo, gamma_hi) at quantiles (q, 1-q) of the gamma marginal
+    a0_kind: str = 'ahat'
 
     def save(self, path):
         np.savez(
@@ -162,6 +186,7 @@ class Table:
             n_discarded=self.n_discarded,
             occupancy=self.occupancy,
             gamma_bracket=np.array(self.gamma_bracket),
+            a0_kind=self.a0_kind,
         )
 
     @classmethod
@@ -173,6 +198,9 @@ class Table:
             n_particle_samples=int(d['n_particle_samples']), total_weight=float(d['total_weight']),
             n_discarded=int(d['n_discarded']), occupancy=d['occupancy'],
             gamma_bracket=tuple(d['gamma_bracket'].tolist()),
+            # str(...) with a fallback: tables saved before a0_kind existed
+            # don't have the key; they were always physical-ahat tables.
+            a0_kind=str(d['a0_kind']) if 'a0_kind' in d else 'ahat',
         )
 
 
@@ -342,6 +370,97 @@ def gamma_bracket(H, grid, q=1e-4):
     return lo, hi
 
 
+def retarget_a0(table, a0, *, n_bins=32, a0_min=0.0, a0_max):
+    """Turn an a0_kind='shape' table into a spectrum-ready a0_kind='ahat'
+    table for one specific a0, without touching gamma/theta_x/theta_y or
+    re-running Stage 0/1.
+
+    Why this is exact, not an approximation: particles.push_and_sample's
+    a0_shape is built so that ahat(zeta) = a0**2 * a0_shape(zeta) for any a0
+    (see that function's docstring) -- a pure multiplicative rescale of the
+    a0 axis. So table.grid.a0_edges * a0**2 is exactly the physical ahat
+    value each of the table's existing (fine-resolution, e.g. 32-128 bin)
+    a0_shape bin edges maps to; no interpolation is needed to relabel them.
+
+    What *does* need work is fitting that rescaled axis onto a small, fixed
+    number of bins (n_bins, default 32 -- spectrum_kernel_4d's inner a0
+    quadrature loop wants "few bins by design", see spectrum4d.py's module
+    docstring) spanning a fixed [a0_min, a0_max] *model* range -- i.e. the
+    range of physical ahat spectrum_kernel_4d/reference are meant to be
+    valid/queried over, not whatever range this particular a0 happens to
+    produce. This function does that fit as a conservative (mass-preserving)
+    1D histogram regrid along the a0 axis alone:
+      - if a0 is small enough that a0**2 * a0_shape's whole range sits below
+        a0_min (or a narrow slice of [a0_min, a0_max]), the source bins
+        coalesce into few (or one) target bins -- the "collapse to linear
+        Compton" case.
+      - if a0 is large enough to push some mass below a0_min or above
+        a0_max, that mass is folded fully into the first/last target bin
+        (clip, not discard) rather than lost.
+      - in between, source bins split across target bins in proportion to
+        the geometric overlap of their (physical, a0**2-rescaled) extents,
+        assuming piecewise-uniform density within each source bin (the same
+        assumption deposition already makes for any histogram-derived
+        density).
+    Total weight (integral over the a0 axis, holding gamma/theta_x/theta_y
+    fixed) is preserved exactly modulo whatever falls outside [a0_min,
+    a0_max] and gets folded into the edge bins.
+
+    occupancy on the returned table is a fractional approximation (mass
+    redistributed the same way as H), not literal per-cell deposit counts --
+    only meaningful as a rough density-of-samples diagnostic post-retarget,
+    not for occupancy_diagnostics' exact-count histogram.
+    """
+    if table.a0_kind != 'shape':
+        raise ValueError(
+            f"retarget_a0 expects a table with a0_kind='shape' (from "
+            f"build_table(..., a0_kind='shape')), got a0_kind={table.a0_kind!r} "
+            f"-- an 'ahat' table is already for one specific a0 and has "
+            f"nothing to retarget.")
+    if a0_max <= a0_min:
+        raise ValueError(f"a0_max ({a0_max}) must be greater than a0_min ({a0_min})")
+
+    a0 = float(a0)
+    source_edges = table.grid.a0_edges * a0 ** 2  # physical ahat edges implied by this a0
+    target_edges = np.linspace(a0_min, a0_max, n_bins + 1)
+
+    # Extend the outer target edges to +-inf for overlap purposes only, so
+    # source mass outside [a0_min, a0_max] folds fully into the boundary
+    # target bins instead of being lost to a zero-width clip.
+    edges_ext = target_edges.copy()
+    edges_ext[0] = -np.inf
+    edges_ext[-1] = np.inf
+
+    src_lo, src_hi = source_edges[:-1], source_edges[1:]
+    src_width = src_hi - src_lo
+    tgt_lo, tgt_hi = edges_ext[:-1], edges_ext[1:]
+
+    lo = np.maximum(src_lo[:, None], tgt_lo[None, :])
+    hi = np.minimum(src_hi[:, None], tgt_hi[None, :])
+    overlap = np.clip(hi - lo, 0.0, None)
+    # W[i, j]: fraction of source bin i's mass assigned to target bin j.
+    W = overlap / np.clip(src_width, 1e-300, None)[:, None]
+
+    da_source = table.grid.widths[3]
+    mass_source = table.H * da_source  # density -> mass along the a0 axis only
+    mass_target = np.tensordot(mass_source, W, axes=([3], [0]))
+    target_width = np.diff(target_edges)
+    H_target = mass_target / target_width
+
+    occ_target = np.tensordot(table.occupancy.astype(np.float64), W, axes=([3], [0]))
+
+    new_grid = Grid4D(
+        gamma_edges=table.grid.gamma_edges, theta_x_edges=table.grid.theta_x_edges,
+        theta_y_edges=table.grid.theta_y_edges, a0_edges=target_edges,
+    )
+    return Table(
+        H=H_target, grid=new_grid, scheme=table.scheme,
+        n_particle_samples=table.n_particle_samples, total_weight=table.total_weight,
+        n_discarded=table.n_discarded, occupancy=occ_target,
+        gamma_bracket=table.gamma_bracket, a0_kind='ahat',
+    )
+
+
 def check_accumulation_precision(H_f64, H_f32, rtol=1e-3):
     """Compare float64 vs float32 accumulation of the same deposits.
     Returns (max_relative_difference, recommend_float64: bool).
@@ -355,7 +474,7 @@ def check_accumulation_precision(H_f64, H_f32, rtol=1e-3):
 
 def build_table(gamma, theta_x, theta_y, a0, weight, *, grid=None, scheme='nearest', device=None,
                  n_bins=(128, 128, 128, 32), margin=0.05, accumulate_dtype=np.float64,
-                 gamma_quantile=1e-4, batch_size=None, **scheme_kwargs):
+                 gamma_quantile=1e-4, batch_size=None, a0_kind='ahat', **scheme_kwargs):
     """Orchestrates Stage 1: grid derivation (if not supplied) + deposition +
     diagnostics, returning a ready-to-save Table (always host/numpy arrays,
     regardless of which device built it).
@@ -372,9 +491,17 @@ def build_table(gamma, theta_x, theta_y, a0, weight, *, grid=None, scheme='neare
         memory/faster on very large depositions, and compare against the
         float64 result via check_accumulation_precision per plan.md's
         "Accumulation precision" guidance if in doubt.
+    a0_kind: 'ahat' (default) if `a0` is the physical trajectory-averaged
+        intensity for one specific a0 (e.g. from an older push_and_sample, or
+        push_and_sample's a0_shape output pre-multiplied by a chosen a0**2).
+        'shape' if `a0` is push_and_sample's raw a0-independent a0_shape --
+        the resulting Table is not spectrum-ready until passed through
+        retarget_a0(table, a0). See Table's docstring.
     """
     if scheme not in _DEPOSIT_FUNCS:
         raise ValueError(f"scheme must be one of {list(_DEPOSIT_FUNCS)}, got {scheme!r}")
+    if a0_kind not in ('ahat', 'shape'):
+        raise ValueError(f"a0_kind must be 'ahat' or 'shape', got {a0_kind!r}")
     xp = {'cpu': np, 'gpu': cp}.get(device)
     if device is not None and xp is None:
         raise ValueError(f"device must be 'cpu', 'gpu', or None, got {device!r}")
@@ -399,7 +526,7 @@ def build_table(gamma, theta_x, theta_y, a0, weight, *, grid=None, scheme='neare
     return Table(
         H=H_density, grid=grid, scheme=scheme, n_particle_samples=int(gamma.shape[0]),
         total_weight=float(H_raw.sum()), n_discarded=n_discarded, occupancy=occupancy,
-        gamma_bracket=bracket,
+        gamma_bracket=bracket, a0_kind=a0_kind,
     )
 
 
