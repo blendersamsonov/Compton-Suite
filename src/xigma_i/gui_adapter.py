@@ -187,7 +187,11 @@ _TRUST_NOTE = (
     "regime) / D (nonlinear-emulation regime): no unit tests, no "
     "cross-code validation, no guaranteed run-to-run reproducibility, "
     "crossing-angle and astigmatic-laser geometries not modeled, and a "
-    "known unresolved normalization-gap bug is documented in reference.py."
+    "known unresolved normalization-gap bug is documented in reference.py. "
+    "Runs on a CUDA GPU if one is available, else falls back to a CPU/numba "
+    "implementation of the same kernels (core_cpu.py) -- numerically "
+    "validated against the GPU kernels but noticeably slower, and not the "
+    "originally-shipped code path."
 )
 
 
@@ -195,7 +199,7 @@ def capabilities() -> dict:
     return dict(
         name="xigma-i",
         display_name="XIGMA-I (experimental)",
-        requires_gpu=True,
+        requires_gpu=False,
         supports_crossing_angle=False,
         supports_quantum_toggle=False,
         supports_nonlinearity_emulation=True,
@@ -214,16 +218,27 @@ def capabilities() -> dict:
 
 
 def available() -> tuple[bool, str]:
+    """True if either backend core.Compton supports can actually run: a real
+    CUDA GPU (cupy + a visible device), or the CPU/numba fallback (see
+    core.py's device auto-detection, core_cpu.py's kernels). Only returns
+    False -- greying out the model in the GUI -- if neither works."""
     try:
-        import cupy as cp
+        from .core import _detect_device
+        _detect_device()
     except Exception as e:
-        return False, f"cupy not importable: {e}"
-    try:
-        if cp.cuda.runtime.getDeviceCount() == 0:
-            return False, "no CUDA-capable GPU detected"
-    except Exception as e:
-        return False, f"CUDA runtime error: {e}"
+        return False, str(e)
     return True, ""
+
+
+def _backend_note() -> str:
+    """Which backend run_simulation will actually use, for display/logging
+    -- not part of the ModelAdapter contract, just a convenience for callers
+    that want to show e.g. "running on CPU (numba)" in the UI."""
+    try:
+        from .core import _detect_device
+        return _detect_device()
+    except Exception:
+        return "unavailable"
 
 
 # ---------------------------------------------------------------------------
@@ -340,15 +355,18 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         raise ValueError(
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
-    import cupy as cp
-    from .core import Compton
+    from .core import Compton, _detect_device
 
-    # Best-effort reseed of core.py's global cp.random calls. Not guaranteed
-    # bit-exact across GPU/driver/cupy versions -- see capabilities()'s
-    # supports_seed_reproducibility=False.
-    cp.random.seed(seed)
+    device = _detect_device()
+    compton = Compton(device=device)
+    xp = compton.xp
 
-    compton = Compton()
+    # Best-effort reseed of core.py's global xp.random calls (cupy on GPU,
+    # numpy on the CPU/numba fallback). Not guaranteed bit-exact across
+    # GPU/driver/cupy versions, or between the GPU and CPU backends -- see
+    # capabilities()'s supports_seed_reproducibility=False.
+    xp.random.seed(seed)
+
     compton.set_electron_parameters(
         chargeNC=cfg.N_e * _ELEMENTARY_CHARGE_C * 1e9,
         emit_x=cfg.emit_x * _M_TO_CM, emit_y=cfg.emit_y * _M_TO_CM,
@@ -375,17 +393,17 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # internally (core.py's time_envelope/env_ts attributes) -- no new
     # kernel work needed, just read it off.
     temporal_envelope = BinnedTemporalEnvelope(
-        t_seconds=cp.asnumpy(compton.env_ts),
-        rate=cp.asnumpy(compton.time_envelope))
+        t_seconds=compton.asnumpy(compton.env_ts),
+        rate=compton.asnumpy(compton.time_envelope))
 
     # core.py's spatial_envelope/edges are in cm (photons/cm^2); convert to
     # SI (m, photons/m^2) to match dfe5's SampledSpatialDistribution units.
-    x_edges = cp.asnumpy(compton.spatial_x_edges) / _M_TO_CM
-    y_edges = cp.asnumpy(compton.spatial_y_edges) / _M_TO_CM
+    x_edges = compton.asnumpy(compton.spatial_x_edges) / _M_TO_CM
+    y_edges = compton.asnumpy(compton.spatial_y_edges) / _M_TO_CM
     spatial_distribution = BinnedSpatialDistribution(
         x_centers=(x_edges[:-1] + x_edges[1:]) / 2.0,
         y_centers=(y_edges[:-1] + y_edges[1:]) / 2.0,
-        density=cp.asnumpy(compton.spatial_envelope) * (_M_TO_CM ** 2))
+        density=compton.asnumpy(compton.spatial_envelope) * (_M_TO_CM ** 2))
 
     total_yield = float(compton.calculate_total())
 
@@ -394,11 +412,11 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
 
     # Angle-integrated spectrum, s in [0, 1.1*gamma0^2] (covers up to just
     # past the classical Compton edge), 512 points.
-    s_tot = (cp.linspace(0.0, 1.1, 512, dtype=cp.float32) * gamma_0 ** 2)
+    s_tot = (xp.linspace(0.0, 1.1, 512, dtype=xp.float32) * gamma_0 ** 2)
     dNdE_per_MeV = compton.calculate_spectrum(
         s_tot, gamma_0, sigma_gamma_0, emulate_nonlinearity=cfg.emulate_nonlinearity)
     s_scale_MeV = 4.0 * compton.Wph
-    E_eV = (cp.asnumpy(s_tot) * s_scale_MeV) * 1e6
+    E_eV = (compton.asnumpy(s_tot) * s_scale_MeV) * 1e6
     dNdE_per_eV = dNdE_per_MeV / 1e6
 
     # Angular spectrum, precomputed over a generous fixed theta window and a
@@ -406,11 +424,11 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # size = theta_x.size * theta_y.size * s.size).
     theta_x = _theta_grid(cfg)
     theta_y = _theta_grid(cfg)
-    s_ang = (cp.linspace(0.0, 1.1, 96, dtype=cp.float32) * gamma_0 ** 2)
+    s_ang = (xp.linspace(0.0, 1.1, 96, dtype=xp.float32) * gamma_0 ** 2)
     ang_spec_MeV, _dt, _debug = compton.calculate_angular_spectrum(
-        s_ang, cp.asarray(theta_x), cp.asarray(theta_y), gamma_0, sigma_gamma_0,
+        s_ang, xp.asarray(theta_x), xp.asarray(theta_y), gamma_0, sigma_gamma_0,
         cfg.phi_pol, emulate_nonlinearity=cfg.emulate_nonlinearity)
-    E_ang_eV = (cp.asnumpy(s_ang) * s_scale_MeV) * 1e6
+    E_ang_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
     d2NdEdOmega = ang_spec_MeV / 1e6  # -> eV^-1 sr^-1
 
     summary = dict(
@@ -459,19 +477,19 @@ def spectrum_in_angular_range(
     if compton is None:
         raise RuntimeError("spectrum_in_angular_range: no cached Compton "
                             "instance -- run() must be called first")
-    import cupy as cp
+    xp = compton.xp
 
     cfg = res.cfg
     theta_x = _theta_grid(cfg, n_points=n_points, theta_range=theta_x_range)
     theta_y = _theta_grid(cfg, n_points=n_points, theta_range=theta_y_range)
-    s_ang = (cp.linspace(0.0, 1.1, n_energy, dtype=cp.float32)
+    s_ang = (xp.linspace(0.0, 1.1, n_energy, dtype=xp.float32)
              * res._gamma_0 ** 2)
     ang_spec_MeV, _dt, _debug = compton.calculate_angular_spectrum(
-        s_ang, cp.asarray(theta_x), cp.asarray(theta_y),
+        s_ang, xp.asarray(theta_x), xp.asarray(theta_y),
         res._gamma_0, res._sigma_gamma_0, cfg.phi_pol,
         emulate_nonlinearity=cfg.emulate_nonlinearity)
     s_scale_MeV = 4.0 * compton.Wph
-    E_eV = (cp.asnumpy(s_ang) * s_scale_MeV) * 1e6
+    E_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
     d2NdEdOmega = ang_spec_MeV / 1e6
 
     dtx = np.gradient(theta_x)

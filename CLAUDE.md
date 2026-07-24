@@ -153,6 +153,77 @@ for the conversion, easy to get backwards). `estimate_yield` and
 `estimate_spectrum_width` are cheap analytic estimates for
 sanity-checking.
 
+### CPU/numba fallback (`core_cpu.py`)
+
+`core.py` no longer hard-requires cupy at import time -- `cupy`/`cupyx` are
+imported inside a `try/except` at module scope (`_HAS_CUPY`), and the two
+`@jit.rawkernel()` kernels are only actually decorated/defined when cupy
+imported successfully (else `particle_kernel = spectrum_kernel = None`).
+`Compton(device=None)` auto-detects a backend via `_detect_device()`: a real
+CUDA GPU via cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else CPU
+(requires `numba`), else raises -- there is no third backend. `Compton.xp`
+is `cp` or `np` depending on `self.device`; `Compton.asnumpy(x)` is the
+public device-to-host transfer helper (`.get()` on GPU, no-op on CPU) --
+used by `gui_adapter.py` and safe to call from other consumers.
+
+`calculate_intersection`/`calculate_total`/`calculate_spectrum`/
+`calculate_angular_spectrum` all dispatch on `self.device`: the host-side
+setup math (particle sampling, `coef` derivation, grid construction) is
+written once using `self.xp` and runs identically on either backend; only
+the actual kernel launch branches -- GPU keeps launching
+`particle_kernel`/`spectrum_kernel` exactly as before, CPU calls
+`core_cpu.get_particle_kernel_cpu()`/`get_spectrum_kernel_cpu()` instead.
+
+`core_cpu.py`'s two `@numba.njit(parallel=True, fastmath=True, cache=True)`
+kernels (`particle_kernel_cpu`, `spectrum_kernel_cpu`) are **deliberate,
+literal transliterations** of `particle_kernel`/`spectrum_kernel` -- same
+index arithmetic, same branch structure, same edge-case quirks (including
+at least one GPU-side no-op branch in the ring/arc merge logic, kept
+faithfully rather than "fixed", for parity) -- restructured from CUDA's
+grid/block/shared-memory/syncthreads model into plain serial-per-work-item
+code, parallelized with `numba.prange` over whichever axis has no
+cross-work-item data dependency (`xy_idx` for the particle kernel using
+`numba.get_thread_id()`-indexed private accumulators for the shared
+`envelope`/`spatial` outputs since those *are* written by multiple
+`xy_idx`s; `out_idx` for the spectrum kernel, since each output point is
+written by exactly one GPU block and is fully independent of every other).
+The spectrum kernel additionally drops the GPU version's `thread_samples`/
+`THREAD_STRIDE` round-robin sample-to-thread bookkeeping entirely -- that
+existed purely to load-balance across 128 GPU threads and doesn't affect
+the numeric result (a straight sum over all (arc, sample, subsample)
+triples), so the CPU port just loops directly over them.
+
+Runs in float64 throughout (not float32 like the GPU kernels' `CP_FLOAT`
+convention) -- deliberate, not an oversight: there's no shared-memory/
+bandwidth pressure on CPU motivating single precision. **Validated
+numerically against the real GPU kernels directly** (not just against
+physical intuition) on a CUDA machine: feeding the GPU kernel's own
+particle/angle arrays into `particle_kernel_cpu` gives correlation
+>0.999999 and a near-exactly-constant elementwise ratio (the `coef` these
+CPU functions don't apply); `spectrum_kernel_cpu` fed the GPU-computed
+`intersection` table agrees with `spectrum_kernel`'s own output to
+correlation >0.9999 and within ~2% in total integrated flux -- consistent
+with (not looser than) this codebase's own established cross-implementation
+tolerances elsewhere (CLAUDE.md's "Current state" section). Re-validate
+against the actual GPU kernels (not just against each other) if either
+kernel changes -- see the validation scripts' approach: run both backends
+on identical input arrays and compare directly, don't just eyeball spectra.
+
+`gui_adapter.py`'s `available()` now returns `(True, "")` whenever
+*either* backend works (calls `core._detect_device()` and only returns
+`False` if it raises), so the GUI no longer greys out the xigma-i model on
+a machine with no GPU as long as `numba` is installed -- this is exactly
+the "model discovery" mechanism `compton-gui`'s `app.py` uses to
+enable/disable the model menu entry. `capabilities()`'s `requires_gpu` is
+now `False` accordingly (informational only, not read by `app.py`'s gating
+logic, but should stay accurate).
+
+`numba` and `cupy` are both optional extras in `pyproject.toml`
+(`xigma-i[cpu]` / `xigma-i[gpu]`) -- a machine only needs the one it's
+actually going to use. `scipy` moved from an undeclared-but-load-bearing
+import (it was already used unconditionally for `erfcx`/`erf`/`erfinv`) to
+a real base dependency.
+
 ## Architecture: new path (`particles.py`, `deposition.py`, `spectrum4d.py`, `reference.py`)
 
 Same delta-function-resonance idea, four axes instead of two: `H[gamma,
