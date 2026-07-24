@@ -228,8 +228,10 @@ def deposit_nearest(grid, gamma, theta_x, theta_y, a0, weight, accumulate_dtype=
     _scatter_add(xp, H_flat, flat_idx, weight[in_range].astype(accumulate_dtype))
 
     # int32, not int64: cupy.add.at (which cupyx.scatter_add uses under the
-    # hood on GPU) doesn't support int64 -- see _scatter_add's docstring.
-    # int32 tops out at ~2.1e9, far beyond any realistic per-cell count.
+    # hood on GPU) only supports {int32, float16, float32, float64, uint32,
+    # uint64} on some cupy/CUDA combinations -- int64 works on this
+    # codebase's dev GPU but raised TypeError on another. int32 tops out at
+    # ~2.1e9, far beyond any realistic per-cell count.
     occ_flat = xp.zeros(int(np.prod(shape)), dtype=xp.int32)
     _scatter_add(xp, occ_flat, flat_idx, 1)
 
@@ -267,7 +269,7 @@ def deposit_cic(grid, gamma, theta_x, theta_y, a0, weight, accumulate_dtype=np.f
 
     n = gamma.shape[0]
     H_flat = xp.zeros(int(np.prod(shape)), dtype=accumulate_dtype)
-    occ_flat = xp.zeros(int(np.prod(shape)), dtype=xp.int32)  # see deposit_nearest's comment
+    occ_flat = xp.zeros(int(np.prod(shape)), dtype=xp.int32)  # see deposit_nearest's comment on int32 vs int64
     n_discarded = 0
 
     corner_bounds = [(i0g, shape[0]), (i0tx, shape[1]), (i0ty, shape[2]), (i0a, shape[3])]
