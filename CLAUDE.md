@@ -36,37 +36,41 @@ per output point.
   (nearest + CIC deposition, CPU and GPU) are done and validated to 1-3%
   against the legacy path's `calculate_total()`/`calculate_intersection`,
   by a construction that needed zero hand-tuning of the derived
-  normalisation constant. Stage 2 (`spectrum_kernel_4d`) is done. Its
-  previous "validated to 6-8% against an independent brute-force reference"
-  figure predated a normalisation bug (both `spectrum_kernel_4d` and
-  `reference.spectrum_from_table` were using a `coef` copied from the
-  legacy kernel's own, unrelated, empirically-tuned constant -- see "Known
-  bugs" for the fix); re-measured post-fix
-  (`compare_direct_vs_table.py --grid-integrate`) at a typical bunch
-  config, all three of `spectrum_from_table`/`direct_binning_spectrum`/
-  `spectrum_kernel_4d` now agree within ~15% (clustered around the
-  still-open, deliberately-deferred `~2*pi` residual against
-  `angle_integrated_spectrum` -- see `direct_vs_table_discrepancy_report.md`).
-  One caveat found during that same re-check: in narrow-angle/sparse-table
-  configs, `spectrum_kernel_4d` alone shows large, unstable variance
-  (overshoots the other two by anywhere from ~3x to >30x depending on
-  particle count/table resolution, sometimes with huge run-to-run std),
-  while `spectrum_from_table`/`direct_binning_spectrum` still agree tightly
-  with each other in the same configs. Reads as heavy-tailed
-  importance-sampling noise from sparse/zero `H` cells in the kernel's own
-  quadrature (see "Table too sparse" trap), not a normalisation error --
-  flagged, not chased further. The two other
-  blockers on validating correlated bunches (chirp, divergence-energy
-  correlation) -- `reference.direct_binning_spectrum`'s normalisation and
-  this `coef` bug -- are both now fixed. New this session:
-  `push_and_sample`'s `a0` output can now be an `a0`-independent shape
-  factor (`a0_shape`) instead of the physical `ahat`, with
-  `deposition.retarget_a0` converting a `a0_shape`-table to a physical,
-  spectrum-ready table for any chosen `a0` by a cheap rebin -- see "a0
-  factorises out of the table" in "Architecture: new path". Bit-exact
-  against the old formula and numpy/numba cross-checked; not yet exercised
-  through a full end-to-end `spectrum_kernel_4d` run (that still needs a
-  CUDA device) or compared against a from-scratch multi-`a0` scan.
+  normalisation constant. Stage 2 (`spectrum_kernel_4d`) is done and its
+  `coef` normalisation (see `reference.py` below) is fixed and validated:
+  at a typical bunch config (`compare_direct_vs_table.py --grid-integrate`),
+  all three of `spectrum_from_table`/`direct_binning_spectrum`/
+  `spectrum_kernel_4d` agree within ~15% (clustered around a still-open,
+  deliberately-deferred `~2*pi` residual against `angle_integrated_spectrum`
+  -- see `direct_vs_table_discrepancy_report.md`). Correlated-bunch
+  validation (chirp, divergence-energy correlation) is unblocked now that
+  `direct_binning_spectrum`'s normalisation is fixed. One open caveat: in
+  narrow-angle/sparse-table configs, `spectrum_kernel_4d` alone shows
+  large, unstable variance (overshoots the other two by anywhere from ~3x
+  to >30x depending on particle count/table resolution, sometimes with
+  huge run-to-run std), while `spectrum_from_table`/`direct_binning_spectrum`
+  still agree tightly with each other in the same configs. Reads as
+  heavy-tailed importance-sampling noise from sparse/zero `H` cells in the
+  kernel's own quadrature (see "Table too sparse" trap), not a
+  normalisation error -- flagged, not chased further.
+  `push_and_sample`'s `a0` output is now an `a0`-independent shape factor
+  (`a0_shape`) rather than the physical `ahat`, with
+  `deposition.retarget_a0(table, a0, a0_max=...)` converting an
+  `a0_kind='shape'` table into a physical, spectrum-ready `a0_kind='ahat'`
+  table for one chosen `a0` by a cheap, exact rebin -- see "a0 factorises
+  out of the table" in "Architecture: new path". `a0_max` is a fixed
+  *model* parameter (the a0 range the weakly-nonlinear approximation is
+  meant to be valid over), not derived per-collision from `compton.a0` --
+  current default guidance is `a0_max=0.5`. `compare_direct_vs_table.py`
+  and `deposition.build_table_streaming` were updated for this; the rest
+  of `validation/*.py` (`refs.py`'s `make_samples`/table builders,
+  `fig_gridres.py`'s a0-axis bin-count scan in particular) was **not** --
+  those scripts still treat `push_and_sample`'s 4th output column as
+  physical `ahat` directly, so re-running them now would silently produce
+  wrong a0-axis physics rather than erroring. Flagged, not fixed, pending
+  a scoped follow-up (fig_gridres.py's a0-scan in particular needs a design
+  call, not a mechanical find/replace -- see that script's own module
+  docstring for why).
 - **Not done**: systematic resolution/convergence scans (tooling exists,
   see "Convergence testing" below -- no results recorded yet); chasing the
   narrow-angle `spectrum_kernel_4d` sampling-noise caveat above further; the
@@ -160,6 +164,77 @@ not use `spectrum_kernel` at all -- it returns **dN/dE**, not dN/ds
 for the conversion, easy to get backwards). `estimate_yield` and
 `estimate_spectrum_width` are cheap analytic estimates for
 sanity-checking.
+
+### CPU/numba fallback (`core_cpu.py`)
+
+`core.py` no longer hard-requires cupy at import time -- `cupy`/`cupyx` are
+imported inside a `try/except` at module scope (`_HAS_CUPY`), and the two
+`@jit.rawkernel()` kernels are only actually decorated/defined when cupy
+imported successfully (else `particle_kernel = spectrum_kernel = None`).
+`Compton(device=None)` auto-detects a backend via `_detect_device()`: a real
+CUDA GPU via cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else CPU
+(requires `numba`), else raises -- there is no third backend. `Compton.xp`
+is `cp` or `np` depending on `self.device`; `Compton.asnumpy(x)` is the
+public device-to-host transfer helper (`.get()` on GPU, no-op on CPU) --
+used by `gui_adapter.py` and safe to call from other consumers.
+
+`calculate_intersection`/`calculate_total`/`calculate_spectrum`/
+`calculate_angular_spectrum` all dispatch on `self.device`: the host-side
+setup math (particle sampling, `coef` derivation, grid construction) is
+written once using `self.xp` and runs identically on either backend; only
+the actual kernel launch branches -- GPU keeps launching
+`particle_kernel`/`spectrum_kernel` exactly as before, CPU calls
+`core_cpu.get_particle_kernel_cpu()`/`get_spectrum_kernel_cpu()` instead.
+
+`core_cpu.py`'s two `@numba.njit(parallel=True, fastmath=True, cache=True)`
+kernels (`particle_kernel_cpu`, `spectrum_kernel_cpu`) are **deliberate,
+literal transliterations** of `particle_kernel`/`spectrum_kernel` -- same
+index arithmetic, same branch structure, same edge-case quirks (including
+at least one GPU-side no-op branch in the ring/arc merge logic, kept
+faithfully rather than "fixed", for parity) -- restructured from CUDA's
+grid/block/shared-memory/syncthreads model into plain serial-per-work-item
+code, parallelized with `numba.prange` over whichever axis has no
+cross-work-item data dependency (`xy_idx` for the particle kernel using
+`numba.get_thread_id()`-indexed private accumulators for the shared
+`envelope`/`spatial` outputs since those *are* written by multiple
+`xy_idx`s; `out_idx` for the spectrum kernel, since each output point is
+written by exactly one GPU block and is fully independent of every other).
+The spectrum kernel additionally drops the GPU version's `thread_samples`/
+`THREAD_STRIDE` round-robin sample-to-thread bookkeeping entirely -- that
+existed purely to load-balance across 128 GPU threads and doesn't affect
+the numeric result (a straight sum over all (arc, sample, subsample)
+triples), so the CPU port just loops directly over them.
+
+Runs in float64 throughout (not float32 like the GPU kernels' `CP_FLOAT`
+convention) -- deliberate, not an oversight: there's no shared-memory/
+bandwidth pressure on CPU motivating single precision. **Validated
+numerically against the real GPU kernels directly** (not just against
+physical intuition) on a CUDA machine: feeding the GPU kernel's own
+particle/angle arrays into `particle_kernel_cpu` gives correlation
+>0.999999 and a near-exactly-constant elementwise ratio (the `coef` these
+CPU functions don't apply); `spectrum_kernel_cpu` fed the GPU-computed
+`intersection` table agrees with `spectrum_kernel`'s own output to
+correlation >0.9999 and within ~2% in total integrated flux -- consistent
+with (not looser than) this codebase's own established cross-implementation
+tolerances elsewhere (CLAUDE.md's "Current state" section). Re-validate
+against the actual GPU kernels (not just against each other) if either
+kernel changes -- see the validation scripts' approach: run both backends
+on identical input arrays and compare directly, don't just eyeball spectra.
+
+`gui_adapter.py`'s `available()` now returns `(True, "")` whenever
+*either* backend works (calls `core._detect_device()` and only returns
+`False` if it raises), so the GUI no longer greys out the xigma-i model on
+a machine with no GPU as long as `numba` is installed -- this is exactly
+the "model discovery" mechanism `compton-gui`'s `app.py` uses to
+enable/disable the model menu entry. `capabilities()`'s `requires_gpu` is
+now `False` accordingly (informational only, not read by `app.py`'s gating
+logic, but should stay accurate).
+
+`numba` and `cupy` are both optional extras in `pyproject.toml`
+(`xigma-i[cpu]` / `xigma-i[gpu]`) -- a machine only needs the one it's
+actually going to use. `scipy` moved from an undeclared-but-load-bearing
+import (it was already used unconditionally for `erfcx`/`erf`/`erfinv`) to
+a real base dependency.
 
 ## Architecture: new path (`particles.py`, `deposition.py`, `spectrum4d.py`, `reference.py`)
 
@@ -299,9 +374,9 @@ in the legacy kernel (drops excess arcs instead of corrupting shared
 memory). `calculate_angular_spectrum_4d(table, s, theta_x, theta_y,
 phi_pol, samples_per_point=)` is the host driver, mirroring
 `Compton.calculate_angular_spectrum`'s signature and return shape
-(`spectrum, elapsed_seconds, debug`) -- it no longer takes `compton` (it
-was only ever used for `compton.Wph`, no longer needed now that `coef` is
-a pure numerical constant, see "Known bugs").
+(`spectrum, elapsed_seconds, debug`) -- it does not take `compton` (`coef`
+is a pure numerical constant, not `Wph`-derived, so `compton` isn't
+needed).
 
 **Validation tools -- `reference.py`.** Three independent, non-GPU-kernel
 ways to compute a spectrum from Stage 0/1 output, used to validate Stage 2
@@ -314,20 +389,26 @@ without trusting Stage 2 itself:
   compton.Wph` (note the unit conversion).
 - `spectrum_from_table(table, x0, y0, s, phi_pol)`: brute-force grid
   quadrature over `H`, no importance sampling. `coef = 1.5`, a pure
-  numerical constant derived directly from the paper -- see "Known bugs"
-  for the fix (an earlier version used a `Wph`/`pi**4`/`PHI_CELLS`-based
-  `coef` that was wrong). **Validated** post-fix by grid-integrated
-  cross-check against `direct_binning_spectrum` (agrees to <5% for a
-  typical bunch) rather than against the legacy `calculate_angular_spectrum`
-  (which has its own separate, unrelated, unfixed normalisation bug -- see
-  "Known bugs" -- and is not a trustworthy ground truth here).
+  numerical constant derived directly from eq. "main"/"Fmatrix"
+  (Paper/xigma.tex) -- no pi, no `Wph`, no `PHI_CELLS` belongs here, since
+  this is a plain grid quadrature with no phi cells and `H`'s weights are
+  already correctly CGS-normalised. `compton` is not part of this
+  function's signature (it was only ever needed for `compton.Wph`).
+  **Validated** by grid-integrated cross-check against
+  `direct_binning_spectrum` (agrees to <5% for a typical bunch) rather than
+  against the legacy `calculate_angular_spectrum` (which has its own
+  separate, unrelated, unfixed normalisation bug -- see "Known bugs" -- and
+  is not a trustworthy ground truth here).
 - `direct_binning_spectrum(gamma, theta_x, theta_y, particle_weight, a0,
   x0, y0, s_edges, phi_pol)`: per-real-macroparticle resonance binning, no
-  table, no quadrature at all. Intended as the assumption-free correctness
-  test for correlated bunches and a permanent debug tool. **Fixed** this
-  session (see "Known bugs") -- normalisation root-caused and corrected; a
-  small, deliberately-deferred `~2*pi` residual remains against
-  `angle_integrated_spectrum` in grid-integrated comparisons.
+  table, no quadrature at all. Uses the single-electron prefactor from eq.
+  "xsec" (`g**2`, not the ensemble-collapsed `g**5` of eq. "Fmatrix"), pure
+  numerical coefficient `3` (no `Wph`/`pi**4`), no extra `1/s**2` -- see
+  `reference.py`'s module docstring for the full derivation. Intended as
+  the assumption-free correctness test for correlated bunches and a
+  permanent debug tool. A small, deliberately-deferred `~2*pi` residual
+  remains against `angle_integrated_spectrum` in grid-integrated
+  comparisons.
 
 ## Conventions
 
@@ -401,39 +482,9 @@ without trusting Stage 2 itself:
   fixing and re-validating together, which is a real, separate task, not
   a drive-by fix. `spectrum_kernel_4d` derives its own weights
   independently (`dphi_cell` used correctly) and does not inherit this.
-  Note this legacy bug is unrelated to the two bugs below, despite past
-  confusion -- see next entry.
-- **FIXED: `reference.spectrum_from_table` and `spectrum4d.
-  calculate_angular_spectrum_4d`'s `coef` was copied from the *legacy*
-  kernel's own, separately-tuned constant above (`3/(4*pi**4*Wph*4)`), then
-  further multiplied by `PHI_CELLS`.** Neither move was justified for these
-  two functions: `spectrum_from_table` is a plain grid quadrature with no
-  phi cells at all, and `H`'s weights are already correctly CGS-normalised,
-  so no `Wph`/`pi**4`-based unit conversion or `PHI_CELLS` factor belongs in
-  their `coef`. This produced a severe (4+ orders of magnitude near the
-  Compton edge) shape divergence from `angle_integrated_spectrum` in
-  grid-integrated comparisons -- see `direct_vs_table_discrepancy_report.md`
-  for the investigation (table sparsity, grid resolution, and a naive
-  power-of-gamma swap were all ruled out before the actual cause was found).
-  Root-caused and fixed: the correct `coef`, derived directly from eq.
-  "main"/"Fmatrix" (Paper/xigma.tex) rather than by matching the legacy
-  kernel, is the pure numerical constant `1.5` -- no pi, no `Wph`, no
-  `PHI_CELLS` -- in both functions. `compton` was dropped from both
-  functions' signatures as a result (it was only ever used for
-  `compton.Wph`). Needs re-validating against `calculate_angular_spectrum`
-  now that the constant has changed (previous 1-8%/6-8% figures predate
-  this fix).
-- **FIXED: `reference.direct_binning_spectrum` had an unexplained
-  ~3000-4000x normalisation gap** against `calculate_angular_spectrum`. Root
-  cause: it was using the *ensemble-collapsed* prefactor (`g**5`, eq.
-  "Fmatrix" -- meant for looking up a smooth, already-binned `H`) directly
-  on raw, un-binned macroparticles, plus a spurious extra `1/s**2` division
-  carried over from `spectrum_from_table`'s convention. Fixed: single-electron
-  prefactor from eq. "xsec" (`g**2`, not `g**5`), pure numerical coefficient
-  `3` (no `Wph`/`pi**4`), no extra `1/s**2`. See `reference.py`'s module
-  docstring for the full derivation. A small, deliberately-deferred `~2*pi`
-  residual remains against `angle_integrated_spectrum` in grid-integrated
-  comparisons -- flagged, not chased further.
+  Note this legacy bug is unrelated to `reference.py`'s normalisation
+  history and the `coef` history in "Architecture: new path" above --
+  those have both since been fixed; this one is deliberately still open.
 
 ## Convergence testing
 
@@ -555,9 +606,10 @@ devices default to float64, see Conventions).
   bit-identical per-cell tables between devices.
 - **`spectrum_kernel`'s absolute normalisation** -- see "Known bugs". Don't
   use it as an unqualified ground truth for the new path's validation;
-  `spectrum_from_table`/`spectrum_kernel_4d` no longer share any
-  normalisation convention with it (that coupling was itself a bug, now
-  fixed -- see "Known bugs").
+  `spectrum_from_table`/`spectrum_kernel_4d` don't share any normalisation
+  convention with it (an earlier version of both accidentally borrowed
+  `spectrum_kernel`'s tuned constant -- fixed, `coef` is now derived
+  independently for each).
 
 ## Environment
 
