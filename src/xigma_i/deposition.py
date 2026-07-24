@@ -63,10 +63,32 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-import cupy as cp
-import cupyx
+
+# cupy/cupyx are optional at import time -- this module must stay importable
+# on a machine with no CUDA GPU (and possibly no cupy install at all) so that
+# TabulatedEngine/build_table(..., device='cpu') work without cupy, the same
+# way core.py's CPU fallback does (see core.py's/spectrum4d.py's identical
+# guard). Only the GPU branches below (cupyx.scatter_add, cp.get_array_module
+# on actually-cupy input, cp.get_default_memory_pool) need it.
+try:
+    import cupy as cp
+    import cupyx
+    _HAS_CUPY = True
+except Exception:
+    cp = None
+    cupyx = None
+    _HAS_CUPY = False
 
 from . import particles
+
+
+def _array_module(*arrays):
+    """cp.get_array_module(*arrays), degrading to plain numpy when cupy
+    isn't importable at all -- safe in that case because no array in
+    `arrays` could possibly be a cupy array without cupy installed."""
+    if _HAS_CUPY:
+        return cp.get_array_module(*arrays)
+    return np
 
 
 def _scatter_add(xp, out, idx, val):
@@ -139,7 +161,7 @@ class Grid4D:
         cupy input arrays.
         """
         def edges(values, n, lower_clamp=None):
-            xp = cp.get_array_module(values)
+            xp = _array_module(values)
             lo, hi = float(xp.min(values)), float(xp.max(values))
             span = hi - lo
             if span <= 0:
@@ -234,7 +256,7 @@ def _cell_indices(grid, gamma, theta_x, theta_y, a0):
 
 
 def deposit_nearest(grid, gamma, theta_x, theta_y, a0, weight, accumulate_dtype=np.float64, xp=None):
-    xp = xp or cp.get_array_module(gamma, theta_x, theta_y, a0, weight)
+    xp = xp or _array_module(gamma, theta_x, theta_y, a0, weight)
     shape = grid.shape
     fg, ftx, fty, fa = _cell_indices(grid, gamma, theta_x, theta_y, a0)
 
@@ -283,7 +305,7 @@ def deposit_cic(grid, gamma, theta_x, theta_y, a0, weight, accumulate_dtype=np.f
     """
     if edge not in ('clamp', 'discard'):
         raise ValueError(f"edge must be 'clamp' or 'discard', got {edge!r}")
-    xp = xp or cp.get_array_module(gamma, theta_x, theta_y, a0, weight)
+    xp = xp or _array_module(gamma, theta_x, theta_y, a0, weight)
 
     shape = grid.shape
     fg, ftx, fty, fa = _cell_indices(grid, gamma, theta_x, theta_y, a0)
@@ -347,7 +369,7 @@ def _deposit(scheme, grid, gamma, theta_x, theta_y, a0, weight, *, xp, accumulat
     the target device at once.
     """
     deposit_fn = _DEPOSIT_FUNCS[scheme]
-    input_xp = cp.get_array_module(gamma)
+    input_xp = _array_module(gamma)
 
     if batch_size is None or input_xp is xp:
         if input_xp is not xp:
@@ -533,7 +555,7 @@ def build_table(gamma, theta_x, theta_y, a0, weight, *, grid=None, scheme='neare
     if device is not None and xp is None:
         raise ValueError(f"device must be 'cpu', 'gpu', or None, got {device!r}")
     if xp is None:
-        xp = cp.get_array_module(gamma)
+        xp = _array_module(gamma)
 
     if grid is None:
         grid = Grid4D.from_samples(gamma, theta_x, theta_y, a0, n_bins=n_bins, margin=margin)
@@ -625,7 +647,7 @@ def build_table_streaming(compton, n_particles, n_steps, *, chunk_particles,
         gamma, tx, ty, a0, w = particles.push_and_sample(compton, bunch, n_steps=n_steps, backend=push_backend)
 
         if xp is None:
-            xp = cp.get_array_module(gamma)
+            xp = _array_module(gamma)
         if grid is None:
             grid = Grid4D.from_samples(gamma, tx, ty, a0, n_bins=n_bins, margin=margin)
 

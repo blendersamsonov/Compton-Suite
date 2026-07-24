@@ -174,9 +174,16 @@ class XigmaResults:
     # so XigmaAdapter.run() can stash it for spectrum_in_angular_range()'s
     # on-demand recompute without restructuring the module-function/adapter
     # split above. Not part of the model_api.CommonResults contract.
+    # _compton is still used for temporal_envelope/spatial_distribution
+    # (Stage C of plan.md Phase 2 isn't implemented in the new path yet) and
+    # as the config-bag TabulatedEngine wraps; _engine/_device are the new
+    # tabulated-path counterpart, cached the same way for
+    # spectrum_in_angular_range's on-demand angular-spectrum recompute.
     _compton: object | None = None
     _gamma_0: float | None = None
     _sigma_gamma_0: float | None = None
+    _engine: object | None = None
+    _device: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +198,12 @@ _TRUST_NOTE = (
     "Runs on a CUDA GPU if one is available, else falls back to a CPU/numba "
     "implementation of the same kernels (core_cpu.py) -- numerically "
     "validated against the GPU kernels but noticeably slower, and not the "
-    "originally-shipped code path."
+    "originally-shipped code path. Total yield, angle-integrated spectrum, "
+    "and angular spectrum are now computed by the newer tabulated-energy "
+    "path (see tabulated_engine.py / CLAUDE.md plan.md Phase 2 Stage B); "
+    "temporal envelope and spatial distribution still come from the "
+    "original core.Compton kernels in parallel, since the new path doesn't "
+    "compute those two yet (Stage C)."
 )
 
 
@@ -202,7 +214,14 @@ def capabilities() -> dict:
         requires_gpu=False,
         supports_crossing_angle=False,
         supports_quantum_toggle=False,
-        supports_nonlinearity_emulation=True,
+        # False since plan.md Phase 2 Stage B: emulate_nonlinearity only ever
+        # affected calculate_spectrum/calculate_angular_spectrum, both now
+        # replaced by the new tabulated path's total_yield/spectrum/
+        # angular_spectrum (which have no equivalent switch -- a0 is a real
+        # table axis there, not a phenomenological correction). Config still
+        # accepts and parses the field (harmless, for interface stability);
+        # it just no longer changes anything this adapter reports.
+        supports_nonlinearity_emulation=False,
         supports_electron_final_state=False,
         supports_photon_multiplicity=False,
         supports_ele_file_io=False,
@@ -343,6 +362,23 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
+# TabulatedEngine.run()'s Stage 0/1 sizing for GUI use. Unlike the legacy
+# path's particles_amount (an importance-sampled grid-cell weight, clamped
+# below against calculate_intersection's O(particles_amount * theta_num^2)
+# cost model), the new path's cost is close to linear in n_particles*n_steps
+# for Stage 0/1 and independent of n_particles for Stage 2's quadrature --
+# a different cost model, so the legacy clamp range doesn't transfer
+# directly. These are a first-cut, deliberately not profiled against an
+# actual interactive GUI session (plan.md Phase 2 Stage B flags this
+# explicitly: "profile rather than guess") -- revisit with real timings
+# before trusting them at the high end of the n_mc range.
+_N_PARTICLES_NEW_MIN = 20_000
+_N_PARTICLES_NEW_MAX = 150_000
+_N_STEPS_NEW = 64
+_N_BINS_NEW = (48, 48, 48, 12)
+_SAMPLES_PER_POINT_NEW = 32
+
+
 def _theta_grid(cfg: Config, n_points: int = 33,
                 theta_range: tuple[float, float] | None = None) -> np.ndarray:
     """A generous fixed window around the current collimation angle, wide
@@ -374,6 +410,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
     from .core import Compton, _detect_device
+    from .tabulated_engine import TabulatedEngine
 
     device = _detect_device()
     compton = Compton(device=device)
@@ -384,6 +421,10 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # GPU/driver/cupy versions, or between the GPU and CPU backends -- see
     # capabilities()'s supports_seed_reproducibility=False.
     xp.random.seed(seed)
+    # The new path's Stage 0 (particles.sample_bunch) takes an explicit rng
+    # instead of reading a global seed -- same best-effort reproducibility
+    # caveat as above, not a stronger guarantee.
+    rng = np.random.default_rng(seed)
 
     compton.set_electron_parameters(
         chargeNC=cfg.N_e * _ELEMENTARY_CHARGE_C * 1e9,
@@ -423,31 +464,50 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         y_centers=(y_edges[:-1] + y_edges[1:]) / 2.0,
         density=compton.asnumpy(compton.spatial_envelope) * (_M_TO_CM ** 2))
 
-    total_yield = float(compton.calculate_total())
-
     gamma_0 = cfg.eps0
     sigma_gamma_0 = cfg.sigma_eps
+
+    # Total yield, angle-integrated spectrum, and angular spectrum now come
+    # from the new tabulated-energy path (plan.md Phase 2 Stage B) instead
+    # of core.Compton's calculate_total/calculate_spectrum/
+    # calculate_angular_spectrum -- temporal_envelope/spatial_distribution
+    # above still use the legacy calculate_intersection() output in
+    # parallel, since the new path doesn't compute those two yet (Stage C).
+    # cfg.emulate_nonlinearity is now inert everywhere in this function: it
+    # only ever affected calculate_spectrum/calculate_angular_spectrum
+    # (both replaced above), never calculate_intersection (temporal_envelope/
+    # spatial_distribution's source, unchanged above) -- and the new path
+    # has no equivalent switch at all, since a0 is a real table axis there,
+    # not a phenomenological correction (see spectrum4d.py's module
+    # docstring). Still read into summary below and still validated/parsed
+    # by params_to_config -- just doesn't change any output anymore.
+    engine = TabulatedEngine(compton)
+    push_backend = 'cupy' if device == 'gpu' else 'numpy'
+    n_particles_new = int(np.clip(int(n_mc), _N_PARTICLES_NEW_MIN, _N_PARTICLES_NEW_MAX))
+    engine.run(n_particles_new, gamma_0, sigma_gamma_0, n_steps=_N_STEPS_NEW,
+               n_bins=_N_BINS_NEW, backend=push_backend, rng=rng)
+    total_yield = engine.total_yield
 
     # Angle-integrated spectrum, s in [0, 1.1*gamma0^2] (covers up to just
     # past the classical Compton edge), 512 points.
     s_tot = (xp.linspace(0.0, 1.1, 512, dtype=xp.float32) * gamma_0 ** 2)
-    dNdE_per_MeV = compton.calculate_spectrum(
-        s_tot, gamma_0, sigma_gamma_0, emulate_nonlinearity=cfg.emulate_nonlinearity)
+    dNds_tot = compton.asnumpy(engine.spectrum(s_tot))
     s_scale_MeV = 4.0 * compton.Wph
     E_eV = (compton.asnumpy(s_tot) * s_scale_MeV) * 1e6
-    dNdE_per_eV = dNdE_per_MeV / 1e6
+    dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6  # dN/ds -> dN/dE(MeV) -> dN/dE(eV)
 
     # Angular spectrum, precomputed over a generous fixed theta window and a
-    # coarser energy grid (kept smaller for GPU kernel-launch cost: grid
-    # size = theta_x.size * theta_y.size * s.size).
+    # coarser energy grid (kept smaller for kernel-launch cost: grid size =
+    # theta_x.size * theta_y.size * s.size). calculate_angular_spectrum_4d
+    # always returns a host array regardless of device (see spectrum4d.py).
     theta_x = _theta_grid(cfg)
     theta_y = _theta_grid(cfg)
     s_ang = (xp.linspace(0.0, 1.1, 96, dtype=xp.float32) * gamma_0 ** 2)
-    ang_spec_MeV, _dt, _debug = compton.calculate_angular_spectrum(
-        s_ang, xp.asarray(theta_x), xp.asarray(theta_y), gamma_0, sigma_gamma_0,
-        cfg.phi_pol, emulate_nonlinearity=cfg.emulate_nonlinearity)
+    d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
+        s_ang, xp.asarray(theta_x), xp.asarray(theta_y), cfg.phi_pol,
+        samples_per_point=_SAMPLES_PER_POINT_NEW, device=device)
     E_ang_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
-    d2NdEdOmega = ang_spec_MeV / 1e6  # -> eV^-1 sr^-1
+    d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6  # -> eV^-1 sr^-1
 
     summary = dict(
         total_yield=total_yield,
@@ -474,6 +534,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         spatial_distribution=spatial_distribution,
         final_distribution_path=None,
         _compton=compton, _gamma_0=gamma_0, _sigma_gamma_0=sigma_gamma_0,
+        _engine=engine, _device=device,
     )
 
 
@@ -482,19 +543,20 @@ def spectrum_in_angular_range(
         theta_y_range: tuple[float, float], n_points: int = 33,
         n_energy: int = 96) -> AngularRangeSpectrumResult:
     """Fresh, on-demand spectrum over an arbitrary user-picked angular
-    sub-range, using the ``Compton`` instance cached on ``res`` by
-    ``run_simulation``.
+    sub-range, using the ``TabulatedEngine`` (and its already-built table)
+    cached on ``res`` by ``run_simulation``.
 
-    ``calculate_angular_spectrum`` already accepts arbitrary theta_x/theta_y
-    device arrays (core.py) -- no core.py change needed; this just launches
-    a second, purpose-built kernel call instead of reslicing the coarse
-    generous grid ``run_simulation`` precomputes for the collimation-window
-    UI fields.
+    ``calculate_angular_spectrum_4d`` already accepts arbitrary theta_x/
+    theta_y arrays -- no new table build needed; this just launches a
+    second, purpose-built kernel call over the cached table instead of
+    reslicing the coarse generous grid ``run_simulation`` precomputes for
+    the collimation-window UI fields.
     """
+    engine = res._engine
+    if engine is None or engine.table is None:
+        raise RuntimeError("spectrum_in_angular_range: no cached "
+                            "TabulatedEngine/table -- run() must be called first")
     compton = res._compton
-    if compton is None:
-        raise RuntimeError("spectrum_in_angular_range: no cached Compton "
-                            "instance -- run() must be called first")
     xp = compton.xp
 
     cfg = res.cfg
@@ -502,13 +564,12 @@ def spectrum_in_angular_range(
     theta_y = _theta_grid(cfg, n_points=n_points, theta_range=theta_y_range)
     s_ang = (xp.linspace(0.0, 1.1, n_energy, dtype=xp.float32)
              * res._gamma_0 ** 2)
-    ang_spec_MeV, _dt, _debug = compton.calculate_angular_spectrum(
-        s_ang, xp.asarray(theta_x), xp.asarray(theta_y),
-        res._gamma_0, res._sigma_gamma_0, cfg.phi_pol,
-        emulate_nonlinearity=cfg.emulate_nonlinearity)
+    d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
+        s_ang, xp.asarray(theta_x), xp.asarray(theta_y), cfg.phi_pol,
+        samples_per_point=_SAMPLES_PER_POINT_NEW, device=res._device)
     s_scale_MeV = 4.0 * compton.Wph
     E_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
-    d2NdEdOmega = ang_spec_MeV / 1e6
+    d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6
 
     dtx = np.gradient(theta_x)
     dty = np.gradient(theta_y)

@@ -662,9 +662,10 @@ A working GPU environment was set up as a conda env (`conda create -n
 xigma python=3.12`, then `pip install numpy scipy pytest cupy-cuda12x
 tomli`, matched to the local driver's CUDA version) -- there wasn't one in
 the base environment this branch's work started from. Recreate similarly
-if starting fresh; `cupyx.scatter_add`/`cupy.get_array_module` (used
-throughout `deposition.py`) need a real cupy install, not just a CUDA
-driver.
+if starting fresh; `cupyx.scatter_add` needs a real cupy install (not just
+a CUDA driver) for `deposition.py`'s GPU deposition path specifically --
+`deposition.py` itself no longer *requires* cupy to import or to run its
+CPU path, since plan.md Phase 2 Stage B (see "GUI integration" below).
 
 ## GUI integration (`gui_adapter.py`)
 
@@ -677,11 +678,15 @@ adapter reports through its `capabilities()` (trust level **C** for the
 linear/classical regime, **D** for the nonlinear a0-emulation regime; no
 unit tests, no cross-code validation as of this writing).
 
-- Never imports `cupy`/`core` at module scope -- only inside
-  `available()`/`run_simulation()`/`spectrum_in_angular_range()` -- so
-  `import xigma_i.gui_adapter` degrades gracefully when cupy/CUDA isn't
+- Never imports `cupy`/`core`/`tabulated_engine` at module scope -- only
+  inside `available()`/`run_simulation()`/`spectrum_in_angular_range()` --
+  so `import xigma_i.gui_adapter` degrades gracefully when cupy/CUDA isn't
   installed (the GUI wraps that import in `try/except` and shows the model
-  greyed-out instead of crashing).
+  greyed-out instead of crashing). This held transitively through
+  `deposition.py` doing an unconditional `import cupy as cp` at module
+  scope until plan.md Phase 2 Stage B -- fixed alongside (see "CPU/numba
+  fallback" note below), since `tabulated_engine.py` (and therefore
+  `run_simulation`) now imports `deposition` regardless of backend.
 - Defines its **own local** `BinnedSpectrum`/`BinnedAngularSpectrum`/
   `BinnedTemporalEnvelope`/`BinnedSpatialDistribution`/
   `AngularRangeSpectrumResult` dataclasses -- deliberately *not* imported
@@ -695,19 +700,87 @@ unit tests, no cross-code validation as of this writing).
   formula keeps working regardless of active model), but converts to CGS
   at the `set_*_parameters` call boundary. `crossing_angle` must be `0.0`
   (head-on only -- `Compton` has no crossing-angle support at all).
-  `quantum` is accepted for interface symmetry but has no effect; use
-  `emulate_nonlinearity` for xigma-i's actual (unrelated) nonlinearity
-  axis. `beta_ff`/`phi_pol` are xigma-i-only extras with no dfe5 analogue
-  -- surfaced in the GUI through `XigmaAdapter.extra_params()` (a small
-  `(label, default, key)` spec list, mirrored in
-  `compton_gui.model_api.ModelAdapter.extra_params`) rather than the
-  shared Electrons/Laser/Compton field panels, since those are common to
-  every model.
-- `XigmaAdapter` caches `self._last_results` (which itself carries a
-  private `_compton`/`_gamma_0`/`_sigma_gamma_0`, set by `run_simulation`)
-  so `spectrum_in_angular_range()` can reuse the built `Compton` instance
-  for a fresh on-demand `calculate_angular_spectrum()` call over a
-  user-picked window, without re-running the whole simulation.
+  `quantum` is accepted for interface symmetry but has no effect. `beta_ff`/
+  `phi_pol` are xigma-i-only extras with no dfe5 analogue -- surfaced in the
+  GUI through `XigmaAdapter.extra_params()` (a small `(label, default, key)`
+  spec list, mirrored in `compton_gui.model_api.ModelAdapter.extra_params`)
+  rather than the shared Electrons/Laser/Compton field panels, since those
+  are common to every model. `emulate_nonlinearity` is still accepted/
+  parsed (interface stability) but is now **inert** as of plan.md Phase 2
+  Stage B (`capabilities().supports_nonlinearity_emulation` reports `False`
+  accordingly) -- see "Phase 2 Stage B" below for why.
+- `XigmaAdapter` caches `self._last_results` (which itself carries private
+  `_compton`/`_gamma_0`/`_sigma_gamma_0`/`_engine`/`_device`, set by
+  `run_simulation`) so `spectrum_in_angular_range()` can reuse the cached
+  `TabulatedEngine`'s table for a fresh on-demand
+  `calculate_angular_spectrum_4d` call over a user-picked window, without
+  re-running the whole simulation or rebuilding the table. `_compton` is
+  still cached too -- it's `TabulatedEngine`'s config source and
+  `temporal_envelope`/`spatial_distribution`'s only source (see below).
+
+### Phase 2 Stage B (`tabulated_engine.py`)
+
+`run_simulation` now computes **total yield, angle-integrated spectrum, and
+angular spectrum** via a new `TabulatedEngine` (new module,
+`tabulated_engine.py`) built on the new tabulated-energy path
+(`particles.py`/`deposition.py`/`spectrum4d.py`/`reference.py`) instead of
+`core.Compton`'s `calculate_total`/`calculate_spectrum`/
+`calculate_angular_spectrum`. **Temporal envelope and spatial distribution
+still come from `core.Compton`'s `calculate_intersection`**, run in
+parallel on the same `compton` instance -- the new path doesn't compute
+either yet (plan.md Stage C, not implemented). This is the deliberate
+interim (not big-bang) migration plan.md's "Open decisions" section flags:
+two engines running side by side until Stage C closes the gap, chosen over
+holding Stage B until Stage C also lands.
+
+`TabulatedEngine` wraps an already-configured `core.Compton` instance
+purely for its config-bag properties (`k0_las`, `Wph`, `a0`, ... --
+`particles.sample_bunch`/`push_and_sample` already take a `compton` object
+as their parameter source, so this is reuse, not a new dependency) and
+never calls any of its `calculate_*`/GPU-kernel methods. Deliberately not
+named `Compton`, per plan.md's own naming caution, to avoid
+colliding with/shadowing `core.Compton` while both paths coexist.
+`.run(n_particles, gamma_0, sigma_gamma0, ...)` drives Stage 0 (sample_bunch
++ push_and_sample, `a0_shape` output), Stage 1 (`build_table(...,
+a0_kind='shape')`), and `retarget_a0(table, compton.a0, a0_max=0.5)` in one
+call, producing one physical, spectrum-ready table for this run's specific
+`compton.a0` -- `a0_max=0.5` is the same fixed *model*-range parameter
+`compare_direct_vs_table.py` uses (see the a0-decoupling entry above), not
+derived per-collision. `.total_yield`/`.spectrum(s)`/`.angular_spectrum(s,
+theta_x, theta_y, phi_pol, device=)` wrap `table.total_weight`/
+`reference.angle_integrated_spectrum`/`spectrum4d.calculate_angular_spectrum_4d`
+respectively, the last auto-selecting the GPU or CPU kernel per Stage A
+unless `device` is given explicitly.
+
+Unit conversion: both `reference.angle_integrated_spectrum` and
+`spectrum4d.calculate_angular_spectrum_4d` return **dN/ds** (dimensionless
+`s`), same convention as `reference.py`'s module docstring -- not dN/dE
+like the legacy `calculate_spectrum`/`calculate_angular_spectrum` returned
+directly. `gui_adapter.py` converts explicitly (`dN/dE_MeV = dN/ds /
+(4*compton.Wph)`, same `E = 4*Wph*s` relation as everywhere else in this
+codebase) before scaling to eV -- getting this backwards silently produces
+a spectrum off by a factor of `s` (~`gamma0**2`, i.e. wrong by many orders
+of magnitude), easy to miss if you're not looking at absolute scale.
+
+`n_particles`/`n_steps`/`n_bins`/`samples_per_point` for the GUI's
+`TabulatedEngine.run()` call (`gui_adapter.py`'s `_N_PARTICLES_NEW_*`/
+`_N_STEPS_NEW`/`_N_BINS_NEW`/`_SAMPLES_PER_POINT_NEW`) are a first-cut,
+**not profiled against a real interactive GUI session** -- plan.md
+explicitly flags this as needing profiling, not a guess; smoke-tested only
+(see below), ~9s end-to-end on a GTX 1660 Ti GPU / ~40s on CPU/numba for
+one `run()` at the current defaults (`n_particles=20k-150k` clamped from
+`n_mc`, `n_steps=64`, `n_bins=(48,48,48,12)`) -- revisit before shipping if
+that's too slow for the GUI's "click Calculate" workflow.
+
+`deposition.py`'s own `import cupy as cp`/`import cupyx` became lazy
+(`try/except`, own `_HAS_CUPY`, `_array_module(*arrays)` helper replacing
+bare `cp.get_array_module(*arrays)` calls) as part of this same change --
+it was the one remaining module in the new-path import chain that still
+hard-required cupy at import time, which would have broken
+`tabulated_engine.py`'s (and therefore `gui_adapter.py`'s CPU-fallback
+promise's) importability on a cupy-less machine. Validated end-to-end with
+cupy import actually blocked (not just `device='cpu'` forced with cupy
+still present) -- see "GUI-side testing" below.
 
 ### GUI-side testing
 
@@ -715,6 +788,13 @@ No unit tests in this repo. Validated via the sibling `compton-gui` repo's
 `scripts/headless_test.py` (calls `params_to_config -> run ->
 validate_results` plus the temporal/spatial/angular fields through
 `XigmaAdapter`), and via ad hoc GPU scripts during development.
+Phase 2 Stage B additionally validated via standalone smoke scripts (no
+`compton-gui` checkout needed) exercising `XigmaAdapter.available`/
+`params_to_config`/`run`/`spectrum_in_angular_range` end-to-end on: the
+real GPU backend, a forced-CPU backend (numba, cupy still importable), and
+a forced-CPU backend with cupy import actually blocked -- all three
+produced finite, sane `total_yield`/`spectrum`/`angular_spectrum`, and the
+GPU/CPU total_yield agreed to <0.01%.
 
 On this dev machine: system Python has no pip/cupy/matplotlib. Use the
 `miniforge3` conda env named `core` (has cupy 14.0.1, numpy, matplotlib,
