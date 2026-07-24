@@ -52,7 +52,11 @@ per output point.
   still agree tightly with each other in the same configs. Reads as
   heavy-tailed importance-sampling noise from sparse/zero `H` cells in the
   kernel's own quadrature (see "Table too sparse" trap), not a
-  normalisation error -- flagged, not chased further.
+  normalisation error -- flagged, not chased further. `spectrum_kernel_4d`
+  also has a CPU/numba fallback now (`spectrum4d_cpu.py`, plan.md Phase 2
+  Stage A), validated against the real GPU kernel the same way
+  `core_cpu.py`'s port of the legacy kernels was -- see "Architecture: new
+  path" below.
   `push_and_sample`'s `a0` output is now an `a0`-independent shape factor
   (`a0_shape`) rather than the physical `ahat`, with
   `deposition.retarget_a0(table, a0, a0_max=...)` converting an
@@ -372,11 +376,46 @@ kernel produces NaN on realistic (sparsely-populated) tables:
 Also has the `MAX_ARCS` overflow guard CLAUDE.md used to flag as missing
 in the legacy kernel (drops excess arcs instead of corrupting shared
 memory). `calculate_angular_spectrum_4d(table, s, theta_x, theta_y,
-phi_pol, samples_per_point=)` is the host driver, mirroring
+phi_pol, samples_per_point=, device=None)` is the host driver, mirroring
 `Compton.calculate_angular_spectrum`'s signature and return shape
 (`spectrum, elapsed_seconds, debug`) -- it does not take `compton` (`coef`
 is a pure numerical constant, not `Wph`-derived, so `compton` isn't
-needed).
+needed). `device=None|'cpu'|'gpu'` auto-detects via `core._detect_device()`
+the same way `Compton(device=None)` does (see "CPU/numba fallback" below);
+callers pass `theta_x`/`theta_y`/`s` as `cp`/`np` arrays matching the
+chosen device, same convention as `Compton.calculate_angular_spectrum`
+(caller converts via `xp.asarray`, not the function itself -- see
+`gui_adapter.py`'s calls to the latter for the pattern).
+
+**CPU/numba fallback (`spectrum4d_cpu.py`).** Same treatment
+`feat/gui-cpu-fallback` gave `core.py`'s two kernels (see "CPU/numba
+fallback (`core_cpu.py`)" above): `spectrum4d.py`'s `cupy`/`cupyx` import is
+now a `try/except` at module scope (own `_HAS_CUPY`, independent of
+`core.py`'s), and `spectrum_kernel_4d` is only decorated/compiled
+(`jit.rawkernel()`) when cupy imported successfully (else `None`).
+`spectrum4d_cpu.get_spectrum_kernel_4d_cpu()` lazily compiles and caches
+`spectrum_kernel_4d_cpu`, a literal `numba.prange`-parallel-over-`out_idx`
+transliteration of `spectrum_kernel_4d`, following `core_cpu.py`'s approach
+exactly (same ring/arc annulus geometry, same inverse-CDF phi sampling, same
+dropped `thread_samples` GPU round-robin bookkeeping) plus the two
+`spectrum_kernel_4d`-specific additions ported faithfully rather than
+re-derived: quadrilinear (not bilinear) interpolation of `H` over
+`(gamma, theta_x, theta_y)`, and the a0-quadrature loop inside the final
+evaluation with `g`/`prefac` recomputed per a0 bin (the `1/(1+a0)` Jacobian
+factor this codebase has gotten wrong once already -- see "Known bugs"/
+"Traps"). The two zero-weight guards (`inv_cdf` falling back to a cell's
+left edge, `sample_area` contributing zero) carry over unchanged, since they
+exist because of `H`'s sparsity, not anything GPU-specific. Runs in float64
+throughout, same rationale as `core_cpu.py`. **Validated numerically against
+the real GPU kernel** on a CUDA machine, fed the identical `H`/`H_marginal`/
+grid-scalar arguments: correlation 0.9992, total integrated flux within
+~2% -- consistent with (not looser than) `core_cpu.py`'s own
+GPU-vs-CPU figures for the legacy kernel. Also cross-checked directly
+against `reference.spectrum_from_table` (brute-force grid quadrature, no
+kernel at all) on the CPU path alone: agrees within the same ~10-30%
+band already documented above for `spectrum_kernel_4d` vs
+`spectrum_from_table` (the GPU kernel's own known importance-sampling
+noise, not something the CPU port adds).
 
 **Validation tools -- `reference.py`.** Three independent, non-GPU-kernel
 ways to compute a spectrum from Stage 0/1 output, used to validate Stage 2
