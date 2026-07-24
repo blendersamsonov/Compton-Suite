@@ -126,27 +126,48 @@ def push_and_sample(compton, bunch, n_steps=200, backend='numpy'):
         deposition.build_table without a host round-trip. Requires cupy and
         a CUDA device.
 
-    Returns arrays (gamma, theta_x, theta_y, a0, weight) of length
+    Returns arrays (gamma, theta_x, theta_y, a0_shape, weight) of length
     n_particles, ready for Stage 1 deposition. gamma/theta_x/theta_y are
     constant per particle (no pusher acceleration -- straight-line
     trajectories, matching particle_kernel).
 
-    a0 here is NOT the instantaneous local field amplitude -- it is the
-    trajectory-averaged effective intensity hat-a(zeta), Paper/xigma.tex
-    eq. "ahattraj":
+    a0_shape here is NOT the instantaneous local field amplitude, and (new)
+    NOT the physical trajectory-averaged effective intensity ahat either --
+    it is ahat's a0-independent *shape factor*. The physical quantity,
+    Paper/xigma.tex eq. "ahattraj":
 
         ahat(zeta) = (TrXi/2) * integral[a^2(t)]^2 dt / integral a^2(t) dt
 
-    with a^2(t;zeta) the instantaneous squared potential (what this function
-    computes internally as a0_local(t)**2) and TrXi/2 = (1 + ellipticity**2)/2
-    (eq. "Xi", generalised from linear polarisation to the ellipticity
-    Compton.ellipticity set via set_laser_parameters). A single scalar per
-    particle, not a distribution sampled along its own trajectory, because
-    in this weakly-nonlinear regime (a0 <~ 1) the photon formation length
-    spans the *whole* trajectory -- unlike the synchrotron regime, splitting
-    the trajectory into short segments and radiating each independently is
-    not valid here. See CLAUDE.md "Known bugs" / "Traps" for the full
-    explanation; do not go back to per-timestep a0 deposition.
+    with a^2(t;zeta) = compton.a0**2 * ratio(t;zeta) (ratio = local/peak
+    photon density, what this function computes internally), factorises
+    *exactly* as ahat(zeta) = compton.a0**2 * a0_shape(zeta), because
+    ratio(t;zeta) depends only on the particle's (ballistic, a0-independent)
+    trajectory through the pulse envelope, never on compton.a0 itself:
+
+        a0_shape(zeta) = (TrXi/2) * integral[ratio(t)]^2 dt / integral ratio(t) dt
+
+    So a0_shape is computed here *without reference to compton.a0 at all*
+    (TrXi/2 = (1 + ellipticity**2)/2, eq. "Xi", generalised from linear
+    polarisation to Compton.ellipticity -- ellipticity is a laser-polarisation
+    property, not an intensity/a0 one, so it stays baked in). This means one
+    push_and_sample run's output can be re-targeted to *any* actual a0 (any
+    pulse energy) after the fact, without rerunning Stage 0/1 -- see
+    deposition.retarget_a0. A single scalar per particle, not a distribution
+    sampled along its own trajectory, because in this weakly-nonlinear regime
+    (a0 <~ 1) the photon formation length spans the *whole* trajectory --
+    unlike the synchrotron regime, splitting the trajectory into short
+    segments and radiating each independently is not valid here. See
+    CLAUDE.md "Known bugs" / "Traps" for the full explanation; do not go back
+    to per-timestep a0 deposition.
+
+    IMPORTANT: a0_shape is not directly usable as H's 4th axis for
+    spectrum4d/reference's table consumers -- those need the *physical* ahat
+    (a0_shape scaled by an actual a0**2). Build the table with a0_shape as
+    the 4th axis (deposition.build_table(..., a0_kind='shape')), then call
+    deposition.retarget_a0(table, a0) to get a physical, spectrum-ready
+    table for a specific a0. Passing a 'shape' table straight to
+    spectrum4d/reference is a normalisation error they now guard against
+    (see Table.a0_kind).
 
     weight[i] = sum over the particle's timesteps of
                 v_rel * n_ph_shape(t, r) * dt * weight_macro * sigma_T *
@@ -160,8 +181,8 @@ def push_and_sample(compton, bunch, n_steps=200, backend='numpy'):
     are drawn from their true distributions rather than an importance-sampled
     truncated domain.
 
-    n_steps sets the trajectory-integration resolution for L and ahat (not
-    the output array length, which is always n_particles).
+    n_steps sets the trajectory-integration resolution for L and a0_shape
+    (not the output array length, which is always n_particles).
     """
     if backend == 'numpy':
         return _push_and_sample_vectorized(compton, bunch, n_steps, np)
@@ -213,20 +234,21 @@ def _push_and_sample_vectorized(compton, bunch, n_steps, xp):
     n_ph_shape = xp.exp(-(x**2 + y**2) / sigma_l_sq / 2) / (2 * np.pi) / sigma_l_sq * env
 
     peak_shape = 1.0 / (2 * np.pi * w0 * w0) / (np.sqrt(2 * np.pi) * zT)
-    a0_local = compton.a0 * xp.sqrt(xp.clip(n_ph_shape / peak_shape, 0.0, None))
+    # ratio = (a0_local/compton.a0)**2 -- deliberately built without compton.a0
+    # at all, see "a0_shape decouples from compton.a0" below.
+    ratio = xp.clip(n_ph_shape / peak_shape, 0.0, None)
 
     contribution = V_REL * n_ph_shape * dt[:, None] * bunch.weight * sigma_T * k0**2 * compton.N_l
 
     L = contribution.sum(axis=1)  # eq. "lumfun", per-particle deposited weight
 
-    a_sq = a0_local**2  # a^2(t;zeta), eq. "ahattraj"
-    denom = a_sq.sum(axis=1)
+    denom = ratio.sum(axis=1)
     F_pol = (1.0 + compton.ellipticity**2) / 2.0  # TrXi/2, eq. "Xi"
     # xp.where instead of np.divide(..., where=) -- cupy's ufunc `where=`
     # kwarg support is version-dependent; xp.where is safe on both.
-    ahat = xp.where(denom > 0, F_pol * (a_sq**2).sum(axis=1) / xp.maximum(denom, 1e-300), 0.0)
+    a0_shape = xp.where(denom > 0, F_pol * (ratio**2).sum(axis=1) / xp.maximum(denom, 1e-300), 0.0)
 
-    return gamma, theta_x, theta_y, ahat, L
+    return gamma, theta_x, theta_y, a0_shape, L
 
 
 _numba_kernel_cache = None
@@ -247,10 +269,10 @@ def _get_numba_kernel():
     @numba.njit(parallel=True, fastmath=True, cache=True)
     def kernel(x0, y0, z0, vx, vy, vz, t0_local, t1_local, n_steps,
                beta_ff, w0, zT, z_rayleigh, particle_weight, v_rel, sigma_T_,
-               k0_sq, N_l, a0_compton, F_pol):
+               k0_sq, N_l, F_pol):
         n = x0.shape[0]
         L = np.empty(n, dtype=np.float64)
-        ahat = np.empty(n, dtype=np.float64)
+        a0_shape = np.empty(n, dtype=np.float64)
         two_pi = 2.0 * np.pi
         sqrt_two_pi = np.sqrt(two_pi)
         peak_shape = 1.0 / (two_pi * w0 * w0) / (sqrt_two_pi * zT)
@@ -263,8 +285,8 @@ def _get_numba_kernel():
             dt0 = z0[i] / vz[i]
 
             contribution_sum = 0.0
-            a_sq_sum = 0.0
-            a_sq_sq_sum = 0.0
+            ratio_sum = 0.0
+            ratio_sq_sum = 0.0
             for j in range(n_steps):
                 step = (j + 0.5) / n_steps
                 t = t0_local[i] + step * span
@@ -278,21 +300,22 @@ def _get_numba_kernel():
                 env = np.exp(-((z + t) / zT) ** 2 / 2.0) / sqrt_two_pi / zT
                 n_ph_shape = np.exp(-(x * x + y * y) / sigma_l_sq / 2.0) / two_pi / sigma_l_sq * env
 
+                # ratio = (a0_local/compton.a0)**2 -- built without compton.a0,
+                # see _push_and_sample_vectorized / "a0_shape decouples from
+                # compton.a0" in push_and_sample's docstring.
                 ratio = n_ph_shape / peak_shape
                 if ratio < 0.0:
                     ratio = 0.0
-                a0_local = a0_compton * np.sqrt(ratio)
 
                 contribution_sum += v_rel * n_ph_shape * dt * particle_weight * sigma_T_ * k0_sq * N_l
 
-                a_sq = a0_local * a0_local
-                a_sq_sum += a_sq
-                a_sq_sq_sum += a_sq * a_sq
+                ratio_sum += ratio
+                ratio_sq_sum += ratio * ratio
 
             L[i] = contribution_sum
-            ahat[i] = F_pol * a_sq_sq_sum / a_sq_sum if a_sq_sum > 0.0 else 0.0
+            a0_shape[i] = F_pol * ratio_sq_sum / ratio_sum if ratio_sum > 0.0 else 0.0
 
-        return L, ahat
+        return L, a0_shape
 
     _numba_kernel_cache = kernel
     return kernel
@@ -319,12 +342,12 @@ def _push_and_sample_numba(compton, bunch, n_steps):
     t0_local, t1_local = _time_window(compton, bunch.z0, np)
 
     kernel = _get_numba_kernel()
-    L, ahat = kernel(
+    L, a0_shape = kernel(
         np.ascontiguousarray(bunch.x0), np.ascontiguousarray(bunch.y0),
         np.ascontiguousarray(bunch.z0), np.ascontiguousarray(bunch.theta_x),
         np.ascontiguousarray(bunch.theta_y), vz, t0_local, t1_local, n_steps,
         beta_ff, w0, zT, z_rayleigh, bunch.weight, V_REL, sigma_T, k0**2,
-        compton.N_l, compton.a0, (1.0 + compton.ellipticity**2) / 2.0,
+        compton.N_l, (1.0 + compton.ellipticity**2) / 2.0,
     )
 
-    return bunch.gamma, bunch.theta_x, bunch.theta_y, ahat, L
+    return bunch.gamma, bunch.theta_x, bunch.theta_y, a0_shape, L

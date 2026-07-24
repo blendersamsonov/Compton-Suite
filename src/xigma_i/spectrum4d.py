@@ -461,6 +461,13 @@ def calculate_angular_spectrum_4d(table, s, theta_x, theta_y, phi_pol,
     Returns (spectrum, elapsed_seconds, debug), matching
     calculate_angular_spectrum's return shape.
     """
+    if table.a0_kind != 'ahat':
+        raise ValueError(
+            f"calculate_angular_spectrum_4d requires a physical-ahat table "
+            f"(a0_kind='ahat'), got a0_kind={table.a0_kind!r} -- this table's "
+            f"a0 axis is a0-independent (particles.push_and_sample's "
+            f"a0_shape); pass it through deposition.retarget_a0(table, a0) "
+            f"for a specific a0 first, see that function's docstring.")
     if table.grid.shape[3] > N_A0_MAX:
         raise ValueError(f"table has {table.grid.shape[3]} a0 bins; this kernel loops over "
                           f"all of them per sample and is only sized/tested up to {N_A0_MAX}")

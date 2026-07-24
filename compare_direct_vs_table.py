@@ -230,7 +230,13 @@ def main():
         compton, args.n_particles, args.gamma0, sigma_gamma0,
         chirp=args.chirp, angle_energy_corr=args.angle_energy_corr, rng=rng,
     )
-    gamma, tx, ty, a0, w = particles.push_and_sample(compton, bunch, n_steps=args.n_steps)
+    gamma, tx, ty, a0_shape, w = particles.push_and_sample(compton, bunch, n_steps=args.n_steps)
+    # push_and_sample now returns the a0-independent shape factor, not the
+    # physical ahat (see its docstring) -- the exact physical value for each
+    # particle is a0_shape * compton.a0**2, needed here for
+    # direct_binning_spectrum's raw per-particle formula (which doesn't go
+    # through a table/retarget_a0 at all -- there's nothing to rebin).
+    a0 = a0_shape * compton.a0 ** 2
 
     print("=== bunch / laser diagnostics ===")
     print(f"compton.a0 (peak)   = {compton.a0:.4g}")
@@ -238,8 +244,16 @@ def main():
     print(f"a0 (ahat) mean/max  = {a0.mean():.4g} / {a0.max():.4g}")
     print(f"total weight (L)    = {w.sum():.6g}   estimate_yield() = {compton.estimate_yield():.6g}")
 
-    table = deposition.build_table(gamma, tx, ty, a0, w, n_bins=tuple(args.n_bins),
-                                    scheme=args.scheme, device="gpu")
+    # Table.H needs the physical ahat too, but as a fixed *model*-range table
+    # (a0_max is the a0 range the weakly-nonlinear approximation is meant to
+    # be valid over, not derived per-collision -- see CLAUDE.md), via the
+    # official a0_shape -> table -> retarget_a0 path: build with a0_kind=
+    # 'shape' (a0_shape as the 4th axis, at the caller's requested a0-axis
+    # resolution), then retarget to this collision's actual compton.a0.
+    A0_MAX = 0.5
+    table = deposition.build_table(gamma, tx, ty, a0_shape, w, n_bins=tuple(args.n_bins),
+                                    scheme=args.scheme, device="gpu", a0_kind='shape')
+    table = deposition.retarget_a0(table, compton.a0, n_bins=args.n_bins[3], a0_max=A0_MAX)
     occ = deposition.occupancy_diagnostics(table)
     print(f"table empty_fraction = {occ['empty_fraction']:.3g}")
     print(f"gamma_bracket = {table.gamma_bracket}")
