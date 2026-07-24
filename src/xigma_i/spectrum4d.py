@@ -95,22 +95,36 @@ MAX_ARCS overflow guard added (core.py flags this as unguarded -- CLAUDE.md
 excess are dropped (undercounts flux for that output point rather than
 corrupting shared memory).
 """
-import cupy as cp
-from cupyx import jit
+# cupy/cupyx are optional at import time -- this module must stay importable
+# on a machine with no CUDA GPU (and possibly no cupy install at all) so that
+# calculate_angular_spectrum_4d's CPU/numba fallback (see spectrum4d_cpu.py)
+# can be used. Only spectrum_kernel_4d itself and the GPU branch of
+# calculate_angular_spectrum_4d actually need cupy. Mirrors core.py's guard.
+try:
+    import cupy as cp
+    from cupyx import jit
+    _HAS_CUPY = True
+except Exception:
+    cp = None
+    jit = None
+    _HAS_CUPY = False
+
+import time
+
+import numpy as np
 
 from .core import (
     CP_FLOAT, CP_UINT, CP_INT, CP_ONE, CP_ZERO, CP_TWO_PI, PHI as GOLDEN_PHI,
     X_THREADS, N_RINGS_MIN, MAX_RINGS, MAX_ARCS, ARC_STRIDE, RING_STRIDE,
     RINGS_SIZE, INVAL, PHI_EDGES, PHI_CELLS, CUM_WEIGHTS_SIZE,
     CDF_PHI_RESOLUTION, CDF_PHI_REPEAT, CDF_SIZE, SAMPLES_TOTAL,
-    SAMPLES_REPEAT, THREAD_STRIDE, R_MAX_NUDGE,
+    SAMPLES_REPEAT, THREAD_STRIDE, R_MAX_NUDGE, _detect_device,
 )
 
 N_A0_MAX = 32  # upper bound on table.grid.shape[3] this kernel supports; see calculate_angular_spectrum_4d
 
 
-@jit.rawkernel()
-def spectrum_kernel_4d(output, params_Arr, H, H_marginal,
+def _spectrum_kernel_4d_impl(output, params_Arr, H, H_marginal,
                         gamma_min, gamma_width, n_gamma,
                         theta_x_min, theta_x_width, n_theta_x,
                         theta_y_min, theta_y_width, n_theta_y,
@@ -452,14 +466,28 @@ def spectrum_kernel_4d(output, params_Arr, H, H_marginal,
         jit.atomic_add(output, out_idx, f_tot / s**2)
 
 
+if _HAS_CUPY:
+    spectrum_kernel_4d = jit.rawkernel()(_spectrum_kernel_4d_impl)
+else:
+    spectrum_kernel_4d = None
+
+
 def calculate_angular_spectrum_4d(table, s, theta_x, theta_y, phi_pol,
-                                   samples_per_point=32, debug_idx=0):
+                                   samples_per_point=32, debug_idx=0, device=None):
     """Host-side driver for spectrum_kernel_4d, the Stage-2 analogue of
     Compton.calculate_angular_spectrum. `table` is a deposition.Table (H
     plus grid metadata and gamma_bracket) built by particles.py/deposition.py.
 
+    `device=None|'cpu'|'gpu'` picks the backend the same way Compton's does
+    (see core._detect_device): auto-detect by default, launching the real
+    cupyx.jit rawkernel on 'gpu' or the numba.prange transliteration in
+    spectrum4d_cpu.py on 'cpu' (see that module's docstring -- validated
+    against the GPU kernel directly, not just against physical intuition).
+
     Returns (spectrum, elapsed_seconds, debug), matching
-    calculate_angular_spectrum's return shape.
+    calculate_angular_spectrum's return shape. `debug` is only populated on
+    the GPU path (spectrum4d_cpu.py's kernel has no debug output, same as
+    core_cpu.py's spectrum_kernel_cpu).
     """
     if table.grid.shape[3] > N_A0_MAX:
         raise ValueError(f"table has {table.grid.shape[3]} a0 bins; this kernel loops over "
@@ -467,41 +495,80 @@ def calculate_angular_spectrum_4d(table, s, theta_x, theta_y, phi_pol,
 
     coef = 1.5  # pure numerical constant, eq. "main"/"Fmatrix" -- see module docstring
 
-    params = cp.stack(cp.meshgrid(theta_x, theta_y, s, indexing='ij'), 3).reshape(-1, 3).astype(CP_FLOAT)
+    device = device or _detect_device()
+    if device == 'gpu' and not _HAS_CUPY:
+        raise RuntimeError("calculate_angular_spectrum_4d(device='gpu') requested but cupy is not importable")
+    if device not in ('gpu', 'cpu'):
+        raise ValueError(f"device must be 'gpu' or 'cpu', got {device!r}")
+
     grid_x = theta_x.size * theta_y.size * s.size
-
     grid = table.grid
-    gamma_min, theta_x_min, theta_y_min, a0_min = (CP_FLOAT(e[0]) for e in
-        (grid.gamma_edges, grid.theta_x_edges, grid.theta_y_edges, grid.a0_edges))
-    gamma_width, theta_x_width, theta_y_width, a0_width = (CP_FLOAT(w) for w in grid.widths)
-    n_gamma, n_theta_x, n_theta_y, n_a0 = (CP_UINT(n) for n in grid.shape)
+    gamma_lo = float(table.gamma_bracket[0])
+    gamma_hi = float(table.gamma_bracket[1])
+    dx = float(max(abs(float(grid.theta_x_edges[0])), abs(float(grid.theta_x_edges[-1]))))
+    dy = float(max(abs(float(grid.theta_y_edges[0])), abs(float(grid.theta_y_edges[-1]))))
 
-    gamma_lo = CP_FLOAT(table.gamma_bracket[0])
-    gamma_hi = CP_FLOAT(table.gamma_bracket[1])
+    if device == 'gpu':
+        params = cp.stack(cp.meshgrid(theta_x, theta_y, s, indexing='ij'), 3).reshape(-1, 3).astype(CP_FLOAT)
 
-    dx = CP_FLOAT(max(abs(float(grid.theta_x_edges[0])), abs(float(grid.theta_x_edges[-1]))))
-    dy = CP_FLOAT(max(abs(float(grid.theta_y_edges[0])), abs(float(grid.theta_y_edges[-1]))))
+        gamma_min, theta_x_min, theta_y_min, a0_min = (CP_FLOAT(e[0]) for e in
+            (grid.gamma_edges, grid.theta_x_edges, grid.theta_y_edges, grid.a0_edges))
+        gamma_width, theta_x_width, theta_y_width, a0_width = (CP_FLOAT(w) for w in grid.widths)
+        n_gamma, n_theta_x, n_theta_y, n_a0 = (CP_UINT(n) for n in grid.shape)
 
-    H_gpu = cp.asarray(table.H, dtype=CP_FLOAT)
-    H_marginal_gpu = H_gpu.sum(axis=(0, 3))  # (n_theta_x, n_theta_y), summed over gamma and a0 -- coarse proposal
+        H_gpu = cp.asarray(table.H, dtype=CP_FLOAT)
+        H_marginal_gpu = H_gpu.sum(axis=(0, 3))  # (n_theta_x, n_theta_y), summed over gamma and a0 -- coarse proposal
 
-    debug = cp.zeros((MAX_ARCS, SAMPLES_TOTAL * samples_per_point, 3), dtype=CP_FLOAT) * cp.nan
-    spec = cp.zeros((grid_x,), dtype=CP_FLOAT)
-    dbg_scalars = cp.zeros((grid_x, 9), dtype=CP_FLOAT)  # per-output-point skip/rmin/rmax/n_arcs/total_weight, diagnostic only
+        debug = cp.zeros((MAX_ARCS, SAMPLES_TOTAL * samples_per_point, 3), dtype=CP_FLOAT) * cp.nan
+        spec = cp.zeros((grid_x,), dtype=CP_FLOAT)
+        dbg_scalars = cp.zeros((grid_x, 9), dtype=CP_FLOAT)  # per-output-point skip/rmin/rmax/n_arcs/total_weight, diagnostic only
 
-    start = cp.cuda.Event()
-    finish = cp.cuda.Event()
-    start.record()
-    spectrum_kernel_4d[grid_x, X_THREADS](
-        spec, params, H_gpu, H_marginal_gpu,
-        gamma_min, gamma_width, n_gamma,
-        theta_x_min, theta_x_width, n_theta_x,
-        theta_y_min, theta_y_width, n_theta_y,
-        a0_min, a0_width, n_a0,
-        gamma_lo, gamma_hi, dx, dy,
-        CP_FLOAT(phi_pol), CP_UINT(samples_per_point), debug, CP_UINT(debug_idx), dbg_scalars)
-    finish.record()
-    finish.synchronize()
-    dt = cp.cuda.get_elapsed_time(start, finish) * 1e-3
+        start = cp.cuda.Event()
+        finish = cp.cuda.Event()
+        start.record()
+        spectrum_kernel_4d[grid_x, X_THREADS](
+            spec, params, H_gpu, H_marginal_gpu,
+            gamma_min, gamma_width, n_gamma,
+            theta_x_min, theta_x_width, n_theta_x,
+            theta_y_min, theta_y_width, n_theta_y,
+            a0_min, a0_width, n_a0,
+            gamma_lo, gamma_hi, CP_FLOAT(dx), CP_FLOAT(dy),
+            CP_FLOAT(phi_pol), CP_UINT(samples_per_point), debug, CP_UINT(debug_idx), dbg_scalars)
+        finish.record()
+        finish.synchronize()
+        dt = cp.cuda.get_elapsed_time(start, finish) * 1e-3
 
-    return (coef * spec).reshape((theta_x.size, theta_y.size, s.size)).get(), dt, debug
+        result = (coef * spec).reshape((theta_x.size, theta_y.size, s.size)).get()
+    else:
+        # CPU/numba fallback -- see spectrum4d_cpu.py's docstring; float64
+        # throughout (not assumed bit-identical to the GPU kernel's float32
+        # path, validated numerically against it instead).
+        from .spectrum4d_cpu import get_spectrum_kernel_4d_cpu
+        kernel = get_spectrum_kernel_4d_cpu()
+
+        params = np.stack(np.meshgrid(theta_x, theta_y, s, indexing='ij'), 3).reshape(-1, 3).astype(np.float64)
+
+        gamma_min, theta_x_min, theta_y_min, a0_min = (float(e[0]) for e in
+            (grid.gamma_edges, grid.theta_x_edges, grid.theta_y_edges, grid.a0_edges))
+        gamma_width, theta_x_width, theta_y_width, a0_width = (float(w) for w in grid.widths)
+        n_gamma, n_theta_x, n_theta_y, n_a0 = (int(n) for n in grid.shape)
+
+        H64 = np.ascontiguousarray(table.H, dtype=np.float64)
+        H_marginal64 = H64.sum(axis=(0, 3))
+
+        debug = np.zeros((MAX_ARCS, SAMPLES_TOTAL * samples_per_point, 3), dtype=np.float64) * np.nan
+
+        t0_perf = time.perf_counter()
+        spec = kernel(
+            params, H64, H_marginal64,
+            gamma_min, gamma_width, n_gamma,
+            theta_x_min, theta_x_width, n_theta_x,
+            theta_y_min, theta_y_width, n_theta_y,
+            a0_min, a0_width, n_a0,
+            gamma_lo, gamma_hi, dx, dy,
+            float(phi_pol), int(samples_per_point))
+        dt = time.perf_counter() - t0_perf
+
+        result = (coef * spec).reshape((theta_x.size, theta_y.size, s.size))
+
+    return result, dt, debug
