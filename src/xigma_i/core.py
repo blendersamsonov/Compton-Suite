@@ -1,9 +1,28 @@
+import time
+
 import numpy as np
-import cupy as cp
-from cupyx import jit
-from cupyx.scipy.special import erf as cp_erf
-from cupyx.scipy.special import erfinv as cp_erfinv
 from scipy.special import erfcx
+from scipy.special import erf as np_erf
+from scipy.special import erfinv as np_erfinv
+
+# cupy/cupyx are optional at import time -- this module must stay importable
+# on a machine with no CUDA GPU (and possibly no cupy install at all) so that
+# Compton's CPU/numba fallback (see core_cpu.py, and Compton.__init__'s
+# device auto-detection) can be constructed and used. Only the two
+# @jit.rawkernel() functions and the GPU branches inside Compton's methods
+# actually need cupy; everything CPU-side is plain numpy/numba.
+try:
+    import cupy as cp
+    from cupyx import jit
+    from cupyx.scipy.special import erf as cp_erf
+    from cupyx.scipy.special import erfinv as cp_erfinv
+    _HAS_CUPY = True
+except Exception:
+    cp = None
+    jit = None
+    cp_erf = None
+    cp_erfinv = None
+    _HAS_CUPY = False
 
 hbar = 1.054571800e-27               # постоянная Планка
 me = 9.10938356e-28                  # масса электрона
@@ -17,11 +36,16 @@ PHI = 1.618033988749894848           # golden ratio
 
 SINGLE_PRECISION = True
 
-CP_FLOAT  = cp.float32 if SINGLE_PRECISION else cp.float64
-CP_UINT   = cp.uint32  if SINGLE_PRECISION else cp.uint64
-CP_INT    = cp.int32   if SINGLE_PRECISION else cp.int64
-CP_PI     = CP_FLOAT(cp.pi)
-CP_TWO_PI = CP_FLOAT(2.0 * cp.pi)
+# NOTE: cp.float32/cp.uint32/etc. are the same objects as their numpy
+# counterparts (cupy reuses numpy's dtype scalars) -- using np.* here instead
+# of cp.* is a behavior-neutral change that just avoids depending on cupy
+# being importable for these sizing/dtype constants specifically (they're
+# also reused by core_cpu.py's CPU kernels, which must not require cupy).
+CP_FLOAT  = np.float32 if SINGLE_PRECISION else np.float64
+CP_UINT   = np.uint32  if SINGLE_PRECISION else np.uint64
+CP_INT    = np.int32   if SINGLE_PRECISION else np.int64
+CP_PI     = CP_FLOAT(np.pi)
+CP_TWO_PI = CP_FLOAT(2.0 * np.pi)
 CP_ONE    = CP_FLOAT(1.0)
 CP_ZERO   = CP_FLOAT(0.0)
 
@@ -58,8 +82,7 @@ LORENTZ_WIDTH = CP_FLOAT(8)
 N_STEPS = CP_UINT(X_THREADS)
 N_SPATIAL = CP_UINT(64)
 
-@jit.rawkernel()
-def particle_kernel(intersect, envelope, spatial, particles, THX, THY, f_th, w0, beta_ff, sigma_lz, t0, t1, dvx, dvy, sx0, sx1, sy0, sy1):#, debug, xy_debug):
+def _particle_kernel_impl(intersect, envelope, spatial, particles, THX, THY, f_th, w0, beta_ff, sigma_lz, t0, t1, dvx, dvy, sx0, sx1, sy0, sy1):#, debug, xy_debug):
     # Make sure arguments and arrays are of type CP_FLOAT
     z_rayleigh = 2 * w0 * w0 * ( CP_ONE + beta_ff )
     
@@ -138,8 +161,7 @@ def particle_kernel(intersect, envelope, spatial, particles, THX, THY, f_th, w0,
 
         jit.atomic_add(intersect, xy_idx , f_cur)
 
-@jit.rawkernel()
-def spectrum_kernel(output, params_Arr, collision, sigma_g, gamma0, dx, dy, phi_pol, subsampling, debug_arr, debug_arcs, debug_cdf, debug_thread, debug_weight, debug_idx):
+def _spectrum_kernel_impl(output, params_Arr, collision, sigma_g, gamma0, dx, dy, phi_pol, subsampling, debug_arr, debug_arcs, debug_cdf, debug_thread, debug_weight, debug_idx):
     # Calculates number of photons with energies defined by s_Arr and direction x0, y0.
     # Requires arcs array, calculated by arcs_kernel
     thread_idx = jit.threadIdx.x
@@ -469,7 +491,39 @@ def spectrum_kernel(output, params_Arr, collision, sigma_g, gamma0, dx, dy, phi_
 
         jit.atomic_add(output, out_idx, f_tot / s**2)
 
+
+if _HAS_CUPY:
+    particle_kernel = jit.rawkernel()(_particle_kernel_impl)
+    spectrum_kernel = jit.rawkernel()(_spectrum_kernel_impl)
+else:
+    particle_kernel = None
+    spectrum_kernel = None
+
 ## TODO: Kernels warmup
+
+
+def _detect_device():
+    """Auto-detect which backend Compton should use: a real CUDA GPU via
+    cupy if available, else CPU (requires numba for core_cpu.py's kernels).
+    Raises if neither works -- there is no third backend."""
+    if _HAS_CUPY:
+        try:
+            if cp.cuda.runtime.getDeviceCount() > 0:
+                return 'gpu'
+        except Exception:
+            pass
+    try:
+        import numba  # noqa: F401
+    except ImportError:
+        pass
+    else:
+        return 'cpu'
+    raise RuntimeError(
+        "xigma_i.core.Compton: no usable backend -- no CUDA-capable GPU "
+        "detected (or cupy isn't installed), and numba isn't installed for "
+        "the CPU fallback. Install numba (pip install numba) for CPU-only "
+        "use, or a working cupy+CUDA setup for GPU use.")
+
 
 class Compton:
     # Electron parameters
@@ -504,6 +558,29 @@ class Compton:
     THX = None
     THY = None
     intersection = None
+
+    def __init__(self, device=None):
+        """device: 'gpu' or 'cpu', or None to auto-detect (real CUDA GPU via
+        cupy if available, else CPU/numba -- see _detect_device). 'gpu'
+        launches the original cupyx.jit.rawkernel()s; 'cpu' runs the
+        numerically-equivalent numba.prange kernels in core_cpu.py instead
+        (validated against the GPU kernels -- see core_cpu.py's docstring).
+        """
+        self.device = device or _detect_device()
+        if self.device == 'gpu' and not _HAS_CUPY:
+            raise RuntimeError("Compton(device='gpu') requested but cupy is not importable")
+        if self.device not in ('gpu', 'cpu'):
+            raise ValueError(f"device must be 'gpu', 'cpu', or None, got {device!r}")
+
+    @property
+    def xp(self):
+        return cp if self.device == 'gpu' else np
+
+    def _erf_erfinv(self):
+        return (cp_erf, cp_erfinv) if self.device == 'gpu' else (np_erf, np_erfinv)
+
+    def asnumpy(self, x):
+        return x.get() if self.device == 'gpu' else x
 
     def estimate_yield(self):
         sb_av = np.sqrt(self.sigma_ex * self.sigma_ey / self.beta_x / self.beta_y)
@@ -561,6 +638,8 @@ class Compton:
         self.intersection = None
 
     def calculate_intersection(self, theta_num = 128, particles_amount = 4096, debug_idx = 0):
+        xp = self.xp
+        f_erf, f_erfinv = self._erf_erfinv()
 
         sigma_thx = CP_FLOAT(self.emit_x / self.sigma_ex)
         sigma_thy = CP_FLOAT(self.emit_y / self.sigma_ey)
@@ -571,34 +650,35 @@ class Compton:
         self.sigma_thx = sigma_thx
         self.sigma_thy = sigma_thy
 
-        thxs = cp.linspace(-3.0*sigma_thx, 3.0*sigma_thx, nx, dtype=CP_FLOAT)
-        thys = cp.linspace(-3.0*sigma_thy, 3.0*sigma_thy, ny, dtype=CP_FLOAT)
+        thxs = xp.linspace(-3.0*sigma_thx, 3.0*sigma_thx, nx, dtype=CP_FLOAT)
+        thys = xp.linspace(-3.0*sigma_thy, 3.0*sigma_thy, ny, dtype=CP_FLOAT)
 
-        self.theta_extent = [thxs[0].get(), thxs[-1].get(), thys[0].get(), thys[-1].get()]
-        self.THX, self.THY = cp.meshgrid(thxs, thys, indexing='ij')
+        self.theta_extent = [self.asnumpy(thxs[0]), self.asnumpy(thxs[-1]),
+                              self.asnumpy(thys[0]), self.asnumpy(thys[-1])]
+        self.THX, self.THY = xp.meshgrid(thxs, thys, indexing='ij')
 
         self.dtheta_x = float(thxs[1] - thxs[0])
         self.dtheta_y = float(thys[1] - thys[0])
-        self.dtheta   = float(cp.sqrt(self.dtheta_x**2 + self.dtheta_y**2))
+        self.dtheta   = float(xp.sqrt(self.dtheta_x**2 + self.dtheta_y**2))
 
-        f_th = cp.exp(-((self.THX/sigma_thx)**2 + (self.THY/sigma_thy)**2) / 2) 
+        f_th = xp.exp(-((self.THX/sigma_thx)**2 + (self.THY/sigma_thy)**2) / 2)
 
         N = particles_amount
-        reg = (cp.arange(0, N)/N).astype(CP_FLOAT)
-        fib = cp.remainder(N * reg * PHI, 1.0).astype(CP_FLOAT)
+        reg = (xp.arange(0, N)/N).astype(CP_FLOAT)
+        fib = xp.remainder(N * reg * PHI, 1.0).astype(CP_FLOAT)
 
         p_xs = reg
         p_ys = fib
 
         sigx = CP_FLOAT(min(self.sigma_lr0, self.sigma_ex) / self.sigma_ex)
-        dsx = cp_erf(GAUSS_WIDTH * sigx)
+        dsx = f_erf(GAUSS_WIDTH * sigx)
         sigy = CP_FLOAT(min(self.sigma_lr0, self.sigma_ey) / self.sigma_ey)
-        dsy = cp_erf(GAUSS_WIDTH * sigy)
+        dsy = f_erf(GAUSS_WIDTH * sigy)
         dsx *= CP_FLOAT(1 - 1e-6)
         dsy *= CP_FLOAT(1 - 1e-6)
 
-        p_xs = cp_erfinv((2*p_xs-CP_ONE) * dsx)*CP_FLOAT(self.k0_las*self.sigma_ex)*cp.sqrt(2*CP_ONE)
-        p_ys = cp_erfinv((2*p_ys-CP_ONE) * dsy)*CP_FLOAT(self.k0_las*self.sigma_ey)*cp.sqrt(2*CP_ONE)
+        p_xs = f_erfinv((2*p_xs-CP_ONE) * dsx)*CP_FLOAT(self.k0_las*self.sigma_ex)*xp.sqrt(2*CP_ONE)
+        p_ys = f_erfinv((2*p_ys-CP_ONE) * dsy)*CP_FLOAT(self.k0_las*self.sigma_ey)*xp.sqrt(2*CP_ONE)
 
         z0 = CP_FLOAT(self.k0_las * self.delta_z)
         zR = CP_FLOAT((self.k0_las * self.sigma_lr0)**2 * ( 1.0 + self.beta_ff ) * 2)
@@ -607,31 +687,28 @@ class Compton:
         sigma_tau = GAUSS_WIDTH * zT
         sigma_raileigh  = LORENTZ_WIDTH * zR
         zmx = ( ( 1.0 - self.beta_ff ) * sigma_tau + 2 * sigma_raileigh ) / ( 1 + self.beta_ff )
-        
+
         z_min = CP_FLOAT(max(- GAUSS_WIDTH * self.sigma_ez * self.k0_las, -zmx - z0))
         z_max = CP_FLOAT(min(  GAUSS_WIDTH * self.sigma_ez * self.k0_las,  zmx - z0))
 
-        p_zs = cp.random.rand(particles_amount, dtype=CP_FLOAT)
+        p_zs = xp.random.rand(particles_amount).astype(CP_FLOAT)
         sigz = CP_FLOAT(self.k0_las*self.sigma_ez)
-        pz_min = cp_erf(z_min/sigz/cp.sqrt(2*CP_ONE))
-        pz_max = cp_erf(z_max/sigz/cp.sqrt(2*CP_ONE))
+        pz_min = f_erf(z_min/sigz/xp.sqrt(2*CP_ONE))
+        pz_max = f_erf(z_max/sigz/xp.sqrt(2*CP_ONE))
         z_weight = ( pz_max - pz_min ) / 2
-        p_zs = z0 + cp_erfinv( pz_min + p_zs * (pz_max - pz_min) ) * sigz * cp.sqrt(2*CP_ONE) # Only getting particles that will be inside the laser pulse at some point
+        p_zs = z0 + f_erfinv( pz_min + p_zs * (pz_max - pz_min) ) * sigz * xp.sqrt(2*CP_ONE) # Only getting particles that will be inside the laser pulse at some point
 
-        p_t0 = (cp.maximum(-sigma_tau, ( - p_zs * CP_FLOAT( 1 + self.beta_ff ) - 2 * sigma_raileigh ) / CP_FLOAT( 1 - self.beta_ff ) ) - p_zs) / 2
-        t_start = CP_FLOAT(cp.min(p_t0).get())
+        p_t0 = (xp.maximum(-sigma_tau, ( - p_zs * CP_FLOAT( 1 + self.beta_ff ) - 2 * sigma_raileigh ) / CP_FLOAT( 1 - self.beta_ff ) ) - p_zs) / 2
+        t_start = CP_FLOAT(self.asnumpy(xp.min(p_t0)))
 
-        p_t1 = (cp.minimum( sigma_tau, ( - p_zs * CP_FLOAT( 1 + self.beta_ff ) + 2 * sigma_raileigh ) / CP_FLOAT( 1 - self.beta_ff ) ) - p_zs) / 2
-        t_end = CP_FLOAT(cp.max(p_t1).get())
+        p_t1 = (xp.minimum( sigma_tau, ( - p_zs * CP_FLOAT( 1 + self.beta_ff ) + 2 * sigma_raileigh ) / CP_FLOAT( 1 - self.beta_ff ) ) - p_zs) / 2
+        t_end = CP_FLOAT(self.asnumpy(xp.max(p_t1)))
 
-        particles = cp.stack((p_xs,p_ys,p_zs,p_t0,p_t1),axis=1)
-        cp.random.shuffle(particles)
+        particles = xp.stack((p_xs,p_ys,p_zs,p_t0,p_t1),axis=1)
+        xp.random.shuffle(particles)
 
         dvx = CP_FLOAT(self.dtheta_x)
         dvy = CP_FLOAT(self.dtheta_y)
-        
-        self.intersection  = cp.zeros((nx, ny), dtype=CP_FLOAT).flatten()
-        self.time_envelope = cp.zeros((N_STEPS,), dtype=CP_FLOAT)
 
         # Transverse spatial-distribution grid, dimensionless (k0-scaled)
         # bounds sized the same way as the theta window above: a few sigma
@@ -642,20 +719,45 @@ class Compton:
         sy_half = CP_FLOAT(GAUSS_WIDTH * self.k0_las * max(self.sigma_ey, self.sigma_lr0))
         sx0_, sx1_ = -sx_half, sx_half
         sy0_, sy1_ = -sy_half, sy_half
-        self.spatial_envelope = cp.zeros((N_SPATIAL, N_SPATIAL), dtype=CP_FLOAT)
 
-        #debug =  cp.zeros((particles_amount, N_STEPS,4), dtype=CP_FLOAT) * cp.nan
-        finish = cp.cuda.Event()
-        particle_kernel[(particles_amount, nx*ny), N_STEPS](self.intersection, self.time_envelope, self.spatial_envelope, particles, self.THX.flatten(), self.THY.flatten(), f_th.flatten(), CP_FLOAT(self.k0_las * self.sigma_lr0), CP_FLOAT(self.beta_ff), zT, t_start, t_end, dvx, dvy, sx0_, sx1_, sy0_, sy1_)#, debug, CP_UINT(debug_idx))
-
-        finish.record()
-        finish.synchronize()
         v_rel = 2.0
 
-        coef = CP_FLOAT( sigma_T * self.k0_las**2 * v_rel * self.N_e * self.N_l * (z_weight * dsx * dsy).get() / ( 2.0 * np.pi * sigma_thx * sigma_thy ) )
-        self.intersection *= coef
+        if self.device == 'gpu':
+            self.intersection  = xp.zeros((nx, ny), dtype=CP_FLOAT).flatten()
+            self.time_envelope = xp.zeros((N_STEPS,), dtype=CP_FLOAT)
+            self.spatial_envelope = xp.zeros((N_SPATIAL, N_SPATIAL), dtype=CP_FLOAT)
+
+            #debug =  cp.zeros((particles_amount, N_STEPS,4), dtype=CP_FLOAT) * cp.nan
+            finish = cp.cuda.Event()
+            particle_kernel[(particles_amount, nx*ny), N_STEPS](self.intersection, self.time_envelope, self.spatial_envelope, particles, self.THX.flatten(), self.THY.flatten(), f_th.flatten(), CP_FLOAT(self.k0_las * self.sigma_lr0), CP_FLOAT(self.beta_ff), zT, t_start, t_end, dvx, dvy, sx0_, sx1_, sy0_, sy1_)#, debug, CP_UINT(debug_idx))
+            finish.record()
+            finish.synchronize()
+        else:
+            # CPU/numba fallback -- see core_cpu.py's docstring. Deliberately
+            # accumulates in float64 (unlike the GPU kernel's float32) since
+            # there's no shared-memory/bandwidth pressure driving single
+            # precision here; validated numerically against the GPU kernel
+            # in tests, not assumed bit-identical.
+            from .core_cpu import get_particle_kernel_cpu
+            kernel = get_particle_kernel_cpu()
+            particles64 = np.ascontiguousarray(particles, dtype=np.float64)
+            thx64 = np.ascontiguousarray(self.THX.flatten(), dtype=np.float64)
+            thy64 = np.ascontiguousarray(self.THY.flatten(), dtype=np.float64)
+            f_th64 = np.ascontiguousarray(f_th.flatten(), dtype=np.float64)
+            intersection, time_envelope, spatial_envelope = kernel(
+                particles64, thx64, thy64, f_th64,
+                float(self.k0_las * self.sigma_lr0), float(self.beta_ff), float(zT),
+                float(t_start), float(t_end), float(dvx), float(dvy),
+                float(sx0_), float(sx1_), float(sy0_), float(sy1_),
+                int(N_STEPS), int(N_SPATIAL))
+            self.intersection = intersection
+            self.time_envelope = time_envelope
+            self.spatial_envelope = spatial_envelope
+
+        coef = CP_FLOAT( sigma_T * self.k0_las**2 * v_rel * self.N_e * self.N_l * self.asnumpy(z_weight * dsx * dsy) / ( 2.0 * np.pi * sigma_thx * sigma_thy ) )
+        self.intersection = self.intersection * coef
         self.intersection = self.intersection.reshape((nx, ny))
-        self.time_envelope *= coef * N_STEPS / ( t_end - t_start )
+        self.time_envelope = self.time_envelope * coef * N_STEPS / ( t_end - t_start )
 
         # Areal density [photons / cm^2]. Note: `coef` above bakes in the
         # angular Gaussian-profile normalization (the 1/(2 pi sigma_thx
@@ -668,56 +770,58 @@ class Compton:
         # partitioned differently), so rescaling it to reproduce the same
         # total when integrated over its bin area is correct by construction
         # and doesn't require re-deriving a new physical prefactor.
-        total_yield_now = float((self.intersection.sum() * self.dtheta_x * self.dtheta_y).get())
+        total_yield_now = float(self.asnumpy(self.intersection.sum()) * self.dtheta_x * self.dtheta_y)
         dx_cm = float(sx1_ - sx0_) / float(N_SPATIAL) / self.k0_las
         dy_cm = float(sy1_ - sy0_) / float(N_SPATIAL) / self.k0_las
-        raw_spatial_sum = float(self.spatial_envelope.sum().get())
+        raw_spatial_sum = float(self.asnumpy(self.spatial_envelope.sum()))
         if raw_spatial_sum > 0:
-            self.spatial_envelope *= CP_FLOAT(total_yield_now / (raw_spatial_sum * dx_cm * dy_cm))
-        self.spatial_x_edges = cp.linspace(sx0_, sx1_, N_SPATIAL + 1, dtype=CP_FLOAT) / self.k0_las
-        self.spatial_y_edges = cp.linspace(sy0_, sy1_, N_SPATIAL + 1, dtype=CP_FLOAT) / self.k0_las
+            self.spatial_envelope = self.spatial_envelope * CP_FLOAT(total_yield_now / (raw_spatial_sum * dx_cm * dy_cm))
+        self.spatial_x_edges = xp.linspace(sx0_, sx1_, N_SPATIAL + 1, dtype=CP_FLOAT) / self.k0_las
+        self.spatial_y_edges = xp.linspace(sy0_, sy1_, N_SPATIAL + 1, dtype=CP_FLOAT) / self.k0_las
 
-        ts = cp.linspace(t_start, t_end, N_STEPS, dtype=CP_FLOAT)
+        ts = xp.linspace(t_start, t_end, N_STEPS, dtype=CP_FLOAT)
 
         self.env_ts = ts / self.omega_las
         self.particles = particles
         return f_th.flatten()
-    
+
     def calculate_total(self):
         if self.intersection is None:
             self.calculate_intersection()
-        return self.intersection.sum().get() * self.dtheta_x * self.dtheta_y 
+        return float(self.asnumpy(self.intersection.sum())) * self.dtheta_x * self.dtheta_y
 
     def calculate_spectrum(self, s, gamma_0, sigma_gamma_0, gamma_num = 128, emulate_nonlinearity = True):
+        xp = self.xp
         if emulate_nonlinearity:
             gamma = gamma_0 / np.sqrt(1.0 + self.a0**2/8)
             sigma_gamma = np.sqrt(sigma_gamma_0**2 + gamma**2 * self.a0**4/16)
         else:
             gamma = gamma_0
             sigma_gamma = sigma_gamma_0
-        
-        gs = gamma + cp.linspace(-3.0 * sigma_gamma, 3.0 * sigma_gamma, gamma_num)[cp.newaxis, :]
+
+        gs = gamma + xp.linspace(-3.0 * sigma_gamma, 3.0 * sigma_gamma, gamma_num)[xp.newaxis, :]
         dg = gs[0, 1] - gs[0, 0]
 
-        y = s[:, cp.newaxis] / gs**2
+        y = s[:, xp.newaxis] / gs**2
         spec = 1.5 * ( 1.0 - 2.0 * y * ( 1.0 - y ) )
-        spec = cp.where(cp.logical_or(y < 0, y > 1), 0.0, spec)
-        spec *= cp.exp(- (gs - gamma)**2 / 2.0 / sigma_gamma**2) / cp.sqrt(2.0 * cp.pi * sigma_gamma**2) / gs**2
-        return (spec.sum(axis=1) * dg * self.calculate_total() / ( 4.0 * self.Wph )).get()
-    
+        spec = xp.where(xp.logical_or(y < 0, y > 1), 0.0, spec)
+        spec *= xp.exp(- (gs - gamma)**2 / 2.0 / sigma_gamma**2) / xp.sqrt(2.0 * np.pi * sigma_gamma**2) / gs**2
+        return self.asnumpy(spec.sum(axis=1) * dg * self.calculate_total() / ( 4.0 * self.Wph ))
+
     def calculate_angular_spectrum(self, s, theta_x, theta_y, gamma_0, sigma_gamma_0, phi_pol, weight_threshold = 0.05, samples_per_point = 32, debug_idx = 0, emulate_nonlinearity = True):
+        xp = self.xp
         if self.intersection is None:
             self.calculate_intersection()
 
-        coef = 3.0 / ( 4.0 * cp.pi**4 * self.Wph * 4.0)
-        
-        params = cp.stack(cp.meshgrid(theta_x, theta_y, s, indexing='ij'), 3).reshape(-1, 3).astype(CP_FLOAT)
+        coef = 3.0 / ( 4.0 * np.pi**4 * self.Wph * 4.0)
+
+        params = xp.stack(xp.meshgrid(theta_x, theta_y, s, indexing='ij'), 3).reshape(-1, 3).astype(CP_FLOAT)
         grid_x = theta_x.size * theta_y.size * s.size
 
         dx = CP_FLOAT(3.0 * self.emit_x / self.sigma_ex)
         dy = CP_FLOAT(3.0 * self.emit_y / self.sigma_ey)
 
-        debug = cp.zeros((MAX_ARCS, SAMPLES_TOTAL * samples_per_point, 3), dtype=CP_FLOAT) * cp.nan
+        debug = xp.zeros((MAX_ARCS, SAMPLES_TOTAL * samples_per_point, 3), dtype=CP_FLOAT) * xp.nan
 
         if emulate_nonlinearity:
             gamma = gamma_0 / np.sqrt(1.0 + self.a0**2/8)
@@ -726,17 +830,32 @@ class Compton:
             gamma = gamma_0
             sigma_gamma = sigma_gamma_0
 
-        spec = cp.zeros((grid_x,), dtype=CP_FLOAT)
-        start  = cp.cuda.Event()
-        # mid  = cp.cuda.Event()
-        finish = cp.cuda.Event()
-        start.record()
-        # arcs_kernel[grid_x, X_THREADS](arcs, n_arcs, xy, dx, dy)
-        # mid.record()
-        # mid.synchronize()
-        spectrum_kernel[grid_x, X_THREADS](spec, params, self.intersection, CP_FLOAT(sigma_gamma), CP_FLOAT(gamma), dx, dy, CP_FLOAT(phi_pol), CP_UINT(samples_per_point), debug, debug, debug, debug, debug, CP_UINT(debug_idx))
-        finish.record()
-        finish.synchronize()
-        dt = cp.cuda.get_elapsed_time(start, finish) * 1e-3
-        
-        return (coef*spec).reshape((theta_x.size, theta_y.size, s.size)).get(), dt, debug#, arcs, n_arcs, debug
+        if self.device == 'gpu':
+            spec = xp.zeros((grid_x,), dtype=CP_FLOAT)
+            start  = cp.cuda.Event()
+            # mid  = cp.cuda.Event()
+            finish = cp.cuda.Event()
+            start.record()
+            # arcs_kernel[grid_x, X_THREADS](arcs, n_arcs, xy, dx, dy)
+            # mid.record()
+            # mid.synchronize()
+            spectrum_kernel[grid_x, X_THREADS](spec, params, self.intersection, CP_FLOAT(sigma_gamma), CP_FLOAT(gamma), dx, dy, CP_FLOAT(phi_pol), CP_UINT(samples_per_point), debug, debug, debug, debug, debug, CP_UINT(debug_idx))
+            finish.record()
+            finish.synchronize()
+            dt = cp.cuda.get_elapsed_time(start, finish) * 1e-3
+            result = (coef*spec).reshape((theta_x.size, theta_y.size, s.size)).get()
+        else:
+            # CPU/numba fallback -- see core_cpu.py's docstring; float64
+            # throughout (not assumed bit-identical to the GPU kernel's
+            # float32 path, validated numerically in tests instead).
+            from .core_cpu import get_spectrum_kernel_cpu
+            kernel = get_spectrum_kernel_cpu()
+            params64 = np.ascontiguousarray(params, dtype=np.float64)
+            collision64 = np.ascontiguousarray(self.intersection, dtype=np.float64)
+            t0_perf = time.perf_counter()
+            spec = kernel(params64, collision64, float(sigma_gamma), float(gamma),
+                          float(dx), float(dy), float(phi_pol), int(samples_per_point))
+            dt = time.perf_counter() - t0_perf
+            result = (coef*spec).reshape((theta_x.size, theta_y.size, s.size))
+
+        return result, dt, debug#, arcs, n_arcs, debug
