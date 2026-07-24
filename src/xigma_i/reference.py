@@ -254,6 +254,13 @@ def spectrum_from_table(table, x0, y0, s, phi_pol, backend='numpy'):
     each iteration's (theta_x, theta_y, a0) quadrature -- the actual
     O(grid_size) work -- runs on the target device.
     """
+    if table.a0_kind != 'ahat':
+        raise ValueError(
+            f"spectrum_from_table requires a physical-ahat table "
+            f"(a0_kind='ahat'), got a0_kind={table.a0_kind!r} -- pass it "
+            f"through deposition.retarget_a0(table, a0) for a specific a0 "
+            f"first, see that function's docstring.")
+
     xp = _xp_for(backend)
     H = xp.asarray(table.H)
 
