@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 r"""
-dfe5_compton_mc.py
+kascade.py
 ===================
 
 Generalisation of ``dfe4_compton_mc.py`` (sequential multi-photon inverse-Compton
@@ -51,8 +51,8 @@ Everything else (initial-bunch sampling, the sequential emission chain, the
 ``a_0^2/2`` non-linear pond. red-shift, the on-axis collimated spectrum) is
 carried over unchanged from dfe4.
 
-Run ``python dfe5_compton_mc.py`` to execute the example and write the plots.
-Input parameters are read from ``dfe5_config.toml`` (override with
+Run ``python kascade.py`` to execute the example and write the plots.
+Input parameters are read from ``kascade_config.toml`` (override with
 ``-c/--config FILE``).
 """
 
@@ -154,7 +154,7 @@ class Config:
 # Configuration file loading
 # ---------------------------------------------------------------------------
 DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                   "dfe5_config.toml")
+                                   "kascade_config.toml")
 
 _RUN_KEYS = ("n_mc", "seed", "outdir")
 
@@ -398,7 +398,7 @@ def save_ele_file(path: str,
                   z: np.ndarray, dP: np.ndarray,
                   *,
                   mean_energy_MeV: float | None = None,
-                  description: str = "6D electron bunch written by dfe5_compton_mc",
+                  description: str = "6D electron bunch written by kascade",
                   ) -> None:
     """Write a 6-D electron distribution in SDDS ASCII ``.ele`` format.
 
@@ -1095,14 +1095,14 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     final_ele_path = "final_distribution.ele"
     if electrons is not None and electrons.get("final_ele_path"):
         final_ele_path = electrons["final_ele_path"]
-    elif os.environ.get("DFE5_FINAL_ELE_PATH"):
-        final_ele_path = os.environ["DFE5_FINAL_ELE_PATH"]
+    elif os.environ.get("KASCADE_FINAL_ELE_PATH"):
+        final_ele_path = os.environ["KASCADE_FINAL_ELE_PATH"]
     save_ele_file(final_ele_path,
                   x_f, thx_f, y_f, thy_f, z_f, dP_f,
                   mean_energy_MeV=ref_energy_MeV,
                   description=("Final 6D electron distribution after "
                                "interaction with the laser pulse "
-                               "(dfe5_compton_mc)"))
+                               "(kascade)"))
     summary = dict(summary)
     summary["final_distribution_path"] = final_ele_path
 
@@ -1127,7 +1127,7 @@ def print_summary(res: Results) -> None:
     s = res.summary
     cfg = res.cfg
     print("=" * 68)
-    print("DFE5 generalised inverse-Compton Monte-Carlo  --  summary")
+    print("KASCADE generalised inverse-Compton Monte-Carlo  --  summary")
     print("=" * 68)
     print(f"macro-electrons              : {int(s['n_mc']):,}")
     print(f"real electrons N_e           : {cfg.N_e:.3e}")
@@ -1204,7 +1204,7 @@ def make_plots(res: Results, outdir: str) -> None:
     ax[1].set_ylabel(r"$\langle\tau\rangle$")
     ax[1].set_title("Yield vs longitudinal position")
     fig.tight_layout()
-    fig.savefig(os.path.join(outdir, "dfe5_yield.png"), dpi=130)
+    fig.savefig(os.path.join(outdir, "kascade_yield.png"), dpi=130)
     plt.close(fig)
 
     # ---- 2) photon spectrum --------------------------------------------
@@ -1243,7 +1243,7 @@ def make_plots(res: Results, outdir: str) -> None:
         ax[2].set_ylabel(r"$\theta_y$ [$\mu$rad]")
         ax[2].set_title(r"$\theta_x$-$\theta_y$ (note $x$-polarisation dip)")
     fig.tight_layout()
-    fig.savefig(os.path.join(outdir, "dfe5_photon_spectrum.png"), dpi=130)
+    fig.savefig(os.path.join(outdir, "kascade_photon_spectrum.png"), dpi=130)
     plt.close(fig)
 
     # ---- 3) electron distribution --------------------------------------
@@ -1279,7 +1279,7 @@ def make_plots(res: Results, outdir: str) -> None:
     ax[1].set_yscale("log")
     ax[1].legend(fontsize=8)
     fig.tight_layout()
-    fig.savefig(os.path.join(outdir, "dfe5_electron_dist.png"), dpi=130)
+    fig.savefig(os.path.join(outdir, "kascade_electron_dist.png"), dpi=130)
     plt.close(fig)
 
     # ---- 4) on-axis spectrum -------------------------------------------
@@ -1317,12 +1317,12 @@ def make_plots(res: Results, outdir: str) -> None:
             rms = res.summary["onaxis_E_gamma_rms_rel"] * 100
             ax[1].set_title(fr"On-axis line ($\gamma\theta<{thc:g}$), rel. rms $\approx${rms:.2f}%")
     fig.tight_layout()
-    fig.savefig(os.path.join(outdir, "dfe5_onaxis_spectrum.png"), dpi=130)
+    fig.savefig(os.path.join(outdir, "kascade_onaxis_spectrum.png"), dpi=130)
     plt.close(fig)
 
     print(f"\nPlots written to {outdir}/:")
-    for f in ("dfe5_yield.png", "dfe5_photon_spectrum.png",
-              "dfe5_electron_dist.png", "dfe5_onaxis_spectrum.png"):
+    for f in ("kascade_yield.png", "kascade_photon_spectrum.png",
+              "kascade_electron_dist.png", "kascade_onaxis_spectrum.png"):
         print(f"  - {f}")
 
 
@@ -1372,9 +1372,9 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="DFE5 generalised inverse-Compton Monte-Carlo (arbitrary "
+        description="KASCADE generalised inverse-Compton Monte-Carlo (arbitrary "
                     "collision angle + optional Klein-Nishina/recoil). Reads a "
-                    "TOML config (see dfe5_config.toml).")
+                    "TOML config (see kascade_config.toml).")
     parser.add_argument("-c", "--config", default=DEFAULT_CONFIG_PATH, metavar="FILE",
                         help="path to the TOML config file (default: %(default)s)")
     args = parser.parse_args()
