@@ -578,3 +578,44 @@ cupy wheels can lag brand-new CPython releases; if `pip install
 cupy-cudaXXx` doesn't find a matching wheel, a conda/mamba env
 (conda-forge) is the more reliable install path -- confirmed working on
 this machine via the `core` env above.
+
+## Parameter semantics & units (`params/`)
+
+`src/xigma_i/params/` is this model's own declaration of parameter
+semantics and units for values crossing the `compton-gui` boundary. Every
+laser/electron width, duration, or amplitude travels as a
+`PhysicalQuantity` (value + unit + `PhysicalMeaning` + a convention enum
+-- `WidthConvention`/`TimeConvention`/`AmplitudeConvention`), gets
+normalised through one canonical convention per meaning (`canonical.py`),
+and is adapted out to this model's own convention/units via
+`adapter.adapt_to_model()` against `spec.py`'s `XIGMA_SPEC` (the
+convention/unit contract for `gui_adapter.Config`'s own fields).
+`XIGMA_DIAGNOSTIC_SPEC` covers derived/read-only quantities (`a0`) that
+aren't GUI inputs. Units are handled by `pint` (`units.py`), including a
+custom `"light_time"` context so a length can stand in for `c * duration`
+-- `Config` stores pulse/bunch length that way
+(`sigma_par_L`/`sigma_par_e`).
+
+Moved here from `compton-gui`'s `physics_params/` package (see that
+repo's `Conventions-and-units.md` for the original design and
+`CLAUDE.md` for its own notes) so this model declares its own parameter
+contract instead of the GUI declaring it on the model's behalf --
+`compton-gui` keeps its own copy of the generic framework
+(`enums.py`/`units.py`/`quantities.py`/`canonical.py`/`converters.py`/
+`validation.py`/`schema.py`/`adapter.py`, all unchanged from what moved)
+in place there for `kascade`, which hasn't had the same schema-ownership
+move yet -- expect the two copies to read near-identically until it does.
+
+**Not yet wired into `gui_adapter.params_to_config`** -- that still does
+the FWHM/waist/duration arithmetic by hand (see `spec.py`'s module
+docstring). `compton-gui/scripts/physics_params_demo.py` exercises this
+module end to end: it calls `compton_guide.bootstrap.setup_paths()` to put
+this repo's `src/` on `sys.path`, then imports `XIGMA_SPEC` straight from
+`xigma_i.params` (local `KASCADE_SPEC` still comes from `compton-gui`'s
+own `physics_params.schemas.kascade`).
+
+Needs `pint` (a hard dependency in `pyproject.toml` -- pure Python, no
+GPU/cupy involvement, so importing `xigma_i.params` never requires cupy
+even though the base `xigma_i` package import chain
+(`config.py`/`gui_adapter.py`) is cupy-optional throughout, see "GUI
+integration" above).
