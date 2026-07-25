@@ -1,4 +1,4 @@
-"""Shared representative Compton-source parameter set (plan.md's Sec. 0).
+"""Shared representative Compton-source parameter set.
 
 Every figure/bench script imports from here so they all describe the same
 physical case. The numbers are the ones already shipped as

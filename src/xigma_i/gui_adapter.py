@@ -1,27 +1,26 @@
-"""GUI-facing adapter exposing xigma_i.core.Compton through a dfe5-shaped
+"""GUI-facing adapter exposing the xigma_i pipeline through a dfe5-shaped
 Config/run_simulation contract, for use as an alternate "model" inside the
 MC-Kost desktop GUI (see MC-Kost/dfe5_gui2.py and MC-Kost/model_api.py).
 
-Design notes (see the repo's integration plan for the full rationale):
+Design notes:
 
-  * This module never imports ``cupy`` (directly or via ``core``/``xigma_i``
-    package import) at module scope, so that ``import xigma_i.gui_adapter``
-    degrades gracefully -- the consuming GUI wraps that import in a broad
-    ``try/except Exception`` and shows the model disabled rather than
-    crashing when cupy/CUDA isn't available. ``cupy``/``core.Compton`` are
-    only imported inside ``available()`` and ``run_simulation()``.
+  * This module never imports ``cupy`` (directly or via ``config``/
+    ``tabulated_engine``/``xigma_i`` package import) at module scope, so
+    that ``import xigma_i.gui_adapter`` degrades gracefully -- the
+    consuming GUI wraps that import in a broad ``try/except Exception`` and
+    shows the model disabled rather than crashing when cupy/CUDA isn't
+    available. ``cupy``/``config.Compton``/``tabulated_engine`` are only
+    imported inside ``available()`` and ``run_simulation()``.
   * ``Config`` mirrors ``dfe5_compton_mc.Config``'s field names and SI units
     wherever a physical mapping exists, so the GUI's model-agnostic
     spread-estimate formula (which reads ``cfg.eps0``, ``cfg.sigma_eps_rel``,
     ``cfg.omega_L``, ``cfg.emit_x/y``, ``cfg.beta_x/y``, ``cfg.sigma_par_L``)
     keeps working unmodified regardless of which model is active.
-  * ``core.Compton`` is head-on only and has no classical/quantum toggle (its
-    only physics-affecting switch is the phenomenological
-    ``emulate_nonlinearity`` a0-downshift emulation, a different axis from
-    dfe5's Thomson/Klein-Nishina choice) -- see ``capabilities()``.
-  * ``core.Compton`` computes a smooth, pre-integrated spectral density
-    (``dN/dE``, ``d^2N/dE dOmega``), not an unbinned per-photon/per-electron
-    event list -- there is no final electron state and no photon-multiplicity
+  * xigma-i is head-on only and has no classical/quantum toggle -- see
+    ``capabilities()``.
+  * xigma-i computes a smooth, pre-integrated spectral density (``dN/dE``,
+    ``d^2N/dE dOmega``), not an unbinned per-photon/per-electron event list
+    -- there is no final electron state and no photon-multiplicity
     statistic to report, unlike dfe5.
 """
 
@@ -31,9 +30,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-# Matches xigma_i.core.elC exactly; duplicated here (rather than imported)
-# so this module stays importable without cupy -- core.py does an
-# unconditional `import cupy as cp` at module scope.
+# Matches xigma_i.config.elC exactly; duplicated here (rather than
+# imported) purely to keep this module's own promise of no xigma_i imports
+# at module scope (see module docstring) -- config.py itself is actually
+# cupy-optional too, this is just consistent with the rest of the file.
 _ELEMENTARY_CHARGE_C = 1.602176634e-19   # [C]
 _C_LIGHT_M = 2.99792458e8                # [m/s]
 _M_TO_CM = 1.0e2
@@ -123,9 +123,8 @@ class BinnedAngularSpectrum:
 
 @dataclass
 class BinnedTemporalEnvelope:
-    """Photon-emission rate vs. time, read straight off ``Compton``'s own
-    ``time_envelope``/``env_ts`` attributes (core.py's calculate_intersection
-    already computes this internally; no new kernel work needed)."""
+    """Photon-emission rate vs. time -- see
+    ``tabulated_engine.TabulatedEngine.temporal_envelope``."""
 
     t_seconds: np.ndarray
     rate: np.ndarray
@@ -133,11 +132,8 @@ class BinnedTemporalEnvelope:
 
 @dataclass
 class BinnedSpatialDistribution:
-    """Transverse (x, y) areal density of photon emission, read off
-    ``Compton``'s ``spatial_envelope``/``spatial_x_edges``/``spatial_y_edges``
-    (a dedicated deposition kernel added alongside ``particle_kernel``'s
-    existing time_envelope mechanism -- see core.py's ``particle_kernel``
-    and ``calculate_intersection``)."""
+    """Transverse (x, y) areal density of photon emission -- see
+    ``tabulated_engine.TabulatedEngine.spatial_distribution``."""
 
     x_centers: np.ndarray
     y_centers: np.ndarray
@@ -170,14 +166,13 @@ class XigmaResults:
     spatial_distribution: object | None = None
     final_distribution_path: str | None = None
     warnings: list | None = None
-    # Private: the built Compton instance (+ params it was built with), cached
-    # so XigmaAdapter.run() can stash it for spectrum_in_angular_range()'s
-    # on-demand recompute without restructuring the module-function/adapter
-    # split above. Not part of the model_api.CommonResults contract.
-    # _compton is still used for temporal_envelope/spatial_distribution
-    # (Stage C of plan.md Phase 2 isn't implemented in the new path yet) and
-    # as the config-bag TabulatedEngine wraps; _engine/_device are the new
-    # tabulated-path counterpart, cached the same way for
+    # Private: the built Compton config instance (+ params it was built
+    # with), cached so XigmaAdapter.run() can stash it for
+    # spectrum_in_angular_range()'s on-demand recompute without
+    # restructuring the module-function/adapter split above. Not part of
+    # the model_api.CommonResults contract. _compton is TabulatedEngine's
+    # config source (never anything else -- it runs no compute itself);
+    # _engine/_device are cached the same way for
     # spectrum_in_angular_range's on-demand angular-spectrum recompute.
     _compton: object | None = None
     _gamma_0: float | None = None
@@ -195,19 +190,12 @@ _TRUST_NOTE = (
     "cross-code validation, no guaranteed run-to-run reproducibility, "
     "crossing-angle and astigmatic-laser geometries not modeled. All "
     "outputs -- total yield, angle-integrated spectrum, angular spectrum, "
-    "temporal envelope, spatial distribution -- are now computed by the "
-    "newer tabulated-energy path (see tabulated_engine.py / CLAUDE.md "
-    "plan.md Phase 2 Stages B and C); core.Compton is used only as a "
-    "config-bag (parameter setters), none of its GPU kernels are called "
-    "anymore. Runs on a CUDA GPU if one is available, else falls back to a "
-    "CPU/numba implementation of the same kernels -- numerically validated "
-    "against the GPU kernels but noticeably slower. Temporal envelope / "
-    "spatial distribution were cross-checked against the original "
-    "core.Compton kernels' output on the same bin edges (shape correlation "
-    "0.9986 / 0.93 respectively); the spatial correlation is imperfect, "
-    "plausibly a real difference between the two paths' Stage-0 sampling "
-    "schemes rather than a bug, not investigated further -- see "
-    "tabulated_engine.py's module docstring."
+    "temporal envelope, spatial distribution -- come from the tabulated-"
+    "energy pipeline (particles.py/deposition.py/spectrum4d.py/"
+    "reference.py/tabulated_engine.py, see CLAUDE.md). Runs on a CUDA GPU "
+    "if one is available, else falls back to a CPU/numba implementation of "
+    "the same kernels -- numerically validated against the GPU kernels but "
+    "noticeably slower."
 )
 
 
@@ -218,13 +206,10 @@ def capabilities() -> dict:
         requires_gpu=False,
         supports_crossing_angle=False,
         supports_quantum_toggle=False,
-        # False since plan.md Phase 2 Stage B: emulate_nonlinearity only ever
-        # affected calculate_spectrum/calculate_angular_spectrum, both now
-        # replaced by the new tabulated path's total_yield/spectrum/
-        # angular_spectrum (which have no equivalent switch -- a0 is a real
-        # table axis there, not a phenomenological correction). Config still
+        # emulate_nonlinearity has no effect: a0 is a real table axis in
+        # this pipeline, not a phenomenological correction. Config still
         # accepts and parses the field (harmless, for interface stability);
-        # it just no longer changes anything this adapter reports.
+        # it just doesn't change anything this adapter reports.
         supports_nonlinearity_emulation=False,
         supports_electron_final_state=False,
         supports_photon_multiplicity=False,
@@ -241,12 +226,12 @@ def capabilities() -> dict:
 
 
 def available() -> tuple[bool, str]:
-    """True if either backend core.Compton supports can actually run: a real
-    CUDA GPU (cupy + a visible device), or the CPU/numba fallback (see
-    core.py's device auto-detection, core_cpu.py's kernels). Only returns
-    False -- greying out the model in the GUI -- if neither works."""
+    """True if either supported backend can actually run: a real CUDA GPU
+    (cupy + a visible device), or the CPU/numba fallback (see
+    config._detect_device). Only returns False -- greying out the model in
+    the GUI -- if neither works."""
     try:
-        from .core import _detect_device
+        from .config import _detect_device
         _detect_device()
     except Exception as e:
         return False, str(e)
@@ -258,7 +243,7 @@ def _backend_note() -> str:
     -- not part of the ModelAdapter contract, just a convenience for callers
     that want to show e.g. "running on CPU (numba)" in the UI."""
     try:
-        from .core import _detect_device
+        from .config import _detect_device
         return _detect_device()
     except Exception:
         return "unavailable"
@@ -366,24 +351,18 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
-# TabulatedEngine.run()'s Stage 0/1 sizing for GUI use. Unlike the legacy
-# path's particles_amount (an importance-sampled grid-cell weight, clamped
-# below against calculate_intersection's O(particles_amount * theta_num^2)
-# cost model), the new path's cost is close to linear in n_particles*n_steps
-# for Stage 0/1 and independent of n_particles for Stage 2's quadrature --
-# a different cost model, so the legacy clamp range doesn't transfer
-# directly. These are a first-cut, deliberately not profiled against an
-# actual interactive GUI session (plan.md Phase 2 Stage B flags this
-# explicitly: "profile rather than guess") -- revisit with real timings
-# before trusting them at the high end of the n_mc range.
+# TabulatedEngine.run()'s Stage 0/1 sizing for GUI use. Cost is close to
+# linear in n_particles*n_steps for Stage 0/1 and independent of
+# n_particles for Stage 2's quadrature. These are a first-cut, deliberately
+# not profiled against an actual interactive GUI session -- revisit with
+# real timings before trusting them at the high end of the n_mc range.
 _N_PARTICLES_NEW_MIN = 20_000
 _N_PARTICLES_NEW_MAX = 150_000
 _N_STEPS_NEW = 64
 _N_BINS_NEW = (48, 48, 48, 12)
 _SAMPLES_PER_POINT_NEW = 32
-# Stage C (temporal_envelope/spatial_distribution): matches core.py's own
-# N_STEPS=128/N_SPATIAL=64 resolution for a roughly comparable-fidelity
-# display, not independently profiled.
+# temporal_envelope/spatial_distribution resolution -- a reasonable-looking
+# display size, not independently profiled.
 _N_TIME_BINS_NEW = 128
 _N_SPATIAL_BINS_NEW = (64, 64)
 
@@ -418,21 +397,17 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         raise ValueError(
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
-    from .core import Compton, _detect_device
+    from .config import Compton, _detect_device
     from .tabulated_engine import TabulatedEngine
 
     device = _detect_device()
     compton = Compton(device=device)
     xp = compton.xp
 
-    # Best-effort reseed of core.py's global xp.random calls (cupy on GPU,
-    # numpy on the CPU/numba fallback). Not guaranteed bit-exact across
-    # GPU/driver/cupy versions, or between the GPU and CPU backends -- see
+    # Best-effort reproducibility: particles.sample_bunch takes an explicit
+    # rng, not a global seed -- not guaranteed bit-exact across GPU/driver/
+    # cupy versions or between the GPU and CPU backends, see
     # capabilities()'s supports_seed_reproducibility=False.
-    xp.random.seed(seed)
-    # The new path's Stage 0 (particles.sample_bunch) takes an explicit rng
-    # instead of reading a global seed -- same best-effort reproducibility
-    # caveat as above, not a stronger guarantee.
     rng = np.random.default_rng(seed)
 
     compton.set_electron_parameters(
@@ -451,39 +426,29 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     sigma_gamma_0 = cfg.sigma_eps
 
     # Total yield, angle-integrated spectrum, angular spectrum, temporal
-    # envelope, and spatial distribution all now come from the new
-    # tabulated-energy path (plan.md Phase 2 Stages B and C) -- core.Compton
-    # is no longer used for anything beyond the config-bag TabulatedEngine
-    # wraps (set_electron_parameters/set_laser_parameters/
-    # set_foci_displacement above); none of its calculate_*/GPU-kernel
-    # methods are called in this function anymore.
-    # cfg.emulate_nonlinearity is now inert: it only ever affected the
-    # legacy calculate_spectrum/calculate_angular_spectrum, and the new
-    # path has no equivalent switch at all, since a0 is a real table axis
-    # there, not a phenomenological correction (see spectrum4d.py's module
-    # docstring). Still read into summary below and still validated/parsed
-    # by params_to_config -- just doesn't change any output anymore.
+    # envelope, and spatial distribution all come from TabulatedEngine --
+    # `compton` is used only as its config-bag (set_electron_parameters/
+    # set_laser_parameters/set_foci_displacement above); it runs no compute
+    # of its own.
+    # cfg.emulate_nonlinearity has no effect here: a0 is a real table axis
+    # in this pipeline, not a phenomenological correction (see
+    # spectrum4d.py's module docstring). Still read into summary below and
+    # still validated/parsed by params_to_config, for interface stability.
     engine = TabulatedEngine(compton)
     push_backend = 'cupy' if device == 'gpu' else 'numpy'
     # ``n_mc`` here is a quadrature-sampling density for the beam-laser
     # overlap integral, not a per-electron event count (see the warning
     # raised in params_to_config) -- clamped to _N_PARTICLES_NEW_MIN/MAX
-    # regardless of what the GUI field says (see that constant's comment
-    # for the new path's different cost model / why the clamp range differs
-    # from the legacy path's).
+    # regardless of what the GUI field says.
     n_particles_new = int(np.clip(int(n_mc), _N_PARTICLES_NEW_MIN, _N_PARTICLES_NEW_MAX))
     engine.run(n_particles_new, gamma_0, sigma_gamma_0, n_steps=_N_STEPS_NEW,
                n_bins=_N_BINS_NEW, backend=push_backend, rng=rng,
                n_time_bins=_N_TIME_BINS_NEW, n_spatial_bins=_N_SPATIAL_BINS_NEW)
     total_yield = engine.total_yield
 
-    # Temporal envelope / spatial distribution (plan.md Phase 2 Stage C) --
-    # engine.temporal_envelope/.spatial_distribution are already the same
-    # physical convention (rate vs seconds; areal density vs cm) as
-    # core.Compton's former env_ts/time_envelope/spatial_x_edges/
-    # spatial_y_edges/spatial_envelope, see tabulated_engine.py's module
-    # docstring for the cross-validation this was checked against. Convert
-    # cm/photons-per-cm^2 to SI (m/photons-per-m^2) same as before.
+    # engine.temporal_envelope/.spatial_distribution: rate vs seconds /
+    # areal density vs cm -- see tabulated_engine.py's module docstring.
+    # Convert cm/photons-per-cm^2 to SI (m/photons-per-m^2).
     t_seconds, rate = engine.temporal_envelope
     temporal_envelope = BinnedTemporalEnvelope(t_seconds=t_seconds, rate=rate)
 

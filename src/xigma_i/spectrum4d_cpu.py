@@ -3,33 +3,29 @@ used as the fallback compute backend when no CUDA GPU is available (see
 calculate_angular_spectrum_4d's `device` handling in spectrum4d.py).
 
 This module never imports cupy -- only numpy and (lazily) numba, so it stays
-importable on a machine with no CUDA/cupy at all, mirroring core_cpu.py.
+importable on a machine with no CUDA/cupy at all.
 
-Like core_cpu.py's spectrum_kernel_cpu, this is a deliberate, literal
-transliteration of spectrum_kernel_4d: same annulus/ring/arc geometry (shared
-with the legacy kernel, per spectrum4d.py's own module docstring), same
-inverse-CDF phi sampling, same drop-the-thread-bookkeeping simplification
-(parallelize over out_idx via numba.prange, loop directly over
-(arc, sample, subsample) triples instead of the GPU's round-robin thread
-scheduling). Two things are genuinely new relative to core_cpu.py's port, not
-just copied:
-
-  1. Quadrilinear (not bilinear) interpolation of H over
-     (gamma, theta_x, theta_y), using the grid scalars unpacked by
-     calculate_angular_spectrum_4d the same way the GPU kernel does.
-  2. A nested a0-quadrature loop inside the final evaluation: each a0 bin
-     resonates at its own gamma (eq. "Gamma") and picks up its own Jacobian
-     factor 1/(1+a0) in the prefactor (eq. "Fmatrix") -- g/prefac are
-     recomputed *inside* the a0 loop, not shared across bins. This is exactly
-     the bug spectrum4d.py's module docstring flags as previously gotten
-     wrong once; ported line-for-line from the GPU kernel's actual loop
-     structure, not re-derived from physical intuition.
+A deliberate, literal transliteration of spectrum_kernel_4d: same annulus/
+ring/arc geometry, same inverse-CDF phi sampling, restructured from CUDA's
+grid/block/shared-memory/syncthreads model into plain serial-per-work-item
+code parallelised with numba.prange over out_idx (each GPU block computes
+one, fully independent, output point, so a serial loop over out_idx is
+exactly equivalent to the GPU's parallel-per-block version). The GPU
+kernel's `thread_samples`/round-robin sample-to-thread scheduling is
+dropped entirely -- that existed purely to load-balance across 128 GPU
+threads and doesn't affect the numeric result (a straight sum over all
+(arc, sample, subsample) triples), so this port just loops directly over
+them. Quadrilinear (not bilinear) interpolation of H over (gamma, theta_x,
+theta_y), and the nested a0-quadrature loop inside the final evaluation
+(g/prefac recomputed *inside* the a0 loop, not shared across bins -- see
+spectrum4d.py's module docstring for why that matters) are ported
+line-for-line from the GPU kernel's actual loop structure, not re-derived
+from physical intuition.
 
 The two zero-weight guards spectrum4d.py's docstring calls out (inv_cdf
 falling back to a cell's left edge on a flat CDF; sample_area contributing
 zero instead of x/0) are carried over unchanged -- H is a sparse
-finite-particle deposition and can have exact-zero cells, unlike the legacy
-kernel's smooth analytic `collision`.
+finite-particle deposition and can have exact-zero cells.
 
 Goal is numerical parity with the real GPU kernel for the same inputs --
 validate any change here against spectrum4d.py's actual GPU kernel on a CUDA
@@ -41,7 +37,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .core import (
+from .config import (
     MAX_RINGS, MAX_ARCS, N_RINGS_MIN, PHI_EDGES, PHI_CELLS,
     CDF_PHI_RESOLUTION, SAMPLES_TOTAL, R_MAX_NUDGE, PHI,
 )
@@ -178,10 +174,11 @@ def get_spectrum_kernel_4d_cpu():
                             phi_cur1 = INVAL
                             n_arcs_ring += 1
 
-                    # 4th<->1st quadrant merge -- see core_cpu.py's identical
-                    # note: this only ever fires when n_arcs_ring is still 0,
-                    # in which case it patches a phi_min that's never read
-                    # since rings_n[r_idx] stays 0 below. Kept faithfully.
+                    # 4th<->1st quadrant merge -- a GPU-side quirk kept
+                    # faithfully for parity: this only ever fires when
+                    # n_arcs_ring is still 0, in which case it patches a
+                    # phi_min that's never read since rings_n[r_idx] stays
+                    # 0 below.
                     if phi_cur0 > -1000.0 and rings_phimin[r_idx * 4 + 0] < -1000.0:
                         rings_phimin[r_idx * 4 + 0] = phi_cur0 - two_pi
 

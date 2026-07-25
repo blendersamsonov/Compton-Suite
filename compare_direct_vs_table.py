@@ -1,13 +1,13 @@
 """Debug/validation script: compare direct_binning_spectrum against
-spectrum_from_table at a single observation point, for a configurable
-electron/laser setup.
+spectrum_from_table (and optionally spectrum_kernel_4d) at a single
+observation point, for a configurable electron/laser setup.
 
 Both are supposed to converge to the same dN/(ds dOmega) at a fixed
 observation direction (x0, y0), from the same bunch -- one via the raw
 macroparticles directly (direct_binning_spectrum), one via the binned/
 interpolated 4D table H (spectrum_from_table). See CLAUDE.md and
-reference.py's module docstring for the derivation and the currently-open
-~20000-40000x single-point discrepancy this script is built to investigate.
+reference.py's module docstring for the derivation and current validation
+status.
 
 Usage:
     conda run -n xigma python compare_direct_vs_table.py [options]
@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
-from xigma_i.core import Compton
+from xigma_i.config import Compton
 from xigma_i import particles, deposition, reference, spectrum4d
 
 
@@ -96,7 +96,7 @@ def parse_args():
                           "direct_binning_spectrum over a coarse (x0,y0) grid and compare the angle-"
                           "integrated result against the trusted angle_integrated_spectrum -- decisive "
                           "near the Compton edge, where the small-angle approximation both methods use "
-                          "is actually valid (see CLAUDE.md / this session's discussion)")
+                          "is actually valid (see CLAUDE.md)")
     pg.add_argument("--grid-n", type=int, default=21, help="grid points per axis (coarse is fine near the edge)")
     pg.add_argument("--grid-halfwidth-sigma", type=float, default=6.0,
                      help="grid half-width in units of theta_x's RMS divergence")
@@ -120,7 +120,7 @@ def build_compton(args):
 
     wl = args.wl
     if wl is None:
-        # a0 ~ WL linearly (see core.py set_laser_parameters); solve by a quick probe.
+        # a0 ~ WL linearly (see config.Compton.set_laser_parameters); solve by a quick probe.
         compton.set_laser_parameters(WL=1.0, lambda_l=args.lambda_l, sigma_lr0=args.sigma_lr0,
                                       sigma_lz=args.sigma_lz, beta_ff=args.beta_ff, ellipticity=args.ellipticity)
         wl = args.a0_target / compton.a0 if compton.a0 > 0 else 1.0

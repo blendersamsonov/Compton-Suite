@@ -15,10 +15,10 @@ converts a 'shape' table into a spectrum-ready 'ahat' table for a specific
 a0 via a cheap rebin, without re-running Stage 0/1 -- see its docstring.
 spectrum4d/reference's table consumers require a0_kind='ahat' and assert it.
 
-Consumes the per-timestep samples produced by particles.push_and_sample and
-bins them into the tabulated overlap function described in plan.md /
-CLAUDE.md "Planned work". Two deposition schemes share the grid/indexing
-logic and differ only in the weight-distribution step:
+Consumes the per-particle samples produced by particles.push_and_sample and
+bins them into the tabulated overlap function H. Two deposition schemes
+share the grid/indexing logic and differ only in the weight-distribution
+step:
 
   - nearest: single-cell binning.
   - cic:     cloud-in-cell, 16-neighbour trilinear... quadrilinear weights.
@@ -39,9 +39,9 @@ supports for free. Removed.)
 xp is auto-detected from the input arrays (cp.get_array_module) or forced
 via build_table(..., device='cpu'|'gpu'). Batching (build_table(...,
 batch_size=...)) converts+deposits host arrays in chunks so peak GPU
-memory is bounded independent of how many samples Stage 0 produced ("table
-stays resident; particles stream through" -- plan.md), by accumulating
-into a running resident H/occupancy rather than materialising the whole
+memory is bounded independent of how many samples Stage 0 produced (the
+table stays resident; particles stream through), by accumulating into a
+running resident H/occupancy rather than materialising the whole
 input on the GPU at once.
 
 build_table's batching still assumes the full (gamma, theta_x, theta_y, a0,
@@ -66,10 +66,10 @@ import numpy as np
 
 # cupy/cupyx are optional at import time -- this module must stay importable
 # on a machine with no CUDA GPU (and possibly no cupy install at all) so that
-# TabulatedEngine/build_table(..., device='cpu') work without cupy, the same
-# way core.py's CPU fallback does (see core.py's/spectrum4d.py's identical
-# guard). Only the GPU branches below (cupyx.scatter_add, cp.get_array_module
-# on actually-cupy input, cp.get_default_memory_pool) need it.
+# TabulatedEngine/build_table(..., device='cpu') work without cupy (same
+# guard pattern as spectrum4d.py). Only the GPU branches below
+# (cupyx.scatter_add, cp.get_array_module on actually-cupy input,
+# cp.get_default_memory_pool) need it.
 try:
     import cupy as cp
     import cupyx
@@ -405,8 +405,8 @@ def _deposit(scheme, grid, gamma, theta_x, theta_y, a0, weight, *, xp, accumulat
 def gamma_bracket(H, grid, q=1e-4):
     """Lowest/highest gamma at which the table has non-negligible content,
     as the q and 1-q quantiles of the gamma marginal (not raw min/max, so
-    isolated stray particles don't inflate the domain). See plan.md Stage 2
-    "Annulus brackets from the table". H must be a host (numpy) array.
+    isolated stray particles don't inflate the domain). H must be a host
+    (numpy) array.
     """
     gamma_centers = grid.centers[0]
     marginal = H.sum(axis=(1, 2, 3))
@@ -538,8 +538,7 @@ def build_table(gamma, theta_x, theta_y, a0, weight, *, grid=None, scheme='neare
     accumulate_dtype: np.float64 by default on both CPU and GPU (cupyx.
         scatter_add supports float64 natively); pass np.float32 for less
         memory/faster on very large depositions, and compare against the
-        float64 result via check_accumulation_precision per plan.md's
-        "Accumulation precision" guidance if in doubt.
+        float64 result via check_accumulation_precision if in doubt.
     a0_kind: 'ahat' (default) if `a0` is the physical trajectory-averaged
         intensity for one specific a0 (e.g. from an older push_and_sample, or
         push_and_sample's a0_shape output pre-multiplied by a chosen a0**2).

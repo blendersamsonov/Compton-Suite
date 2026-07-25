@@ -1,40 +1,23 @@
-"""GUI-facing engine on the new tabulated-energy path (particles.py/
+"""GUI-facing engine on the tabulated-energy pipeline (particles.py/
 deposition.py/spectrum4d.py/reference.py), covering everything
 gui_adapter.py needs: total yield, angle-integrated spectrum, angular
-spectrum, angular-range spectrum (plan.md Phase 2 Stage B), and now
-temporal envelope / spatial distribution too (Stage C).
+spectrum, angular-range spectrum, temporal envelope, spatial distribution.
 
-Deliberately not named Compton, to avoid colliding with/shadowing
-core.Compton (which this module now only uses as a config-bag -- see
-below, no calculate_*/GPU-kernel method of core.Compton is called
-anywhere in this module): TabulatedEngine wraps an existing, already
-`set_electron_parameters`/`set_laser_parameters`/`set_foci_displacement`-
-configured core.Compton instance purely for its config-bag properties
-(k0_las, Wph, N_l, a0, beta_ff, ellipticity, sigma_ex/sigma_ey, ...) --
-particles.sample_bunch/push_and_sample already take a `compton` object as
-their parameter source, so this is reuse, not a new dependency.
+`TabulatedEngine` wraps an already-configured `config.Compton` instance
+purely for its config-bag properties (k0_las, Wph, N_l, a0, beta_ff,
+ellipticity, sigma_ex/sigma_ey, ...) -- particles.sample_bunch/
+push_and_sample already take a `compton` object as their parameter source,
+so this is reuse, not a new dependency. `compton` itself runs no
+computation; all of it happens in this class's `.run()`/property methods.
 
-Stage C (temporal_envelope/spatial_distribution properties below):
-particles.push_and_sample's n_time_bins/n_spatial_bins bin the exact same
-per-timestep `contribution` array that already gets summed into `weight`
-(L), during the same trajectory-integration loop -- not a second pass, and
-not per-timestep a0 sampling (see push_and_sample's/CLAUDE.md's "a0 is a
-trajectory average" warnings, which are about a0 specifically, not time/
-space; time and space are orthogonal axes with no such regime-validity
-caveat). Cross-validated against core.Compton.calculate_intersection's
-time_envelope/spatial_envelope on the same bin edges: time_envelope shape
-correlation 0.9986, spatial_envelope shape correlation 0.93 (weaker --
-plausibly a real difference between the two paths' Stage-0 sampling
-schemes, legacy's importance-sampled truncated grid vs this path's true
-untruncated draw, not investigated further). Absolute-scale comparison
-against legacy's time_envelope specifically was inconclusive: unlike
-spatial_envelope (which core.py explicitly self-normalises against
-calculate_total() before returning), core.py's time_envelope has no
-equivalent rescale, and its integral did not match calculate_total() in
-this cross-check -- flagged as a possible pre-existing legacy-path
-normalisation gap, not fixed here (out of scope: fixing core.py is not
-part of Stage C). This module's own temporal_envelope needs no such
-rescale: it's built from the same already-correctly-normalised
+temporal_envelope/spatial_distribution: particles.push_and_sample's
+n_time_bins/n_spatial_bins bin the exact same per-timestep `contribution`
+array that already gets summed into `weight` (L), during the same
+trajectory-integration loop -- not a second pass, and not per-timestep a0
+sampling (see push_and_sample's/CLAUDE.md's "a0 is a trajectory average"
+warnings, which are about a0 specifically; time and space are orthogonal
+axes with no such regime-validity caveat). Needs no post-hoc rescale to
+reproduce total_yield: built from the same already-correctly-normalised
 `contribution` array L sums over time, so it integrates to total_yield
 exactly by construction -- verified numerically, not just asserted.
 """
@@ -85,8 +68,8 @@ class TabulatedEngine:
         deposition.Table's docstring), so `backend` only matters for the
         raw gamma/weight arrays this class keeps for `.spectrum()`.
 
-        n_time_bins/n_spatial_bins (plan.md Phase 2 Stage C, optional):
-        forwarded to push_and_sample -- when given, populates
+        n_time_bins/n_spatial_bins (optional): forwarded to
+        push_and_sample -- when given, populates
         `.temporal_envelope`/`.spatial_distribution` (None otherwise). The
         auto-derived bunch-wide time/spatial windows are used (no
         t_edges/spatial_edges override exposed here; construct via
@@ -118,18 +101,13 @@ class TabulatedEngine:
 
     @property
     def total_yield(self):
-        """table.total_weight -- validated to 1-3% against core.Compton's
-        calculate_total() by construction (deposition.py Stage 1, see
-        CLAUDE.md "Current state"); retarget_a0 preserves it exactly."""
+        """table.total_weight -- retarget_a0 preserves it exactly."""
         return float(self.table.total_weight)
 
     @property
     def temporal_envelope(self):
         """(t_seconds, rate) bin-center arrays -- photon-emission rate vs
-        time, same physical convention as core.Compton's env_ts/
-        time_envelope (see module docstring for the cross-validation this
-        was checked against). None if .run() wasn't called with
-        n_time_bins."""
+        time. None if .run() wasn't called with n_time_bins."""
         if self.diagnostics is None or self.diagnostics.time_envelope is None:
             return None
         edges = self.diagnostics.t_edges
@@ -139,9 +117,8 @@ class TabulatedEngine:
     @property
     def spatial_distribution(self):
         """(x_centers, y_centers, density) -- transverse areal density
-        [photons/cm^2], same physical convention as core.Compton's
-        spatial_x_edges/spatial_y_edges/spatial_envelope. None if .run()
-        wasn't called with n_spatial_bins."""
+        [photons/cm^2]. None if .run() wasn't called with
+        n_spatial_bins."""
         if self.diagnostics is None or self.diagnostics.spatial_envelope is None:
             return None
         x_edges, y_edges = self.diagnostics.spatial_x_edges, self.diagnostics.spatial_y_edges
@@ -160,8 +137,8 @@ class TabulatedEngine:
     def angular_spectrum(self, s, theta_x, theta_y, phi_pol,
                           samples_per_point=32, device=None):
         """d2N/(ds dOmega) grid -- spectrum4d.calculate_angular_spectrum_4d
-        on this run's table, auto-selecting the GPU or CPU kernel per
-        plan.md Phase 2 Stage A unless `device` is given explicitly.
+        on this run's table, auto-selecting the GPU or CPU kernel unless
+        `device` is given explicitly.
         `theta_x`/`theta_y`/`s` must already be `cp`/`np` arrays matching
         the chosen device, same convention as calculate_angular_spectrum_4d
         itself (caller converts via `xp.asarray`, not this method)."""

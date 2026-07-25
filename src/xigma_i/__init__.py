@@ -1,4 +1,3 @@
-# src/CRossS/__init__.py
-from .core import Compton
+from .config import Compton
 
 __all__ = ['Compton']

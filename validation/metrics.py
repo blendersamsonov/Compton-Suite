@@ -1,5 +1,5 @@
-"""The single error metric used by every figure (plan.md Sec. 0: "Do not
-switch metrics between figures").
+"""The single error metric used by every figure -- do not switch metrics
+between figures.
 
 Convention: bin the spectrum into windows of width `mu` (the reporting
 resolution), integrate flux within each window (trapezoidal in `s`), and

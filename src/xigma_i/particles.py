@@ -1,58 +1,45 @@
 """Stage 0: macroparticle source and ballistic pusher.
 
 Produces, for a bunch of macroparticles pushed ballistically through the
-laser pulse, per-timestep samples (gamma, theta_x, theta_y, a0, weight)
+laser pulse, per-particle samples (gamma, theta_x, theta_y, a0, weight)
 consumed by Stage 1 deposition (see deposition.py) to build the 4D overlap
-table H[gamma, theta_x, theta_y, a0] described in plan.md.
+table H[gamma, theta_x, theta_y, a0].
 
-Naming note: plan.md calls the transverse momentum angles theta_y/theta_z
-(treating x as the beam axis). core.py's existing convention -- reused here
-for consistency with the rest of the file -- has z as the beam axis and
-theta_x/theta_y as the transverse momentum angles p_{x,y}/gamma. These are
-the same two physical angles under different labels; the physics below is
-unaffected by the choice of name.
+z is the beam axis, theta_x/theta_y are the transverse momentum angles
+p_{x,y}/gamma (same convention throughout this package).
 
-Unlike particle_kernel (which uses the angle *grid cell* to supply theta and
-an efficiency-motivated importance-sampled/truncated x0,y0,z0 domain), this
-module draws every quantity -- position, angle, energy -- directly from its
-true (untruncated) distribution. That trades sampling efficiency for a
-normalisation that requires no correction factors (no f_th weighting, no
-z_weight/dsx/dsy trims), which is the right trade for a slow, correctness-
-first reference path (see plan.md "Build order").
+Every quantity -- position, angle, energy -- is drawn directly from its
+true (untruncated) distribution, rather than an efficiency-motivated
+importance-sampled/truncated domain. That trades sampling efficiency for a
+normalisation that requires no correction factors (no cell-weighting, no
+domain-truncation trims), the right trade for a Monte Carlo path meant to
+be simple to reason about and validate independently.
 """
 import numpy as np
 from dataclasses import dataclass
 
-from .core import GAUSS_WIDTH, LORENTZ_WIDTH
+from .config import GAUSS_WIDTH, LORENTZ_WIDTH
 
-V_REL = 2.0  # relative-velocity factor for near-backscattering geometry, see core.py calculate_intersection
+V_REL = 2.0  # relative-velocity factor for near-backscattering geometry
 
 
 @dataclass
 class PushDiagnostics:
-    """Optional per-timestep binned outputs from push_and_sample (plan.md
-    Phase 2 Stage C), riding along the same trajectory-integration loop
-    that produces L/a0_shape -- see push_and_sample's n_time_bins/
-    n_spatial_bins. Fields stay None for whichever wasn't requested.
+    """Optional per-timestep binned outputs from push_and_sample, riding
+    along the same trajectory-integration loop that produces L/a0_shape --
+    see push_and_sample's n_time_bins/n_spatial_bins. Fields stay None for
+    whichever wasn't requested.
 
-    Physical content/units match core.py's Compton.calculate_intersection
-    time_envelope/spatial_envelope: time_envelope is a photon-emission
-    RATE (photons/s) vs t_edges (seconds, N+1 edges for N bins);
-    spatial_envelope is an areal DENSITY (photons/cm^2) vs
-    spatial_x_edges/spatial_y_edges (cm). Nearest-cell binned (matching
-    deposition.py's 'nearest' scheme) -- a deliberate simplification, not
-    parity with core.py's particle_kernel, which linearly smooths between
-    adjacent bins.
+    time_envelope is a photon-emission RATE (photons/s) vs t_edges
+    (seconds, N+1 edges for N bins); spatial_envelope is an areal DENSITY
+    (photons/cm^2) vs spatial_x_edges/spatial_y_edges (cm). Nearest-cell
+    binned (matching deposition.py's 'nearest' scheme).
 
-    Unlike core.py's time_envelope/spatial_envelope (which need a post-hoc
-    self-normalisation rescale against calculate_total(), since their
-    shared `coef` bakes in an angular-Gaussian normalisation that doesn't
-    apply to a spatial density -- see calculate_intersection's comments),
-    these need no such correction: they're built by binning the exact same
-    per-timestep `contribution` array that L already sums over time (no
-    angular-grid/truncated-domain normalisation baked in to begin with, see
-    push_and_sample's docstring), so summing either histogram over all bins
-    reproduces sum(L) exactly by construction.
+    Needs no post-hoc rescale to reproduce total_yield: both histograms
+    bin the exact same per-timestep `contribution` array that L already
+    sums over time (no angular-grid/truncated-domain normalisation baked
+    in to begin with, see push_and_sample's docstring), so summing either
+    histogram over all bins reproduces sum(L) exactly by construction.
     """
     t_edges: object = None
     time_envelope: object = None
@@ -79,8 +66,7 @@ def _weighted_bincount(idx, val, n, xp):
 def _resolve_time_range(t0_local, t1_local, t_edges, n_time_bins, xp):
     """(t_lo, t_hi, n_time_bins) in k0_las*c*t units -- t_edges verbatim if
     given, else the bunch-wide window (min of every particle's own t0_local,
-    max of every particle's own t1_local), the same aggregation
-    core.py's calculate_intersection uses for its shared t_start/t_end."""
+    max of every particle's own t1_local)."""
     if t_edges is not None:
         return float(t_edges[0]), float(t_edges[-1]), len(t_edges) - 1
     t_lo = float(xp.min(t0_local))
@@ -90,9 +76,8 @@ def _resolve_time_range(t0_local, t1_local, t_edges, n_time_bins, xp):
 
 def _resolve_spatial_range(compton, spatial_edges, n_spatial_bins):
     """(sx_lo, sx_hi, sy_lo, sy_hi, nsx, nsy) in k0_las-normalised units --
-    spatial_edges=(x_edges, y_edges) verbatim if given, else the same
-    "few sigma of whichever of the electron beam / laser waist is larger"
-    window core.py's calculate_intersection derives its spatial grid from."""
+    spatial_edges=(x_edges, y_edges) verbatim if given, else a "few sigma
+    of whichever of the electron beam / laser waist is larger" window."""
     if spatial_edges is not None:
         x_edges, y_edges = spatial_edges
         return (float(x_edges[0]), float(x_edges[-1]),
@@ -150,10 +135,10 @@ def _bin_spatial(contribution, x, y, spatial_edges, n_spatial_bins, k0_las, comp
 class Bunch:
     """Macroparticles with real per-particle energy and momentum angles.
 
-    x0, y0, z0 are k0_las-normalised positions (same convention as core.py's
-    `particles` array). gamma, theta_x, theta_y are true per-particle values
-    -- not grid-supplied. weight is the number of physical electrons
-    represented by each macroparticle (uniform across the bunch).
+    x0, y0, z0 are k0_las-normalised positions. gamma, theta_x, theta_y are
+    true per-particle values -- not grid-supplied. weight is the number of
+    physical electrons represented by each macroparticle (uniform across
+    the bunch).
     """
     x0: np.ndarray
     y0: np.ndarray
@@ -249,7 +234,7 @@ def push_and_sample(compton, bunch, n_steps=200, backend='numpy', *,
     Returns arrays (gamma, theta_x, theta_y, a0_shape, weight) of length
     n_particles, ready for Stage 1 deposition. gamma/theta_x/theta_y are
     constant per particle (no pusher acceleration -- straight-line
-    trajectories, matching particle_kernel).
+    trajectories).
 
     a0_shape here is NOT the instantaneous local field amplitude, and (new)
     NOT the physical trajectory-averaged effective intensity ahat either --
@@ -293,20 +278,17 @@ def push_and_sample(compton, bunch, n_steps=200, backend='numpy', *,
                 v_rel * n_ph_shape(t, r) * dt * weight_macro * sigma_T *
                 k0_las**2 * N_l
     i.e. the luminosity functional L(zeta) (Paper/xigma.tex eq. "lumfun"),
-    the same physical content as particle_kernel's `f_cur` summed over time,
-    scaled by the constants that calculate_intersection applies afterwards
-    via `coef` -- minus the angular-grid normalisation
-    (2*pi*sigma_thx*sigma_thy) and the position-truncation corrections
-    (z_weight, dsx, dsy), neither of which apply here since positions/angles
-    are drawn from their true distributions rather than an importance-sampled
-    truncated domain.
+    already fully CGS-normalised -- no angular-grid normalisation
+    (2*pi*sigma_thx*sigma_thy) or position-truncation correction needed,
+    since positions/angles are drawn from their true distributions rather
+    than an importance-sampled truncated domain.
 
     n_steps sets the trajectory-integration resolution for L and a0_shape
     (not the output array length, which is always n_particles).
 
-    n_time_bins/t_edges, n_spatial_bins/spatial_edges (plan.md Phase 2
-    Stage C): opt-in temporal-envelope / spatial-distribution diagnostics,
-    binned during this same trajectory-integration loop (see
+    n_time_bins/t_edges, n_spatial_bins/spatial_edges: opt-in
+    temporal-envelope / spatial-distribution diagnostics, binned during
+    this same trajectory-integration loop (see
     PushDiagnostics). Backward compatible by construction: if neither is
     given (the default), the return value is unchanged, the plain
     (gamma, theta_x, theta_y, a0_shape, weight) 5-tuple every existing
@@ -350,11 +332,11 @@ def _push_and_sample_vectorized(compton, bunch, n_steps, xp,
     transferred once at the top and results stay on-device.
 
     n_time_bins/t_edges/n_spatial_bins/spatial_edges: see push_and_sample's
-    docstring (plan.md Phase 2 Stage C) -- binned here, after `contribution`
-    (the same (n, n_steps) array L sums over time) is computed, since that's
+    docstring -- binned here, after `contribution` (the same (n, n_steps)
+    array L sums over time) is computed, since that's
     the exact quantity being partitioned differently rather than collapsed.
     """
-    from .core import sigma_T
+    from .config import sigma_T
 
     k0 = compton.k0_las
     beta_ff = compton.beta_ff
@@ -495,7 +477,7 @@ def _push_and_sample_numba(compton, bunch, n_steps):
     both wall-clock (multiple CPU cores) and peak memory (no O(n_particles *
     n_steps) temporaries) at large problem sizes.
     """
-    from .core import sigma_T
+    from .config import sigma_T
 
     k0 = compton.k0_las
     beta_ff = compton.beta_ff
