@@ -70,6 +70,8 @@ from compton_guide.physics_constants import C_LIGHT, E_CHARGE, HBAR, EPS0, MEC2_
 from compton_guide.model_api import ModelAdapter, SampledSpectrum, validate_results
 from compton_guide.models import discover_models
 
+from compton_io.bunch import beam_from_shared_fields, sample_gaussian_bunch
+
 # panel colours
 BLUE = "#d6e4f5"
 RED = "#f5d6d6"
@@ -790,14 +792,37 @@ class ComptonGuideApp(tk.Tk):
         if extra["warnings"]:
             messagebox.showwarning("Model note", "\n\n".join(extra["warnings"]))
 
-        # If a 6-D .ele file was loaded we override the per-particle
-        # sampling inside ``run_simulation`` with the loaded bunch and use
-        # the bunch length as the effective ``n_mc``.
-        electrons = None
+        # Electron sampling is the IO layer's job, not each model's own --
+        # the GUI draws ONE canonical MacroBunch here (via compton_io) and
+        # passes it to every model uniformly, rather than leaving
+        # electrons=None and letting each engine fall back to its own
+        # independent internal sampler (kascade's sample_initial_electrons,
+        # xigma_i/xigma_direct's particles.sample_bunch) -- those still
+        # exist as each engine's own standalone-library fallback, but the
+        # GUI's Calculate button no longer exercises them by default.
+        # If a 6-D .ele file was loaded, that takes precedence and IS the
+        # bunch (no sampling needed); its length becomes the effective
+        # ``n_mc``.
         n_mc = int(extra["n_mc"])
         if self.loaded_bunch is not None:
             electrons = self.loaded_bunch
             n_mc = self.loaded_bunch.n_particles
+        else:
+            # xigma-i/xigma-i-direct size their own Stage 0 sample from
+            # their model-specific "Stage 0/1 particles"/n_particles_01
+            # field, not the shared "Number of macroelectrons" field (see
+            # their own params_to_config warning) -- sample that many
+            # particles for them so this IO-owned draw doesn't silently
+            # override that already-established, deliberate distinction.
+            n_sample = int(getattr(cfg, "n_particles_01", n_mc))
+            beam = beam_from_shared_fields(
+                eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
+                emit_x=cfg.emit_x, emit_y=cfg.emit_y,
+                sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
+                sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
+            )
+            electrons = sample_gaussian_bunch(
+                beam, n_particles=n_sample, rng=np.random.default_rng(int(extra["seed"])))
 
         self.cfg_used = cfg
         self.rep_rate_hz = extra["rep_rate_hz"]
@@ -927,9 +952,25 @@ class ComptonGuideApp(tk.Tk):
         """Return (total_flux, collimated_flux, cmask_or_None) [ph/s].
 
         cmask is only meaningful (and only returned) for SampledSpectrum
-        results, where _render_plots uses it to mask the raw photon array;
-        for BinnedSpectrum results the collimated flux is obtained by
-        integrating the cached angular spectrum instead.
+        results, where _render_plots uses it to mask the raw photon array
+        directly (exact, no grid involved).
+
+        For BinnedSpectrum results, collimated flux comes from an on-demand
+        active_adapter.spectrum_in_angular_range() query -- a fresh grid
+        sized for the ACTUAL requested window -- rather than re-integrating
+        the cached, wide-range res.angular_spectrum grid (used only by the
+        Angular Distribution tab's visualization). That used to double as
+        the "collimated flux" source here too, but its grid is sized for a
+        4*pi overview, not a tight collimation window: e.g. xigma-i-direct's
+        default 9x9 cache captures just 1 grid point inside the GUI's own
+        default 0.05 mrad window, and reusing that point's full (much wider)
+        cache-grid cell as its effective solid angle overcounts badly --
+        confirmed producing a "collimated" spectrum peaking ~260x above the
+        true 4*pi spectrum near the Compton edge. spectrum_in_angular_range
+        already exists precisely to avoid this (it was fixed earlier this
+        session to evaluate the physics kernel fresh at the requested
+        window, not mask/reuse a cache) -- this just routes through it here
+        too, still no MC re-run (reuses the cached per-particle arrays).
         """
         if isinstance(res.spectrum, SampledSpectrum):
             spec = res.spectrum
@@ -945,23 +986,13 @@ class ComptonGuideApp(tk.Tk):
             coll_flux = int(cmask.sum()) * spec.weight * self.rep_rate_hz
             return total_flux, coll_flux, cmask
 
-        # BinnedSpectrum: total flux is the already-physical total yield;
-        # collimated flux integrates the cached angular spectrum over the
-        # current collimation window.
         total_flux = res.total_yield * self.rep_rate_hz
-        ang = res.angular_spectrum
-        if ang is None or tx is None or ty is None:
+        caps = self.active_adapter.capabilities()
+        if tx is None or ty is None or not caps.supports_angular_range_spectrum:
             return total_flux, 0.0, None
-        ix = np.abs(ang.theta_x) <= tx
-        iy = np.abs(ang.theta_y) <= ty
-        if not ix.any() or not iy.any():
-            return total_flux, 0.0, None
-        dE = np.gradient(ang.E_eV)
-        dtx = np.gradient(ang.theta_x)
-        dty = np.gradient(ang.theta_y)
-        sub = ang.d2NdEdOmega[np.ix_(ix, iy)]
-        coll_yield = np.einsum("ijk,i,j,k->", sub, dtx[ix], dty[iy], dE)
-        return total_flux, coll_yield * self.rep_rate_hz, None
+        rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
+        coll_flux = (rng_result.n_photons_in_range or 0.0) * self.rep_rate_hz
+        return total_flux, coll_flux, None
 
     # ---- plotting -------------------------------------------------------
     def _render_plots(self, res, cmask):
@@ -1015,16 +1046,17 @@ class ComptonGuideApp(tk.Tk):
         self.ax_spec.plot(E_keV, dNdE_per_keV, color="0.4", label="all (4*pi)")
 
         tx, ty = self._collimation_rad()
-        ang = res.angular_spectrum
-        if ang is not None and tx is not None and ty is not None:
-            ix = np.abs(ang.theta_x) <= tx
-            iy = np.abs(ang.theta_y) <= ty
-            if ix.any() and iy.any():
-                dtx = np.gradient(ang.theta_x)
-                dty = np.gradient(ang.theta_y)
-                sub = ang.d2NdEdOmega[np.ix_(ix, iy)]
-                coll_dNdE = np.einsum("ijk,i,j->k", sub, dtx[ix], dty[iy])
-                self.ax_spec.plot(ang.E_eV / 1e3, coll_dNdE * 1e3,
+        caps = self.active_adapter.capabilities()
+        if tx is not None and ty is not None and caps.supports_angular_range_spectrum:
+            # On-demand query at a grid sized for THIS window, not the
+            # wide-range angular_spectrum cache -- see _photon_fluxes'
+            # docstring for why re-integrating that cache here used to
+            # produce a "collimated" curve that could spike far above the
+            # true 4*pi spectrum near the Compton edge.
+            rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
+            coll_spec = rng_result.spectrum
+            if hasattr(coll_spec, "dNdE_per_eV") and coll_spec.E_eV.size:
+                self.ax_spec.plot(coll_spec.E_eV / 1e3, coll_spec.dNdE_per_eV * 1e3,
                                   color="crimson", label="collimated")
 
         self.ax_spec.set_xlabel(r"photon energy $\hbar\omega_\gamma$ [keV]")
