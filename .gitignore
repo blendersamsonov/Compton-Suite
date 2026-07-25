@@ -14,3 +14,8 @@ __pycache__/
 .venv/
 build/
 dist/
+
+# kascade.run_simulation's internal "final distribution" write lands here
+# when run from this directory (e.g. via validation/*.py) -- a run
+# byproduct, not source.
+*.ele

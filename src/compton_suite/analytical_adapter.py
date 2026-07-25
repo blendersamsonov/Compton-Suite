@@ -208,6 +208,20 @@ class AnalyticalAdapter:
         E_eV = 4.0 * beam.gamma0**2 * Wph_eV * s_grid
         dNdE_per_eV = dNds / (4.0 * Wph_eV)
 
+        # QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION: angle_integrated_spectrum
+        # returns a per-electron kinematic SHAPE only -- it has no dependence
+        # on the laser pulse (a0/n_photons) at all, so its raw absolute scale
+        # has nothing to do with the pulse-energy-dependent total_yield
+        # estimate_yield() actually computes (confirmed: this raw integral is
+        # bit-identical across scenarios that only change pulse_energy_J).
+        # Same self-consistent-rescale pattern already applied this session to
+        # xigma-i/xigma-i-direct's angular_spectrum vs total_yield mismatch:
+        # force the spectrum shape to integrate to the trusted total_yield,
+        # rather than trust its own absolute normalization.
+        _raw_integral = float(np.trapezoid(dNdE_per_eV, E_eV))
+        if _raw_integral > 0:
+            dNdE_per_eV = dNdE_per_eV * (total_yield / _raw_integral)
+
         from compton_guide.model_api import CommonResults
         return CommonResults(
             model_name="analytical",
