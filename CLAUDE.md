@@ -725,13 +725,14 @@ angular spectrum** via a new `TabulatedEngine` (new module,
 `tabulated_engine.py`) built on the new tabulated-energy path
 (`particles.py`/`deposition.py`/`spectrum4d.py`/`reference.py`) instead of
 `core.Compton`'s `calculate_total`/`calculate_spectrum`/
-`calculate_angular_spectrum`. **Temporal envelope and spatial distribution
-still come from `core.Compton`'s `calculate_intersection`**, run in
-parallel on the same `compton` instance -- the new path doesn't compute
-either yet (plan.md Stage C, not implemented). This is the deliberate
-interim (not big-bang) migration plan.md's "Open decisions" section flags:
-two engines running side by side until Stage C closes the gap, chosen over
-holding Stage B until Stage C also lands.
+`calculate_angular_spectrum`. This was initially shipped as a deliberate
+interim (not big-bang) migration -- temporal envelope/spatial distribution
+staying on `core.Compton`'s `calculate_intersection` in parallel until
+Stage C closed the gap, per plan.md's "Open decisions" section -- and Stage
+C landed in the same session, so as of this writing `run_simulation` no
+longer calls any `core.Compton` `calculate_*`/GPU-kernel method at all; see
+"Phase 2 Stage C" below. `core.Compton` is still constructed and configured
+(`set_electron_parameters`/etc.) purely as `TabulatedEngine`'s config-bag.
 
 `TabulatedEngine` wraps an already-configured `core.Compton` instance
 purely for its config-bag properties (`k0_las`, `Wph`, `a0`, ... --
@@ -767,10 +768,15 @@ of magnitude), easy to miss if you're not looking at absolute scale.
 `_N_STEPS_NEW`/`_N_BINS_NEW`/`_SAMPLES_PER_POINT_NEW`) are a first-cut,
 **not profiled against a real interactive GUI session** -- plan.md
 explicitly flags this as needing profiling, not a guess; smoke-tested only
-(see below), ~9s end-to-end on a GTX 1660 Ti GPU / ~40s on CPU/numba for
-one `run()` at the current defaults (`n_particles=20k-150k` clamped from
-`n_mc`, `n_steps=64`, `n_bins=(48,48,48,12)`) -- revisit before shipping if
-that's too slow for the GUI's "click Calculate" workflow.
+(see below). Wall-clock dropped substantially once Stage C also landed and
+`calculate_intersection` (a real, nontrivial GPU/CPU kernel launch of its
+own) came out of the loop entirely: one full `run()` (total yield +
+spectrum + angular spectrum + temporal + spatial) now takes ~1s on a GTX
+1660 Ti GPU / ~8s on CPU/numba at the current defaults (`n_particles=
+20k-150k` clamped from `n_mc`, `n_steps=64`, `n_bins=(48,48,48,12)`,
+`n_time_bins=128`, `n_spatial_bins=(64,64)`) -- down from ~9s/~40s when
+Stage B alone still ran `calculate_intersection` in parallel for Stage C's
+predecessor code.
 
 `deposition.py`'s own `import cupy as cp`/`import cupyx` became lazy
 (`try/except`, own `_HAS_CUPY`, `_array_module(*arrays)` helper replacing
@@ -782,19 +788,86 @@ promise's) importability on a cupy-less machine. Validated end-to-end with
 cupy import actually blocked (not just `device='cpu'` forced with cupy
 still present) -- see "GUI-side testing" below.
 
+### Phase 2 Stage C (`particles.py`'s `PushDiagnostics`)
+
+`TabulatedEngine.temporal_envelope`/`.spatial_distribution` (properties,
+`None` until `.run()` is called with `n_time_bins`/`n_spatial_bins`) close
+the gap Stage B left open: `run_simulation` no longer calls
+`core.Compton.calculate_intersection` at all. Implemented as an *optional*
+extra binning pass inside `particles.push_and_sample`'s existing
+trajectory-integration loop (`_push_and_sample_vectorized`, both `'numpy'`
+and `'cupy'` backends) -- not a second integration pass, and not
+per-timestep `a0` sampling (CLAUDE.md's "a0 is a trajectory average"
+warning is specifically about `a0`, not time/space; those two axes have no
+such regime-validity caveat and are simply not tracked at all by default).
+The quantity binned is `contribution`, the exact same per-`(particle,
+timestep)` array `push_and_sample` already sums over time into `weight`
+(`L`) -- nearest-cell histogrammed by absolute time `t` (-> a
+photon-emission-rate `time_envelope` vs `t_edges`, seconds) and by
+position `(x, y)` (-> an areal-density `spatial_envelope` vs
+`spatial_x_edges`/`spatial_y_edges`, cm), matching `deposition.py`'s
+`'nearest'` deposition scheme, not core.py's linear/bilinear smoothing.
+Backward compatible by construction: `push_and_sample` returns its
+original 5-tuple unchanged unless `n_time_bins`/`t_edges`/
+`n_spatial_bins`/`spatial_edges` is passed, in which case a 6th value (a
+`PushDiagnostics`) is appended -- every existing caller that doesn't pass
+these keeps unpacking 5 values exactly as before. Not implemented for
+`backend='numba'` (raises `NotImplementedError` if diagnostics are
+requested there) -- no current caller uses `backend='numba'` at all (the
+GUI/`TabulatedEngine` use `'numpy'`/`'cupy'`), so a second compiled kernel
+variant was scoped out rather than built for a currently-dead path.
+
+Needs no post-hoc rescale to reproduce `total_yield` (verified numerically:
+`(time_envelope * dt_seconds).sum()` matches `L.sum()` exactly for the
+auto-derived time window, since every particle's own sampled `t` values are
+provably a subset of the aggregate window by construction) -- unlike
+`core.py`'s `time_envelope`/`spatial_envelope`, which need `coef`-derived
+normalisation that doesn't directly carry over to a 1D/2D density (see
+`calculate_intersection`'s own comments; `spatial_envelope` gets an
+explicit self-normalising rescale against `calculate_total()` there,
+`time_envelope` does not). Spatial binning can lose a small tail fraction
+(measured ~0.1% in one test config) since its auto-derived window is a
+fixed formula, not the true per-particle range -- same class of edge effect
+`deposition.py`'s `deposit_nearest` already has (untracked here, unlike
+that function's `n_discarded`).
+
+**Cross-validated against `core.Compton.calculate_intersection`** on the
+*same* bin edges (converted `cm`/`s` <-> `k0_las`-normalised units) for a
+representative config: `time_envelope` shape correlation 0.9986,
+`spatial_envelope` shape correlation 0.93. The spatial correlation being
+visibly weaker is plausibly a real difference between the two paths'
+Stage-0 sampling schemes (legacy's importance-sampled/truncated grid vs
+this path's true untruncated Gaussian draw) rather than a bug -- not
+investigated further. The absolute-scale comparison against legacy's
+`time_envelope` specifically was inconclusive and surfaced something worth
+flagging: unlike `spatial_envelope` (self-normalised against
+`calculate_total()`, see above), `core.py`'s `time_envelope` has no
+equivalent rescale, and its own integral did not match `calculate_total()`
+in this cross-check -- **flagged as a possible pre-existing legacy-path
+normalisation gap, not investigated or fixed** (out of scope: `core.py`
+itself is not part of Stage C, and it's already documented as kept
+around as a reference/validation tool with known-imperfect trust level,
+see "Known bugs" for a precedent of a similar deliberately-unfixed legacy
+normalisation issue).
+
 ### GUI-side testing
 
 No unit tests in this repo. Validated via the sibling `compton-gui` repo's
 `scripts/headless_test.py` (calls `params_to_config -> run ->
 validate_results` plus the temporal/spatial/angular fields through
 `XigmaAdapter`), and via ad hoc GPU scripts during development.
-Phase 2 Stage B additionally validated via standalone smoke scripts (no
+Phase 2 Stage B/C additionally validated via standalone smoke scripts (no
 `compton-gui` checkout needed) exercising `XigmaAdapter.available`/
 `params_to_config`/`run`/`spectrum_in_angular_range` end-to-end on: the
 real GPU backend, a forced-CPU backend (numba, cupy still importable), and
 a forced-CPU backend with cupy import actually blocked -- all three
-produced finite, sane `total_yield`/`spectrum`/`angular_spectrum`, and the
-GPU/CPU total_yield agreed to <0.01%.
+produced finite, sane `total_yield`/`spectrum`/`angular_spectrum`/
+`temporal_envelope`/`spatial_distribution`, and the GPU/CPU total_yield
+agreed to <0.01%. `particles.push_and_sample`'s new diagnostics binning
+separately unit-tested (backward-compatible 5-tuple return when not
+requested; exact time-envelope mass conservation; numpy/cupy agreement)
+and cross-validated against `core.Compton.calculate_intersection` directly
+-- see "Phase 2 Stage C" above for the numbers.
 
 On this dev machine: system Python has no pip/cupy/matplotlib. Use the
 `miniforge3` conda env named `core` (has cupy 14.0.1, numpy, matplotlib,

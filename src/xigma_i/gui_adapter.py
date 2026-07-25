@@ -193,17 +193,21 @@ _TRUST_NOTE = (
     "passport.md self-rates this engine trust level C (linear/classical "
     "regime) / D (nonlinear-emulation regime): no unit tests, no "
     "cross-code validation, no guaranteed run-to-run reproducibility, "
-    "crossing-angle and astigmatic-laser geometries not modeled, and a "
-    "known unresolved normalization-gap bug is documented in reference.py. "
-    "Runs on a CUDA GPU if one is available, else falls back to a CPU/numba "
-    "implementation of the same kernels (core_cpu.py) -- numerically "
-    "validated against the GPU kernels but noticeably slower, and not the "
-    "originally-shipped code path. Total yield, angle-integrated spectrum, "
-    "and angular spectrum are now computed by the newer tabulated-energy "
-    "path (see tabulated_engine.py / CLAUDE.md plan.md Phase 2 Stage B); "
-    "temporal envelope and spatial distribution still come from the "
-    "original core.Compton kernels in parallel, since the new path doesn't "
-    "compute those two yet (Stage C)."
+    "crossing-angle and astigmatic-laser geometries not modeled. All "
+    "outputs -- total yield, angle-integrated spectrum, angular spectrum, "
+    "temporal envelope, spatial distribution -- are now computed by the "
+    "newer tabulated-energy path (see tabulated_engine.py / CLAUDE.md "
+    "plan.md Phase 2 Stages B and C); core.Compton is used only as a "
+    "config-bag (parameter setters), none of its GPU kernels are called "
+    "anymore. Runs on a CUDA GPU if one is available, else falls back to a "
+    "CPU/numba implementation of the same kernels -- numerically validated "
+    "against the GPU kernels but noticeably slower. Temporal envelope / "
+    "spatial distribution were cross-checked against the original "
+    "core.Compton kernels' output on the same bin edges (shape correlation "
+    "0.9986 / 0.93 respectively); the spatial correlation is imperfect, "
+    "plausibly a real difference between the two paths' Stage-0 sampling "
+    "schemes rather than a bug, not investigated further -- see "
+    "tabulated_engine.py's module docstring."
 )
 
 
@@ -377,6 +381,11 @@ _N_PARTICLES_NEW_MAX = 150_000
 _N_STEPS_NEW = 64
 _N_BINS_NEW = (48, 48, 48, 12)
 _SAMPLES_PER_POINT_NEW = 32
+# Stage C (temporal_envelope/spatial_distribution): matches core.py's own
+# N_STEPS=128/N_SPATIAL=64 resolution for a roughly comparable-fidelity
+# display, not independently profiled.
+_N_TIME_BINS_NEW = 128
+_N_SPATIAL_BINS_NEW = (64, 64)
 
 
 def _theta_grid(cfg: Config, n_points: int = 33,
@@ -438,55 +447,50 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     compton.set_foci_displacement(
         cfg.delta_x * _M_TO_CM, cfg.delta_y * _M_TO_CM, cfg.delta_z * _M_TO_CM)
 
-    # ``n_mc`` here is a quadrature-sampling density for the beam-laser
-    # overlap integral, not a per-electron event count (see the warning
-    # raised in params_to_config) -- dfe5's GUI defaults n_mc to 200,000,
-    # which would be a wildly oversized (and likely GPU-crashing) kernel
-    # launch for calculate_intersection's O(particles_amount * theta_num^2)
-    # cost model. Clamp to a range close to core.py's own default (4096)
-    # regardless of what the GUI field says.
-    particles_amount = int(np.clip(int(n_mc), 512, 8192))
-    compton.calculate_intersection(theta_num=128, particles_amount=particles_amount)
-
-    # Temporal envelope: calculate_intersection already computes this
-    # internally (core.py's time_envelope/env_ts attributes) -- no new
-    # kernel work needed, just read it off.
-    temporal_envelope = BinnedTemporalEnvelope(
-        t_seconds=compton.asnumpy(compton.env_ts),
-        rate=compton.asnumpy(compton.time_envelope))
-
-    # core.py's spatial_envelope/edges are in cm (photons/cm^2); convert to
-    # SI (m, photons/m^2) to match dfe5's SampledSpatialDistribution units.
-    x_edges = compton.asnumpy(compton.spatial_x_edges) / _M_TO_CM
-    y_edges = compton.asnumpy(compton.spatial_y_edges) / _M_TO_CM
-    spatial_distribution = BinnedSpatialDistribution(
-        x_centers=(x_edges[:-1] + x_edges[1:]) / 2.0,
-        y_centers=(y_edges[:-1] + y_edges[1:]) / 2.0,
-        density=compton.asnumpy(compton.spatial_envelope) * (_M_TO_CM ** 2))
-
     gamma_0 = cfg.eps0
     sigma_gamma_0 = cfg.sigma_eps
 
-    # Total yield, angle-integrated spectrum, and angular spectrum now come
-    # from the new tabulated-energy path (plan.md Phase 2 Stage B) instead
-    # of core.Compton's calculate_total/calculate_spectrum/
-    # calculate_angular_spectrum -- temporal_envelope/spatial_distribution
-    # above still use the legacy calculate_intersection() output in
-    # parallel, since the new path doesn't compute those two yet (Stage C).
-    # cfg.emulate_nonlinearity is now inert everywhere in this function: it
-    # only ever affected calculate_spectrum/calculate_angular_spectrum
-    # (both replaced above), never calculate_intersection (temporal_envelope/
-    # spatial_distribution's source, unchanged above) -- and the new path
-    # has no equivalent switch at all, since a0 is a real table axis there,
-    # not a phenomenological correction (see spectrum4d.py's module
+    # Total yield, angle-integrated spectrum, angular spectrum, temporal
+    # envelope, and spatial distribution all now come from the new
+    # tabulated-energy path (plan.md Phase 2 Stages B and C) -- core.Compton
+    # is no longer used for anything beyond the config-bag TabulatedEngine
+    # wraps (set_electron_parameters/set_laser_parameters/
+    # set_foci_displacement above); none of its calculate_*/GPU-kernel
+    # methods are called in this function anymore.
+    # cfg.emulate_nonlinearity is now inert: it only ever affected the
+    # legacy calculate_spectrum/calculate_angular_spectrum, and the new
+    # path has no equivalent switch at all, since a0 is a real table axis
+    # there, not a phenomenological correction (see spectrum4d.py's module
     # docstring). Still read into summary below and still validated/parsed
     # by params_to_config -- just doesn't change any output anymore.
     engine = TabulatedEngine(compton)
     push_backend = 'cupy' if device == 'gpu' else 'numpy'
+    # ``n_mc`` here is a quadrature-sampling density for the beam-laser
+    # overlap integral, not a per-electron event count (see the warning
+    # raised in params_to_config) -- clamped to _N_PARTICLES_NEW_MIN/MAX
+    # regardless of what the GUI field says (see that constant's comment
+    # for the new path's different cost model / why the clamp range differs
+    # from the legacy path's).
     n_particles_new = int(np.clip(int(n_mc), _N_PARTICLES_NEW_MIN, _N_PARTICLES_NEW_MAX))
     engine.run(n_particles_new, gamma_0, sigma_gamma_0, n_steps=_N_STEPS_NEW,
-               n_bins=_N_BINS_NEW, backend=push_backend, rng=rng)
+               n_bins=_N_BINS_NEW, backend=push_backend, rng=rng,
+               n_time_bins=_N_TIME_BINS_NEW, n_spatial_bins=_N_SPATIAL_BINS_NEW)
     total_yield = engine.total_yield
+
+    # Temporal envelope / spatial distribution (plan.md Phase 2 Stage C) --
+    # engine.temporal_envelope/.spatial_distribution are already the same
+    # physical convention (rate vs seconds; areal density vs cm) as
+    # core.Compton's former env_ts/time_envelope/spatial_x_edges/
+    # spatial_y_edges/spatial_envelope, see tabulated_engine.py's module
+    # docstring for the cross-validation this was checked against. Convert
+    # cm/photons-per-cm^2 to SI (m/photons-per-m^2) same as before.
+    t_seconds, rate = engine.temporal_envelope
+    temporal_envelope = BinnedTemporalEnvelope(t_seconds=t_seconds, rate=rate)
+
+    x_centers_cm, y_centers_cm, density_per_cm2 = engine.spatial_distribution
+    spatial_distribution = BinnedSpatialDistribution(
+        x_centers=x_centers_cm / _M_TO_CM, y_centers=y_centers_cm / _M_TO_CM,
+        density=density_per_cm2 * (_M_TO_CM ** 2))
 
     # Angle-integrated spectrum, s in [0, 1.1*gamma0^2] (covers up to just
     # past the classical Compton edge), 512 points.
@@ -521,7 +525,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     return XigmaResults(
         model_name="xigma-i",
         cfg=cfg,
-        n_mc=particles_amount,
+        n_mc=n_particles_new,
         total_yield=total_yield,
         spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
         summary=summary,

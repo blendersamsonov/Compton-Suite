@@ -29,6 +29,124 @@ V_REL = 2.0  # relative-velocity factor for near-backscattering geometry, see co
 
 
 @dataclass
+class PushDiagnostics:
+    """Optional per-timestep binned outputs from push_and_sample (plan.md
+    Phase 2 Stage C), riding along the same trajectory-integration loop
+    that produces L/a0_shape -- see push_and_sample's n_time_bins/
+    n_spatial_bins. Fields stay None for whichever wasn't requested.
+
+    Physical content/units match core.py's Compton.calculate_intersection
+    time_envelope/spatial_envelope: time_envelope is a photon-emission
+    RATE (photons/s) vs t_edges (seconds, N+1 edges for N bins);
+    spatial_envelope is an areal DENSITY (photons/cm^2) vs
+    spatial_x_edges/spatial_y_edges (cm). Nearest-cell binned (matching
+    deposition.py's 'nearest' scheme) -- a deliberate simplification, not
+    parity with core.py's particle_kernel, which linearly smooths between
+    adjacent bins.
+
+    Unlike core.py's time_envelope/spatial_envelope (which need a post-hoc
+    self-normalisation rescale against calculate_total(), since their
+    shared `coef` bakes in an angular-Gaussian normalisation that doesn't
+    apply to a spatial density -- see calculate_intersection's comments),
+    these need no such correction: they're built by binning the exact same
+    per-timestep `contribution` array that L already sums over time (no
+    angular-grid/truncated-domain normalisation baked in to begin with, see
+    push_and_sample's docstring), so summing either histogram over all bins
+    reproduces sum(L) exactly by construction.
+    """
+    t_edges: object = None
+    time_envelope: object = None
+    spatial_x_edges: object = None
+    spatial_y_edges: object = None
+    spatial_envelope: object = None
+
+
+def _weighted_bincount(idx, val, n, xp):
+    """Scatter-add val into a zero-initialised length-n array at integer
+    idx (already in [0, n)) -- the same tool deposition.py's _scatter_add
+    uses, reimplemented locally (a few lines) rather than imported, since
+    deposition.py already imports particles.py and importing back would be
+    circular."""
+    out = xp.zeros(n, dtype=xp.float64)
+    if xp is np:
+        out += np.bincount(idx, weights=val, minlength=n)[:n]
+    else:
+        import cupyx
+        cupyx.scatter_add(out, idx, val)
+    return out
+
+
+def _resolve_time_range(t0_local, t1_local, t_edges, n_time_bins, xp):
+    """(t_lo, t_hi, n_time_bins) in k0_las*c*t units -- t_edges verbatim if
+    given, else the bunch-wide window (min of every particle's own t0_local,
+    max of every particle's own t1_local), the same aggregation
+    core.py's calculate_intersection uses for its shared t_start/t_end."""
+    if t_edges is not None:
+        return float(t_edges[0]), float(t_edges[-1]), len(t_edges) - 1
+    t_lo = float(xp.min(t0_local))
+    t_hi = float(xp.max(t1_local))
+    return t_lo, t_hi, n_time_bins
+
+
+def _resolve_spatial_range(compton, spatial_edges, n_spatial_bins):
+    """(sx_lo, sx_hi, sy_lo, sy_hi, nsx, nsy) in k0_las-normalised units --
+    spatial_edges=(x_edges, y_edges) verbatim if given, else the same
+    "few sigma of whichever of the electron beam / laser waist is larger"
+    window core.py's calculate_intersection derives its spatial grid from."""
+    if spatial_edges is not None:
+        x_edges, y_edges = spatial_edges
+        return (float(x_edges[0]), float(x_edges[-1]),
+                float(y_edges[0]), float(y_edges[-1]),
+                len(x_edges) - 1, len(y_edges) - 1)
+    nsx, nsy = (n_spatial_bins, n_spatial_bins) if np.isscalar(n_spatial_bins) else n_spatial_bins
+    sx_half = GAUSS_WIDTH * compton.k0_las * max(compton.sigma_ex, compton.sigma_lr0)
+    sy_half = GAUSS_WIDTH * compton.k0_las * max(compton.sigma_ey, compton.sigma_lr0)
+    return -sx_half, sx_half, -sy_half, sy_half, nsx, nsy
+
+
+def _bin_temporal(contribution, t, t0_local, t1_local, t_edges, n_time_bins, omega_las, xp):
+    """Nearest-cell time histogram of `contribution` (shape (n, n_steps),
+    same array push_and_sample sums into L) -> a photon-emission-rate
+    PushDiagnostics.t_edges/time_envelope pair, in seconds."""
+    t_lo, t_hi, n_time_bins = _resolve_time_range(t0_local, t1_local, t_edges, n_time_bins, xp)
+    span = t_hi - t_lo
+    dt_bin = span / n_time_bins if n_time_bins > 0 and span > 0 else 1.0
+
+    t_idx = xp.floor((t - t_lo) / dt_bin).astype(xp.int64)
+    in_range = (t_idx >= 0) & (t_idx < n_time_bins)
+    idx_flat, val_flat = t_idx.ravel()[in_range.ravel()], contribution.ravel()[in_range.ravel()]
+
+    hist = _weighted_bincount(idx_flat, val_flat, n_time_bins, xp)
+    t_edges_out = xp.linspace(t_lo, t_hi, n_time_bins + 1) / omega_las
+    dt_sec = dt_bin / omega_las
+    time_envelope = hist / dt_sec if span > 0 else hist
+    return t_edges_out, time_envelope
+
+
+def _bin_spatial(contribution, x, y, spatial_edges, n_spatial_bins, k0_las, compton, xp):
+    """Nearest-cell (x, y) histogram of `contribution` -> an areal-density
+    PushDiagnostics.spatial_x_edges/spatial_y_edges/spatial_envelope
+    triple, in cm / photons/cm^2."""
+    sx_lo, sx_hi, sy_lo, sy_hi, nsx, nsy = _resolve_spatial_range(compton, spatial_edges, n_spatial_bins)
+    dx_bin = (sx_hi - sx_lo) / nsx if nsx > 0 else 1.0
+    dy_bin = (sy_hi - sy_lo) / nsy if nsy > 0 else 1.0
+
+    xi = xp.floor((x - sx_lo) / dx_bin).astype(xp.int64)
+    yi = xp.floor((y - sy_lo) / dy_bin).astype(xp.int64)
+    in_range = (xi >= 0) & (xi < nsx) & (yi >= 0) & (yi < nsy)
+    flat_idx = (xi * nsy + yi).ravel()[in_range.ravel()]
+    val_flat = contribution.ravel()[in_range.ravel()]
+
+    hist = _weighted_bincount(flat_idx, val_flat, nsx * nsy, xp).reshape(nsx, nsy)
+    sx_edges_out = xp.linspace(sx_lo, sx_hi, nsx + 1) / k0_las
+    sy_edges_out = xp.linspace(sy_lo, sy_hi, nsy + 1) / k0_las
+    dx_cm, dy_cm = dx_bin / k0_las, dy_bin / k0_las
+    bin_area = dx_cm * dy_cm
+    spatial_envelope = hist / bin_area if bin_area > 0 else hist
+    return sx_edges_out, sy_edges_out, spatial_envelope
+
+
+@dataclass
 class Bunch:
     """Macroparticles with real per-particle energy and momentum angles.
 
@@ -111,7 +229,9 @@ def _time_window(compton, z0, xp=np):
     return t0, t1
 
 
-def push_and_sample(compton, bunch, n_steps=200, backend='numpy'):
+def push_and_sample(compton, bunch, n_steps=200, backend='numpy', *,
+                     n_time_bins=None, t_edges=None,
+                     n_spatial_bins=None, spatial_edges=None):
     """Ballistically push each macroparticle and emit one sample per particle.
 
     backend: 'numpy' (default) -- the original vectorised (n_particles,
@@ -183,24 +303,56 @@ def push_and_sample(compton, bunch, n_steps=200, backend='numpy'):
 
     n_steps sets the trajectory-integration resolution for L and a0_shape
     (not the output array length, which is always n_particles).
+
+    n_time_bins/t_edges, n_spatial_bins/spatial_edges (plan.md Phase 2
+    Stage C): opt-in temporal-envelope / spatial-distribution diagnostics,
+    binned during this same trajectory-integration loop (see
+    PushDiagnostics). Backward compatible by construction: if neither is
+    given (the default), the return value is unchanged, the plain
+    (gamma, theta_x, theta_y, a0_shape, weight) 5-tuple every existing
+    caller already unpacks. If either is given, a 6th value -- a
+    PushDiagnostics instance -- is appended; callers that want these
+    diagnostics must opt in and unpack 6 values, not 5. n_time_bins/
+    n_spatial_bins are bin counts (n_spatial_bins may be an (nsx, nsy)
+    pair); t_edges/spatial_edges=(x_edges, y_edges) override the
+    auto-derived bunch-wide window with explicit edges (and imply their
+    own bin count). Only supported for backend='numpy'/'cupy' -- see
+    _push_and_sample_numba's docstring for why the numba backend doesn't
+    implement this.
     """
     if backend == 'numpy':
-        return _push_and_sample_vectorized(compton, bunch, n_steps, np)
+        return _push_and_sample_vectorized(compton, bunch, n_steps, np,
+                                            n_time_bins, t_edges, n_spatial_bins, spatial_edges)
     if backend == 'cupy':
         import cupy as cp
-        return _push_and_sample_vectorized(compton, bunch, n_steps, cp)
+        return _push_and_sample_vectorized(compton, bunch, n_steps, cp,
+                                            n_time_bins, t_edges, n_spatial_bins, spatial_edges)
     if backend == 'numba':
+        if n_time_bins is not None or t_edges is not None or n_spatial_bins is not None or spatial_edges is not None:
+            raise NotImplementedError(
+                "push_and_sample(backend='numba', n_time_bins=..., n_spatial_bins=...): "
+                "Stage C diagnostics aren't implemented for the numba backend -- no current "
+                "caller needs backend='numba' (the GUI/TabulatedEngine use 'numpy'/'cupy'), "
+                "so this was scoped out rather than adding a second compiled kernel variant "
+                "for an unused path. Use backend='numpy' or 'cupy' if you need these.")
         return _push_and_sample_numba(compton, bunch, n_steps)
     raise ValueError(f"backend must be 'numpy', 'numba', or 'cupy', got {backend!r}")
 
 
-def _push_and_sample_vectorized(compton, bunch, n_steps, xp):
+def _push_and_sample_vectorized(compton, bunch, n_steps, xp,
+                                 n_time_bins=None, t_edges=None,
+                                 n_spatial_bins=None, spatial_edges=None):
     """The (n_particles, n_steps) broadcast form of push_and_sample, shared
     by the 'numpy' and 'cupy' backends -- array-module-agnostic like
     deposition.py's deposit_nearest/deposit_cic, since every operation here
     is elementwise or a reduction along the n_steps axis (nothing that needs
     a hand-written kernel). For xp=cp, bunch's (host numpy) fields are
     transferred once at the top and results stay on-device.
+
+    n_time_bins/t_edges/n_spatial_bins/spatial_edges: see push_and_sample's
+    docstring (plan.md Phase 2 Stage C) -- binned here, after `contribution`
+    (the same (n, n_steps) array L sums over time) is computed, since that's
+    the exact quantity being partitioned differently rather than collapsed.
     """
     from .core import sigma_T
 
@@ -248,7 +400,20 @@ def _push_and_sample_vectorized(compton, bunch, n_steps, xp):
     # kwarg support is version-dependent; xp.where is safe on both.
     a0_shape = xp.where(denom > 0, F_pol * (ratio**2).sum(axis=1) / xp.maximum(denom, 1e-300), 0.0)
 
-    return gamma, theta_x, theta_y, a0_shape, L
+    want_time = n_time_bins is not None or t_edges is not None
+    want_spatial = n_spatial_bins is not None or spatial_edges is not None
+    if not want_time and not want_spatial:
+        return gamma, theta_x, theta_y, a0_shape, L
+
+    diagnostics = PushDiagnostics()
+    if want_time:
+        diagnostics.t_edges, diagnostics.time_envelope = _bin_temporal(
+            contribution, t, t0_local, t1_local, t_edges, n_time_bins, compton.omega_las, xp)
+    if want_spatial:
+        (diagnostics.spatial_x_edges, diagnostics.spatial_y_edges,
+         diagnostics.spatial_envelope) = _bin_spatial(
+            contribution, x, y, spatial_edges, n_spatial_bins, k0, compton, xp)
+    return gamma, theta_x, theta_y, a0_shape, L, diagnostics
 
 
 _numba_kernel_cache = None
