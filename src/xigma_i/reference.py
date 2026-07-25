@@ -1,118 +1,44 @@
-"""Stage 2 numpy reference paths -- deliberately not the GPU quadrature.
-
-Three independent ways to turn (Stage 0/1) particle samples or an H table
-into a spectrum, used only for validation (plan.md "Validation" steps 1
-and 2):
+"""Stage 2 numpy reference paths -- independent, non-GPU-kernel ways to turn
+Stage 0/1 particle samples or an H table into a spectrum, used to validate
+`spectrum4d.spectrum_kernel_4d` without trusting it:
 
   - angle_integrated_spectrum: dN/ds integrated over all emission solid
     angle, computed directly from real Stage 0/1 macroparticles using only
     the standard (textbook, angle-independent) Compton edge shape -- no
-    coef, no collision/H lookup, no area quadrature at all. This is the
-    one that's actually validated (see below) and is the right first check
-    to run: it isolates the gamma axis and the Stage 0/1 weight
-    normalisation from everything angular.
+    coef, no H lookup, no area quadrature at all. The right first check to
+    run: it isolates the gamma axis and the Stage 0/1 weight normalisation
+    from everything angular.
   - spectrum_from_table: brute-force grid quadrature over the H table (no
     annulus/arc/inverse-CDF importance sampling), for the per-solid-angle
-    (theta_x, theta_y, s) spectrum. RESOLVED, see below.
+    (theta_x, theta_y, s) spectrum. `coef = 1.5`, a pure numerical constant
+    derived directly from eq. "main"/"Fmatrix" (in the accompanying paper)
+    -- no pi, no Wph, no PHI_CELLS belongs here, since this is a plain grid
+    quadrature with no phi cells and H's weights are already correctly
+    CGS-normalised coming out of push_and_sample.
   - direct_binning_spectrum: iterates real macroparticles, computes each
     one's resonance frequency for a fixed observation direction, and bins
-    with its weight. No table, no quadrature grid at all. Intended as the
-    primary correctness test for correlated bunches (plan.md validation 3)
-    and to be kept permanently as a debug tool. Normalisation root-caused
-    this session, see below -- a real, systematic ~2*pi residual remains,
-    deliberately not chased yet.
+    with its weight. No table, no quadrature grid at all -- the primary
+    correctness test for correlated bunches, and a permanent debug tool.
+    Uses the single-electron prefactor from eq. "xsec" (`g**2 * gth_sq_inv`,
+    not the ensemble-collapsed `g**5` of eq. "Fmatrix", which bakes in a
+    Jacobian meant for a smooth, already-binned H and doesn't apply to raw
+    macroparticles), pure numerical coefficient 3 (no Wph/pi**4), no extra
+    `1/s**2` (the `domega -> ds` Jacobian is a constant that cancels exactly
+    against the histogram bin-width conversion).
 
-WHAT'S VALIDATED:
+VALIDATED: angle_integrated_spectrum and spectrum_from_table agree with
+Stage 0/1's own total weight to 1-3%. spectrum_from_table and
+direct_binning_spectrum agree with each other to <5% for a typical bunch.
+a0/ahat resonance term is included in direct_binning_spectrum
+(s_res = g**2/(1+a0+g**2*r_sq)), with no extra Jacobian in the prefactor --
+see that function's own docstring for why that differs from
+spectrum_from_table/spectrum_kernel_4d.
 
-1. angle_integrated_spectrum, run on real Stage 0/1 output, matches
-   calculate_spectrum(s, gamma0, sigma_gamma0) to within 0.5-3% across the
-   whole resonance peak (worse only in the low-statistics tail), *after*
-   correcting for a units mismatch: calculate_spectrum returns dN/dE
-   (matches its use in calculate-spec-ang.py, axis label "dN/dE, MeV^-1"),
-   not dN/ds. dE = 4*Wph*ds (see calculate-spec-ang.py's
-   `s_scale = 4*compton.Wph`), so compare as `dN_ds_mine` vs
-   `calculate_spectrum(...) * 4 * compton.Wph`. Validates Stage 0/1's gamma
-   axis and overall weight normalisation, independent of collision/H lookup
-   or any theta quadrature.
-
-2. spectrum_from_table's per-solid-angle normalisation. RESOLVED this
-   session (previously: multiplying by PHI_CELLS, see below -- that framing
-   was wrong and is kept only as history).
-
-   The bug: `coef` was copied from the *legacy* core.py
-   Compton.calculate_angular_spectrum's own `coef = 3/(4*pi**4*Wph*4)`, then
-   further multiplied by PHI_CELLS to patch an apparent mismatch against
-   calculate_angular_spectrum. Both moves were wrong for this function.
-   spectrum_from_table is a brute-force grid quadrature over (theta_x,
-   theta_y, a0) with no phi cells and no importance sampling at all -- there
-   is no mechanism by which a PHI_CELLS factor (an artifact of
-   spectrum_kernel's phi-cell importance-sampling geometry) could belong
-   here. And H's weights are already correctly CGS-normalised coming out of
-   push_and_sample (see point 3 below, and particles.py's own docstring) --
-   no Wph/pi**4-based unit conversion is needed to turn an H-weighted sum
-   into d3N/(ds dOmega). The apparent 1-5% agreement with
-   calculate_angular_spectrum this constant used to produce was coincidental
-   -- masked by the fact that both this bug and spectrum_kernel's own,
-   separate, still-open PHI_CELLS/sample_area bug (see point 1's entry in
-   "Known bugs", CLAUDE.md) happen to scale similarly, not because the two
-   code paths share a real normalisation dependency.
-
-   The correct coef, re-derived directly from eq. "main"/"Fmatrix" (Paper/
-   xigma.tex) rather than by matching against the legacy kernel, is the pure
-   numerical constant 3/2 -- no pi, no Wph, no PHI_CELLS. This resolves the
-   severe (4+ orders of magnitude near the Compton edge) shape divergence
-   from angle_integrated_spectrum documented in
-   direct_vs_table_discrepancy_report.md. calculate_angular_spectrum_4d
-   (spectrum4d.py) had the identical bug and was fixed alongside this
-   function, for the same reason.
-
-   NOTE spectrum_kernel's own sample_area bug (core.py, missing a per-cell
-   `dphi_cell` factor) is real, distinct, and still deliberately unfixed --
-   see CLAUDE.md "Known bugs". It has no bearing on spectrum_from_table
-   anymore now that the two paths' coefficients are no longer conflated.
-
-3. direct_binning_spectrum's normalisation. Root cause (found this session,
-   via a from-scratch derivation from Paper/xigma.tex "eq:xsec" rather than
-   guesswork): it was using the *ensemble-collapsed* prefactor (`g**5`,
-   Paper's "eq:Fmatrix" -- which bakes in a `|dGamma/domega|` Jacobian
-   meant for looking up a smooth, already-binned H) directly on raw,
-   un-binned macroparticles -- a Jacobian that doesn't apply there, since no
-   ensemble collapse has happened. The correct single-electron form is
-   "eq:xsec" itself: `g**2 * gth_sq_inv`, prefactor 3 (a pure number, same
-   flavour as spectrum_from_table's own coef=3/2 fix in point 2 above --
-   both collapse to bare numerical constants once each function's actual
-   derivation is followed instead of copying the legacy kernel's tuned
-   Wph/pi**4 convention), and the `domega -> ds` Jacobian (`domega =
-   4*omega_L*ds`, a *constant*) cancels
-   exactly against the same factor converting the histogram's bin width, so
-   the result needs no further `/ s**2` division at all (the previous code's
-   `/ s_centers**2` was carried over from spectrum_from_table's convention by
-   mistake and was the dominant part of the reported gap -- `s` is O(gamma0^2)
-   in typical configurations, so a spurious `1/s**2` alone accounts for the
-   bulk of "~3000-4000x", though the precise historical number came from a
-   different (single-point vs angle-integrated) comparison methodology and
-   wasn't reproduced exactly).
-
-   REMAINING, DELIBERATELY DEFERRED: even with the fix above,
-   direct_binning_spectrum's angle-integrated total (Riemann-summed over a
-   grid of (x0, y0) weighted by cell area) is consistently ~6.3x
-   angle_integrated_spectrum's output, suspiciously close to 2*pi, small
-   spread across configurations (systematic, not noise). Not yet explained;
-   flagged to the user, not being chased in this pass.
-
-   a0/ahat resonance term: NOW INCLUDED (s_res = g**2/(1+a0+g**2*r_sq)),
-   with no extra Jacobian in the prefactor -- see the function's own
-   docstring for why that differs from spectrum_from_table/
-   spectrum_kernel_4d. Verified empirically: this was the actual cause of
-   the s-dependence seen when comparing against spectrum_from_table at
-   a0~0.3 (a ~100x swing across one spectral peak); with a0 included the
-   ratio is flat (~6% spread) at any a0, leaving only the still-open ~2*pi
-   offset above.
-
-Stage 0/1 (particles.py, deposition.py) are validated independently of both
-issues above -- table total weight/theta marginal/gamma marginal matching
-calculate_total()/calculate_intersection to 1-3%, and angle_integrated_spectrum
-matching calculate_spectrum to 0.5-3%.
+KNOWN, DELIBERATELY DEFERRED: direct_binning_spectrum's angle-integrated
+total (Riemann-summed over a grid of (x0, y0) weighted by cell area) is
+consistently ~6.3x angle_integrated_spectrum's output, suspiciously close
+to 2*pi, with small spread across configurations (systematic, not noise).
+Not yet explained; flagged, not chased further.
 """
 import numpy as np
 
@@ -135,10 +61,9 @@ def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy'):
     """dN/ds integrated over all emission solid angle, from real Stage 0/1
     macroparticles. A single electron's angle-integrated spectral shape
     depends only on its own gamma (not its transverse angle), via the
-    standard Compton edge formula also used -- in a different
-    parametrisation -- by calculate_spectrum. Compare against
-    `calculate_spectrum(s, gamma0, sigma_gamma0) * 4 * compton.Wph` (unit
-    conversion from dN/dE to dN/ds, see module docstring).
+    standard Compton edge formula. `dE = 4*Wph*ds` converts to dN/dE if
+    needed (see module docstring / CLAUDE.md's GUI integration section for
+    the unit convention).
 
     gamma, particle_weight: 1D arrays, one entry per macroparticle -- e.g.
     the gamma and weight arrays push_and_sample already returns (one row per
@@ -240,12 +165,8 @@ def spectrum_from_table(table, x0, y0, s, phi_pol, backend='numpy'):
     bugs"/"Traps". Fixed alongside that kernel.
 
     coef = 3/2, a pure numerical constant from eq. "main"/"Fmatrix"'s own
-    normalisation -- no pi, no Wph, no PHI_CELLS. An earlier version of this
-    function used coef = 3/(4*pi**4*Wph*4) * PHI_CELLS, copied from the
-    legacy core.py kernel's unrelated, separately-tuned constant; see module
-    docstring point 2 for why that was wrong and how this was root-caused.
-    `compton` is no longer needed by this function (it was only ever used
-    for compton.Wph) and has been dropped from the signature accordingly.
+    normalisation -- no pi, no Wph, no PHI_CELLS. `compton` is not part of
+    this function's signature: it was only ever needed for `compton.Wph`.
 
     backend: 'numpy' (default) or 'cupy'. table.H is transferred to the
     target module once up front (not once per s, and not once per interp4d

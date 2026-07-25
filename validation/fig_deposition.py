@@ -15,8 +15,8 @@ independent) can be small enough that shot noise stays above it across the
 whole practical N_p range, so both schemes look statistics-limited
 (propto N_p^-1/2) throughout and never show CLAUDE.md's expected "NGP
 saturates, CIC keeps falling" -- the two effects need to be checked at a
-resolution coarse enough (plan.md: "with realistic particle counts there
-are only a few deposits per cell") for the bias floor to actually sit above
+resolution coarse enough (realistic particle counts typically have only a
+few deposits per cell) for the bias floor to actually sit above
 what CIC's shot noise reaches within the tested N_p. Prints per-scheme
 median cell occupancy at the smallest N_p tested so this can be judged
 directly rather than inferred from the curve shape alone.

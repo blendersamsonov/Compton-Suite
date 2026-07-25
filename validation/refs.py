@@ -1,5 +1,5 @@
 """Shared bunch/table construction plus the reference paths used across
-figures (plan.md Sec. 0).
+figures.
 
 Two distinct references, per the plan -- never conflated:
 
@@ -24,8 +24,8 @@ since it is not reused elsewhere and needs the paper's Eq. (Rdef)/(wR)/
 (ahattraj), not anything already in xigma_i.
 
 Tables are cached to `data/cache/` keyed by every parameter that affects
-them, since they are the expensive, reused artifact (plan.md Sec. 0: "Cache
-all reference runs to disk").
+them, since they are the expensive, reused artifact -- cache all reference
+runs to disk.
 
 GPU usage: table-building (build_table_streaming) and the quadrature
 reference (ref_quadrature) run backend='cupy' -- the underlying

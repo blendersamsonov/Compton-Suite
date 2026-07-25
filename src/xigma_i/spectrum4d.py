@@ -1,105 +1,82 @@
-"""Stage 2: spectrum kernel modifications for the tabulated 4D overlap function.
+"""Stage 2: `spectrum_kernel_4d`, the GPU kernel that turns a Stage 1 4D
+overlap table H[gamma, theta_x, theta_y, a0] into a spectrum.
 
-`spectrum_kernel_4d` is a new kernel, not an edit of core.py's spectrum_kernel
--- see plan.md's build order and the discussion in reference.py's module
-docstring for why the legacy kernel is left untouched on this branch. It
-reuses spectrum_kernel's ring/rectangle annulus geometry, arc construction,
-and inverse-CDF phi sampling unchanged in structure (per plan.md: "Everything
-else ... is unchanged"), and changes three things:
+One CUDA block per output point (theta_x, theta_y, s). Per block:
 
-1. The 2D bilinear `collision` lookup + analytic Gaussian `ffac` becomes a
-   lookup into H[gamma, theta_x, theta_y, a0]. The coarse proposal (used to
-   build the phi-importance-sampling CDF) uses `H_marginal`, a precomputed
-   `(theta_x, theta_y)` marginal of H summed over *both* gamma and a0
-   (`H.sum(axis=(0,3))`, computed once per calculate_angular_spectrum_4d call
-   on the host/GPU, not per output point) -- the direct analogue of the
-   legacy kernel's precomputed 2D `collision` array. This deliberately
-   ignores the resonance condition (no dependence on s/gamma/a0 at all): it
-   only decides *where* to place phi/theta samples, and importance sampling
-   stays unbiased regardless of what density built the CDF as long as the
-   final evaluation reweights against the density actually used -- which it
-   does, via `sample_area`. An earlier version of this coarse pass tried to
-   track the a0-dependent resonance per bin here too; that's unnecessary
-   work for a proposal density and was reverted in favour of the plain
-   marginal. The final evaluation uses quadrilinear interpolation of H in
-   (gamma, theta_x, theta_y), with an a0 QUADRATURE (not importance-sampled:
-   a0 has few bins by design -- see plan.md's "Memory" note -- so a plain
-   midpoint sum over the table's own a0 bins is accurate and cheap) nested
-   inside the existing phi/subsampling loop -- this is where the resonance
-   condition (point 4 below) actually matters, and it's computed exactly
-   there, per a0 bin.
-2. rmin_g/rmax_g bracket from `gamma_lo`/`gamma_hi` (the table's populated
-   gamma extent, e.g. from deposition.gamma_bracket) instead of
-   `gamma0 +/- 3*sigma_g`, and widened over the table's full `a0` range (see
-   point 4) rather than evaluated at a single a0 value.
-3. No `emulate_nonlinearity`/f_a: a0 is a real axis now, so the ponderomotive
-   shift is carried by the data instead of a phenomenological correction. Note
-   `a0` here is the trajectory-averaged effective intensity (Paper/xigma.tex
-   eq. "ahattraj"), not an instantaneous per-timestep value -- see
-   particles.push_and_sample's docstring and CLAUDE.md.
-4. The resonance condition itself includes a0 (Paper/xigma.tex eq. "Gamma"
-   §"Reduction to three dimensions"): `g**2 = (1+a0) / (1/s - theta**2)`, not
-   `g**2 = 1/(1/s - theta**2)` -- each a0 bin resonates at its own gamma for a
-   given (s, theta), not the shared gamma the legacy kernel/collision model
-   used. The evaluation prefactor also picks up a Jacobian factor `1/(1+a0)`
-   from this (eq. "jacobian", "Fmatrix"): `prefac = a_fac * g**5 * gth_sq_inv
-   / (1+a0)`. Both g and prefac are therefore computed *inside* the a0
-   quadrature loop of the final evaluation, not once and shared across a0
-   bins -- an earlier version of this kernel got this wrong (used a single
-   a0-independent g throughout, missing the `1/(1+a0)` factor entirely); see
-   CLAUDE.md "Known bugs"/"Traps". `reference.spectrum_from_table` had the
-   same gap and was fixed alongside this kernel for the same reason. (The
-   coarse proposal, point 1 above, does not need this at all -- it never
-   computes a resonant g.)
+1. **Radial bracketing.** `rmin_g`/`rmax_g` invert the resonance condition
+   using `gamma_lo`/`gamma_hi` (the table's populated gamma extent, from
+   `deposition.gamma_bracket`), widened over the table's full `a0` range
+   (point 4 below); `rmin_r`/`rmax_r` come from the rectangle over which H
+   is tabulated. `skip = rmin >= rmax` discards output points with no
+   support -- a large fraction of any grid, and the single biggest saving
+   in the kernel.
+2. **Ring/arc geometry.** The annulus is divided into rings, each
+   intersected analytically with the tabulation rectangle quadrant by
+   quadrant, serialised into arcs (r, phi_min, phi_max). One thread per
+   ring, `MAX_ARCS` overflow guarded (drops excess arcs rather than
+   corrupting shared memory).
+3. **Coarse weighting / importance-sampling proposal.** Each arc is
+   subdivided into `PHI_CELLS` azimuthal cells; the proposal density is
+   `H_marginal`, a precomputed `(theta_x, theta_y)` marginal of H summed
+   over *both* gamma and a0 (`H.sum(axis=(0,3))`, computed once per
+   `calculate_angular_spectrum_4d` call, not per output point), nearest-
+   cell looked up and weighted by the geometric measure `dphi_cell * r`
+   (`dphi_cell = (phi_max-phi_min)/PHI_CELLS`, not the full arc width --
+   using the full arc width here would make the final importance-sampling
+   correction `PHI_CELLS` too large, independent of the weights). This
+   deliberately ignores the resonance condition (no s/gamma/a0 dependence
+   at all): it only decides *where* to place phi/theta samples, and
+   importance sampling stays unbiased regardless of what density built the
+   CDF as long as the final evaluation reweights against the density
+   actually used -- which it does, via `sample_area`.
+4. **Cumulative weights, sample allocation, inverse-CDF tabulation.** Same
+   structure as a standard inverse-transform importance sampler: prefix-sum
+   the per-cell weights, allocate `SAMPLES_TOTAL` samples across arcs in
+   proportion to arc weight, binary-search-invert the cumulative weights
+   onto a uniform CDF grid per arc.
+5. **Evaluation.** Each sample takes `phi` from the inverse CDF at a
+   *regular* (stratified, not random) position and `theta` from a
+   golden-ratio sequence within the ring's radial extent -- uniform in
+   `theta**2`, as required by the polar measure. `x`/`y` interpolate H
+   quadrilinearly in `(gamma, theta_x, theta_y)`, with a plain midpoint
+   quadrature over the table's own (few, by design) `a0` bins nested
+   inside the phi/subsampling loop -- not importance-sampled, since a0 has
+   few bins. The resonance condition itself includes a0 (eq. "Gamma"
+   §"Reduction to three dimensions" in the accompanying paper):
+   `g**2 = (1+a0) / (1/s - theta**2)`, so each a0 bin resonates at its own
+   gamma for a given (s, theta); the evaluation prefactor picks up a
+   Jacobian factor `1/(1+a0)` from this (eq. "jacobian", "Fmatrix"):
+   `prefac = a_fac * g**5 * gth_sq_inv / (1+a0)`. Both `g` and `prefac` are
+   therefore computed *inside* the a0 quadrature loop, not once and shared
+   across a0 bins -- getting this wrong (a single a0-independent `g`
+   throughout, missing the `1/(1+a0)` factor) is a real mistake this
+   codebase made once; `reference.spectrum_from_table` had the same gap
+   and was fixed alongside this kernel for the same reason. Weighted by
+   `sample_area = arc_area / n_arc_samples / subsampling * arc_total_weight
+   / cell_weight` -- geometric measure over proposal density. Final
+   `atomic_add(output, out_idx, f_tot / s**2)`.
 
-Normalisation: this kernel's importance-sampling weights are derived
-independently (dphi_cell = (phi_max-phi_min)/PHI_CELLS used consistently
-throughout, not the legacy kernel's (phi_max-phi_min)) -- that PHI_CELLS
-usage is purely internal to this kernel's own phi-cell importance sampling
-and has nothing to do with the output-scale `coef` below.
-
-`coef = 1.5`, a pure numerical constant from eq. "main"/"Fmatrix" (Paper/
-xigma.tex), same as reference.spectrum_from_table's identical fix -- see
-that module's docstring point 2 for the full derivation. An earlier version
-of both this driver and spectrum_from_table used `coef =
-3/(4*pi**4*Wph*4) * PHI_CELLS`, copied from the legacy core.py kernel's own
-(separately, empirically tuned) constant; that was root-caused this session
-as the cause of a severe (4+ orders of magnitude near the Compton edge)
-shape divergence from angle_integrated_spectrum, documented in
-direct_vs_table_discrepancy_report.md. `compton` is no longer needed by
-calculate_angular_spectrum_4d (it was only ever used for compton.Wph) and
-has been dropped from its signature accordingly.
-
-Previously validated (uncorrelated bunch, see particles.sample_bunch with
-chirp=0, angle_energy_corr=0) to 6-8% max error in the peak region against
-reference.spectrum_from_table -- but that number predates the a0-dependent
-resonance/Jacobian fix (point 4 above) and needs re-measuring, not assumed
-to still hold. The two most likely sources of a *changed* (not necessarily
-worse) match: the annulus now covers a wider r range (whole a0 axis, not a
-single value), and each a0 bin's own gamma-bin lookup means the effective
-gamma resolution sampled per output point differs from before.
-
-Two guards added beyond a straight port of spectrum_kernel's structure,
-both needed because H (finite-particle deposition) has exact-zero cells in
-a way the legacy smooth analytic `collision` essentially never does:
-  - inv_cdf: a run of zero-weight phi cells can make the CDF flat at a
-    sample point (cdf_ip1 == cdf_i); falls back to the cell's left edge
+Two guards, needed because H (finite-particle deposition) has exact-zero
+cells in a way a smooth analytic density essentially never does -- without
+them the kernel produces NaN on realistic (sparsely-populated) tables:
+  - `inv_cdf`: a run of zero-weight phi cells can make the CDF flat at a
+    sample point (`cdf_ip1 == cdf_i`); falls back to the cell's left edge
     instead of computing 0/0.
-  - sample_area: a sample can land in a zero-weight cell after
+  - `sample_area`: a sample can land in a zero-weight cell after
     interpolation; contributes zero instead of computing x/0.
-Without these two, the kernel produces NaN output for realistic
-(sparsely-populated) tables. See CLAUDE.md's "Table too sparse" trap.
+See CLAUDE.md's "Table too sparse" trap.
 
-MAX_ARCS overflow guard added (core.py flags this as unguarded -- CLAUDE.md
-"Traps"): if ring/quadrant geometry produces more arcs than MAX_ARCS, the
-excess are dropped (undercounts flux for that output point rather than
-corrupting shared memory).
+`coef = 1.5`, a pure numerical constant from eq. "main"/"Fmatrix" (in the
+accompanying paper), same as `reference.spectrum_from_table`'s -- see that
+module's docstring for the derivation. `compton` is not part of
+`calculate_angular_spectrum_4d`'s signature: `coef` is a pure numerical
+constant, not `Wph`-derived, so it isn't needed.
 """
 # cupy/cupyx are optional at import time -- this module must stay importable
 # on a machine with no CUDA GPU (and possibly no cupy install at all) so that
 # calculate_angular_spectrum_4d's CPU/numba fallback (see spectrum4d_cpu.py)
 # can be used. Only spectrum_kernel_4d itself and the GPU branch of
-# calculate_angular_spectrum_4d actually need cupy. Mirrors core.py's guard.
+# calculate_angular_spectrum_4d actually need cupy.
 try:
     import cupy as cp
     from cupyx import jit
@@ -113,7 +90,7 @@ import time
 
 import numpy as np
 
-from .core import (
+from .config import (
     CP_FLOAT, CP_UINT, CP_INT, CP_ONE, CP_ZERO, CP_TWO_PI, PHI as GOLDEN_PHI,
     X_THREADS, N_RINGS_MIN, MAX_RINGS, MAX_ARCS, ARC_STRIDE, RING_STRIDE,
     RINGS_SIZE, INVAL, PHI_EDGES, PHI_CELLS, CUM_WEIGHTS_SIZE,
@@ -349,9 +326,9 @@ def _spectrum_kernel_4d_impl(output, params_Arr, H, H_marginal,
                     cdf_i = cum_cell_weights[arc_idx * PHI_EDGES + (left + 0)]
                     cdf_ip1 = cum_cell_weights[arc_idx * PHI_EDGES + (left + 1)]
                     cdf_span = cdf_ip1 - cdf_i
-                    # H can have exact-zero cells (finite-particle deposition), unlike the
-                    # legacy smooth analytic `collision`; a run of zero-weight cells makes
-                    # cdf_span 0 at the boundary sample. Fall back to the cell's left edge
+                    # H can have exact-zero cells (finite-particle deposition); a run of
+                    # zero-weight cells makes cdf_span 0 at the boundary sample. Fall back
+                    # to the cell's left edge
                     # rather than dividing by zero -- this sample carries no real density
                     # here anyway, and gets zero weight below via the cell_weight guard.
                     fac = CP_ZERO
@@ -484,10 +461,8 @@ def calculate_angular_spectrum_4d(table, s, theta_x, theta_y, phi_pol,
     spectrum4d_cpu.py on 'cpu' (see that module's docstring -- validated
     against the GPU kernel directly, not just against physical intuition).
 
-    Returns (spectrum, elapsed_seconds, debug), matching
-    calculate_angular_spectrum's return shape. `debug` is only populated on
-    the GPU path (spectrum4d_cpu.py's kernel has no debug output, same as
-    core_cpu.py's spectrum_kernel_cpu).
+    Returns (spectrum, elapsed_seconds, debug). `debug` is only populated
+    on the GPU path (spectrum4d_cpu.py's kernel has no debug output).
     """
     if table.a0_kind != 'ahat':
         raise ValueError(

@@ -1,27 +1,26 @@
-"""GUI-facing adapter exposing xigma_i.core.Compton through a dfe5-shaped
+"""GUI-facing adapter exposing the xigma_i pipeline through a dfe5-shaped
 Config/run_simulation contract, for use as an alternate "model" inside the
 MC-Kost desktop GUI (see MC-Kost/dfe5_gui2.py and MC-Kost/model_api.py).
 
-Design notes (see the repo's integration plan for the full rationale):
+Design notes:
 
-  * This module never imports ``cupy`` (directly or via ``core``/``xigma_i``
-    package import) at module scope, so that ``import xigma_i.gui_adapter``
-    degrades gracefully -- the consuming GUI wraps that import in a broad
-    ``try/except Exception`` and shows the model disabled rather than
-    crashing when cupy/CUDA isn't available. ``cupy``/``core.Compton`` are
-    only imported inside ``available()`` and ``run_simulation()``.
+  * This module never imports ``cupy`` (directly or via ``config``/
+    ``tabulated_engine``/``xigma_i`` package import) at module scope, so
+    that ``import xigma_i.gui_adapter`` degrades gracefully -- the
+    consuming GUI wraps that import in a broad ``try/except Exception`` and
+    shows the model disabled rather than crashing when cupy/CUDA isn't
+    available. ``cupy``/``config.Compton``/``tabulated_engine`` are only
+    imported inside ``available()`` and ``run_simulation()``.
   * ``Config`` mirrors ``dfe5_compton_mc.Config``'s field names and SI units
     wherever a physical mapping exists, so the GUI's model-agnostic
     spread-estimate formula (which reads ``cfg.eps0``, ``cfg.sigma_eps_rel``,
     ``cfg.omega_L``, ``cfg.emit_x/y``, ``cfg.beta_x/y``, ``cfg.sigma_par_L``)
     keeps working unmodified regardless of which model is active.
-  * ``core.Compton`` is head-on only and has no classical/quantum toggle (its
-    only physics-affecting switch is the phenomenological
-    ``emulate_nonlinearity`` a0-downshift emulation, a different axis from
-    dfe5's Thomson/Klein-Nishina choice) -- see ``capabilities()``.
-  * ``core.Compton`` computes a smooth, pre-integrated spectral density
-    (``dN/dE``, ``d^2N/dE dOmega``), not an unbinned per-photon/per-electron
-    event list -- there is no final electron state and no photon-multiplicity
+  * xigma-i is head-on only and has no classical/quantum toggle -- see
+    ``capabilities()``.
+  * xigma-i computes a smooth, pre-integrated spectral density (``dN/dE``,
+    ``d^2N/dE dOmega``), not an unbinned per-photon/per-electron event list
+    -- there is no final electron state and no photon-multiplicity
     statistic to report, unlike dfe5.
 """
 
@@ -31,9 +30,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-# Matches xigma_i.core.elC exactly; duplicated here (rather than imported)
-# so this module stays importable without cupy -- core.py does an
-# unconditional `import cupy as cp` at module scope.
+# Matches xigma_i.config.elC exactly; duplicated here (rather than
+# imported) purely to keep this module's own promise of no xigma_i imports
+# at module scope (see module docstring) -- config.py itself is actually
+# cupy-optional too, this is just consistent with the rest of the file.
 _ELEMENTARY_CHARGE_C = 1.602176634e-19   # [C]
 _C_LIGHT_M = 2.99792458e8                # [m/s]
 _M_TO_CM = 1.0e2
@@ -123,9 +123,8 @@ class BinnedAngularSpectrum:
 
 @dataclass
 class BinnedTemporalEnvelope:
-    """Photon-emission rate vs. time, read straight off ``Compton``'s own
-    ``time_envelope``/``env_ts`` attributes (core.py's calculate_intersection
-    already computes this internally; no new kernel work needed)."""
+    """Photon-emission rate vs. time -- see
+    ``tabulated_engine.TabulatedEngine.temporal_envelope``."""
 
     t_seconds: np.ndarray
     rate: np.ndarray
@@ -133,11 +132,8 @@ class BinnedTemporalEnvelope:
 
 @dataclass
 class BinnedSpatialDistribution:
-    """Transverse (x, y) areal density of photon emission, read off
-    ``Compton``'s ``spatial_envelope``/``spatial_x_edges``/``spatial_y_edges``
-    (a dedicated deposition kernel added alongside ``particle_kernel``'s
-    existing time_envelope mechanism -- see core.py's ``particle_kernel``
-    and ``calculate_intersection``)."""
+    """Transverse (x, y) areal density of photon emission -- see
+    ``tabulated_engine.TabulatedEngine.spatial_distribution``."""
 
     x_centers: np.ndarray
     y_centers: np.ndarray
@@ -170,13 +166,19 @@ class XigmaResults:
     spatial_distribution: object | None = None
     final_distribution_path: str | None = None
     warnings: list | None = None
-    # Private: the built Compton instance (+ params it was built with), cached
-    # so XigmaAdapter.run() can stash it for spectrum_in_angular_range()'s
-    # on-demand recompute without restructuring the module-function/adapter
-    # split above. Not part of the model_api.CommonResults contract.
+    # Private: the built Compton config instance (+ params it was built
+    # with), cached so XigmaAdapter.run() can stash it for
+    # spectrum_in_angular_range()'s on-demand recompute without
+    # restructuring the module-function/adapter split above. Not part of
+    # the model_api.CommonResults contract. _compton is TabulatedEngine's
+    # config source (never anything else -- it runs no compute itself);
+    # _engine/_device are cached the same way for
+    # spectrum_in_angular_range's on-demand angular-spectrum recompute.
     _compton: object | None = None
     _gamma_0: float | None = None
     _sigma_gamma_0: float | None = None
+    _engine: object | None = None
+    _device: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -186,12 +188,14 @@ _TRUST_NOTE = (
     "passport.md self-rates this engine trust level C (linear/classical "
     "regime) / D (nonlinear-emulation regime): no unit tests, no "
     "cross-code validation, no guaranteed run-to-run reproducibility, "
-    "crossing-angle and astigmatic-laser geometries not modeled, and a "
-    "known unresolved normalization-gap bug is documented in reference.py. "
-    "Runs on a CUDA GPU if one is available, else falls back to a CPU/numba "
-    "implementation of the same kernels (core_cpu.py) -- numerically "
-    "validated against the GPU kernels but noticeably slower, and not the "
-    "originally-shipped code path."
+    "crossing-angle and astigmatic-laser geometries not modeled. All "
+    "outputs -- total yield, angle-integrated spectrum, angular spectrum, "
+    "temporal envelope, spatial distribution -- come from the tabulated-"
+    "energy pipeline (particles.py/deposition.py/spectrum4d.py/"
+    "reference.py/tabulated_engine.py, see CLAUDE.md). Runs on a CUDA GPU "
+    "if one is available, else falls back to a CPU/numba implementation of "
+    "the same kernels -- numerically validated against the GPU kernels but "
+    "noticeably slower."
 )
 
 
@@ -202,7 +206,11 @@ def capabilities() -> dict:
         requires_gpu=False,
         supports_crossing_angle=False,
         supports_quantum_toggle=False,
-        supports_nonlinearity_emulation=True,
+        # emulate_nonlinearity has no effect: a0 is a real table axis in
+        # this pipeline, not a phenomenological correction. Config still
+        # accepts and parses the field (harmless, for interface stability);
+        # it just doesn't change anything this adapter reports.
+        supports_nonlinearity_emulation=False,
         supports_electron_final_state=False,
         supports_photon_multiplicity=False,
         supports_ele_file_io=False,
@@ -218,12 +226,12 @@ def capabilities() -> dict:
 
 
 def available() -> tuple[bool, str]:
-    """True if either backend core.Compton supports can actually run: a real
-    CUDA GPU (cupy + a visible device), or the CPU/numba fallback (see
-    core.py's device auto-detection, core_cpu.py's kernels). Only returns
-    False -- greying out the model in the GUI -- if neither works."""
+    """True if either supported backend can actually run: a real CUDA GPU
+    (cupy + a visible device), or the CPU/numba fallback (see
+    config._detect_device). Only returns False -- greying out the model in
+    the GUI -- if neither works."""
     try:
-        from .core import _detect_device
+        from .config import _detect_device
         _detect_device()
     except Exception as e:
         return False, str(e)
@@ -235,7 +243,7 @@ def _backend_note() -> str:
     -- not part of the ModelAdapter contract, just a convenience for callers
     that want to show e.g. "running on CPU (numba)" in the UI."""
     try:
-        from .core import _detect_device
+        from .config import _detect_device
         return _detect_device()
     except Exception:
         return "unavailable"
@@ -343,6 +351,22 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
+# TabulatedEngine.run()'s Stage 0/1 sizing for GUI use. Cost is close to
+# linear in n_particles*n_steps for Stage 0/1 and independent of
+# n_particles for Stage 2's quadrature. These are a first-cut, deliberately
+# not profiled against an actual interactive GUI session -- revisit with
+# real timings before trusting them at the high end of the n_mc range.
+_N_PARTICLES_NEW_MIN = 20_000
+_N_PARTICLES_NEW_MAX = 150_000
+_N_STEPS_NEW = 64
+_N_BINS_NEW = (48, 48, 48, 12)
+_SAMPLES_PER_POINT_NEW = 32
+# temporal_envelope/spatial_distribution resolution -- a reasonable-looking
+# display size, not independently profiled.
+_N_TIME_BINS_NEW = 128
+_N_SPATIAL_BINS_NEW = (64, 64)
+
+
 def _theta_grid(cfg: Config, n_points: int = 33,
                 theta_range: tuple[float, float] | None = None) -> np.ndarray:
     """A generous fixed window around the current collimation angle, wide
@@ -373,17 +397,18 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         raise ValueError(
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
-    from .core import Compton, _detect_device
+    from .config import Compton, _detect_device
+    from .tabulated_engine import TabulatedEngine
 
     device = _detect_device()
     compton = Compton(device=device)
     xp = compton.xp
 
-    # Best-effort reseed of core.py's global xp.random calls (cupy on GPU,
-    # numpy on the CPU/numba fallback). Not guaranteed bit-exact across
-    # GPU/driver/cupy versions, or between the GPU and CPU backends -- see
+    # Best-effort reproducibility: particles.sample_bunch takes an explicit
+    # rng, not a global seed -- not guaranteed bit-exact across GPU/driver/
+    # cupy versions or between the GPU and CPU backends, see
     # capabilities()'s supports_seed_reproducibility=False.
-    xp.random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     compton.set_electron_parameters(
         chargeNC=cfg.N_e * _ELEMENTARY_CHARGE_C * 1e9,
@@ -397,57 +422,61 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     compton.set_foci_displacement(
         cfg.delta_x * _M_TO_CM, cfg.delta_y * _M_TO_CM, cfg.delta_z * _M_TO_CM)
 
-    # ``n_mc`` here is a quadrature-sampling density for the beam-laser
-    # overlap integral, not a per-electron event count (see the warning
-    # raised in params_to_config) -- dfe5's GUI defaults n_mc to 200,000,
-    # which would be a wildly oversized (and likely GPU-crashing) kernel
-    # launch for calculate_intersection's O(particles_amount * theta_num^2)
-    # cost model. Clamp to a range close to core.py's own default (4096)
-    # regardless of what the GUI field says.
-    particles_amount = int(np.clip(int(n_mc), 512, 8192))
-    compton.calculate_intersection(theta_num=128, particles_amount=particles_amount)
-
-    # Temporal envelope: calculate_intersection already computes this
-    # internally (core.py's time_envelope/env_ts attributes) -- no new
-    # kernel work needed, just read it off.
-    temporal_envelope = BinnedTemporalEnvelope(
-        t_seconds=compton.asnumpy(compton.env_ts),
-        rate=compton.asnumpy(compton.time_envelope))
-
-    # core.py's spatial_envelope/edges are in cm (photons/cm^2); convert to
-    # SI (m, photons/m^2) to match dfe5's SampledSpatialDistribution units.
-    x_edges = compton.asnumpy(compton.spatial_x_edges) / _M_TO_CM
-    y_edges = compton.asnumpy(compton.spatial_y_edges) / _M_TO_CM
-    spatial_distribution = BinnedSpatialDistribution(
-        x_centers=(x_edges[:-1] + x_edges[1:]) / 2.0,
-        y_centers=(y_edges[:-1] + y_edges[1:]) / 2.0,
-        density=compton.asnumpy(compton.spatial_envelope) * (_M_TO_CM ** 2))
-
-    total_yield = float(compton.calculate_total())
-
     gamma_0 = cfg.eps0
     sigma_gamma_0 = cfg.sigma_eps
+
+    # Total yield, angle-integrated spectrum, angular spectrum, temporal
+    # envelope, and spatial distribution all come from TabulatedEngine --
+    # `compton` is used only as its config-bag (set_electron_parameters/
+    # set_laser_parameters/set_foci_displacement above); it runs no compute
+    # of its own.
+    # cfg.emulate_nonlinearity has no effect here: a0 is a real table axis
+    # in this pipeline, not a phenomenological correction (see
+    # spectrum4d.py's module docstring). Still read into summary below and
+    # still validated/parsed by params_to_config, for interface stability.
+    engine = TabulatedEngine(compton)
+    push_backend = 'cupy' if device == 'gpu' else 'numpy'
+    # ``n_mc`` here is a quadrature-sampling density for the beam-laser
+    # overlap integral, not a per-electron event count (see the warning
+    # raised in params_to_config) -- clamped to _N_PARTICLES_NEW_MIN/MAX
+    # regardless of what the GUI field says.
+    n_particles_new = int(np.clip(int(n_mc), _N_PARTICLES_NEW_MIN, _N_PARTICLES_NEW_MAX))
+    engine.run(n_particles_new, gamma_0, sigma_gamma_0, n_steps=_N_STEPS_NEW,
+               n_bins=_N_BINS_NEW, backend=push_backend, rng=rng,
+               n_time_bins=_N_TIME_BINS_NEW, n_spatial_bins=_N_SPATIAL_BINS_NEW)
+    total_yield = engine.total_yield
+
+    # engine.temporal_envelope/.spatial_distribution: rate vs seconds /
+    # areal density vs cm -- see tabulated_engine.py's module docstring.
+    # Convert cm/photons-per-cm^2 to SI (m/photons-per-m^2).
+    t_seconds, rate = engine.temporal_envelope
+    temporal_envelope = BinnedTemporalEnvelope(t_seconds=t_seconds, rate=rate)
+
+    x_centers_cm, y_centers_cm, density_per_cm2 = engine.spatial_distribution
+    spatial_distribution = BinnedSpatialDistribution(
+        x_centers=x_centers_cm / _M_TO_CM, y_centers=y_centers_cm / _M_TO_CM,
+        density=density_per_cm2 * (_M_TO_CM ** 2))
 
     # Angle-integrated spectrum, s in [0, 1.1*gamma0^2] (covers up to just
     # past the classical Compton edge), 512 points.
     s_tot = (xp.linspace(0.0, 1.1, 512, dtype=xp.float32) * gamma_0 ** 2)
-    dNdE_per_MeV = compton.calculate_spectrum(
-        s_tot, gamma_0, sigma_gamma_0, emulate_nonlinearity=cfg.emulate_nonlinearity)
+    dNds_tot = compton.asnumpy(engine.spectrum(s_tot))
     s_scale_MeV = 4.0 * compton.Wph
     E_eV = (compton.asnumpy(s_tot) * s_scale_MeV) * 1e6
-    dNdE_per_eV = dNdE_per_MeV / 1e6
+    dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6  # dN/ds -> dN/dE(MeV) -> dN/dE(eV)
 
     # Angular spectrum, precomputed over a generous fixed theta window and a
-    # coarser energy grid (kept smaller for GPU kernel-launch cost: grid
-    # size = theta_x.size * theta_y.size * s.size).
+    # coarser energy grid (kept smaller for kernel-launch cost: grid size =
+    # theta_x.size * theta_y.size * s.size). calculate_angular_spectrum_4d
+    # always returns a host array regardless of device (see spectrum4d.py).
     theta_x = _theta_grid(cfg)
     theta_y = _theta_grid(cfg)
     s_ang = (xp.linspace(0.0, 1.1, 96, dtype=xp.float32) * gamma_0 ** 2)
-    ang_spec_MeV, _dt, _debug = compton.calculate_angular_spectrum(
-        s_ang, xp.asarray(theta_x), xp.asarray(theta_y), gamma_0, sigma_gamma_0,
-        cfg.phi_pol, emulate_nonlinearity=cfg.emulate_nonlinearity)
+    d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
+        s_ang, xp.asarray(theta_x), xp.asarray(theta_y), cfg.phi_pol,
+        samples_per_point=_SAMPLES_PER_POINT_NEW, device=device)
     E_ang_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
-    d2NdEdOmega = ang_spec_MeV / 1e6  # -> eV^-1 sr^-1
+    d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6  # -> eV^-1 sr^-1
 
     summary = dict(
         total_yield=total_yield,
@@ -461,7 +490,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     return XigmaResults(
         model_name="xigma-i",
         cfg=cfg,
-        n_mc=particles_amount,
+        n_mc=n_particles_new,
         total_yield=total_yield,
         spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
         summary=summary,
@@ -474,6 +503,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         spatial_distribution=spatial_distribution,
         final_distribution_path=None,
         _compton=compton, _gamma_0=gamma_0, _sigma_gamma_0=sigma_gamma_0,
+        _engine=engine, _device=device,
     )
 
 
@@ -482,19 +512,20 @@ def spectrum_in_angular_range(
         theta_y_range: tuple[float, float], n_points: int = 33,
         n_energy: int = 96) -> AngularRangeSpectrumResult:
     """Fresh, on-demand spectrum over an arbitrary user-picked angular
-    sub-range, using the ``Compton`` instance cached on ``res`` by
-    ``run_simulation``.
+    sub-range, using the ``TabulatedEngine`` (and its already-built table)
+    cached on ``res`` by ``run_simulation``.
 
-    ``calculate_angular_spectrum`` already accepts arbitrary theta_x/theta_y
-    device arrays (core.py) -- no core.py change needed; this just launches
-    a second, purpose-built kernel call instead of reslicing the coarse
-    generous grid ``run_simulation`` precomputes for the collimation-window
-    UI fields.
+    ``calculate_angular_spectrum_4d`` already accepts arbitrary theta_x/
+    theta_y arrays -- no new table build needed; this just launches a
+    second, purpose-built kernel call over the cached table instead of
+    reslicing the coarse generous grid ``run_simulation`` precomputes for
+    the collimation-window UI fields.
     """
+    engine = res._engine
+    if engine is None or engine.table is None:
+        raise RuntimeError("spectrum_in_angular_range: no cached "
+                            "TabulatedEngine/table -- run() must be called first")
     compton = res._compton
-    if compton is None:
-        raise RuntimeError("spectrum_in_angular_range: no cached Compton "
-                            "instance -- run() must be called first")
     xp = compton.xp
 
     cfg = res.cfg
@@ -502,13 +533,12 @@ def spectrum_in_angular_range(
     theta_y = _theta_grid(cfg, n_points=n_points, theta_range=theta_y_range)
     s_ang = (xp.linspace(0.0, 1.1, n_energy, dtype=xp.float32)
              * res._gamma_0 ** 2)
-    ang_spec_MeV, _dt, _debug = compton.calculate_angular_spectrum(
-        s_ang, xp.asarray(theta_x), xp.asarray(theta_y),
-        res._gamma_0, res._sigma_gamma_0, cfg.phi_pol,
-        emulate_nonlinearity=cfg.emulate_nonlinearity)
+    d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
+        s_ang, xp.asarray(theta_x), xp.asarray(theta_y), cfg.phi_pol,
+        samples_per_point=_SAMPLES_PER_POINT_NEW, device=res._device)
     s_scale_MeV = 4.0 * compton.Wph
     E_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
-    d2NdEdOmega = ang_spec_MeV / 1e6
+    d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6
 
     dtx = np.gradient(theta_x)
     dty = np.gradient(theta_y)
