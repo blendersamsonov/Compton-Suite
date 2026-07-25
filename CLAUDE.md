@@ -38,6 +38,32 @@ narrative about earlier code generations, left as-is; only this engine's
 - `cfg.quantum` toggles Thomson (classical) vs Klein-Nishina (quantum recoil) cross section — this is a genuine physics toggle, unrelated to `xigma_i`'s "emulate_nonlinearity" axis (that's an a0-downshift emulation, a different thing entirely).
 - Supports arbitrary `crossing_angle` (unlike `xigma_i`, which is head-on only).
 
+## Physical constants (`compton_suite`)
+
+`kascade.py`'s "Physical constants (SI)" block (`C_LIGHT`/`E_CHARGE`/
+`HBAR`/`EPS0`/`SIGMA_T`/`MEC2_EV`/`MEC2_J`) now comes from the shared
+`compton_suite` sibling repo's `constants.py` (pint-derived, not
+hand-typed literals) instead of local literals -- found via
+`_bootstrap.setup_paths()` (new, mirrors `compton_guide.bootstrap`'s own
+content-based sibling-directory autodiscovery; env var
+`KASCADE_COMPTON_SUITE_SRC` if it lives outside this repo's sibling
+directories). This was a **zero-numeric-change** dedup: this module's
+previous literals already agreed with `compton_suite`'s canonical values
+to their quoted precision (unlike `xigma_i`'s config.py, whose hbar/
+electron-mass were on an older CODATA vintage and needed an actual,
+deliberate numeric update as part of the same migration -- see
+`compton_suite`'s own `CLAUDE.md`).
+
+This repo has a `pyproject.toml` now (flat `py-modules = ["kascade"]`
+layout, previously none at all) purely so `pint` -- transitively needed by
+`compton_suite` -- is a declared dependency; nothing else changed about
+how this engine is packaged or invoked. **Only the constants moved.**
+This repo has *not* adopted `compton_suite`'s parameter-semantics/
+convention framework (`PhysicalQuantity`/`ParameterSpec`/`ModelSpec`/
+`adapt_to_model`) the way `xigma_i.params` has -- that's a materially
+bigger lift (this engine has no existing spec-owning layer analogous to
+`gui_adapter.params_to_config`) and stays a documented, undone follow-up.
+
 ## No GPU dependency
 
 Pure NumPy/CPU — no cupy needed. This is why `kascade` is always the available/enabled model in `Compton-GUIde`'s registry, while `xigma-i` can be greyed out if cupy/CUDA isn't set up.
@@ -50,4 +76,9 @@ No unit test suite lives in this repo. It's validated via the sibling `Compton-G
 
 - `../compton-gui` (repo `Compton-GUIde`, Python package `compton_guide`) — the Tkinter GUI. Consumes this engine exclusively through `compton_guide/adapters/kascade_adapter.py` in that repo — this repo has zero knowledge of the GUI/adapter layer by design ("as little interruption as possible" was the explicit goal when the GUI was split out). If you add a new `Results` field the GUI should see, thread it through here additively, then read it from `kascade_adapter.py` on the other side.
 - `../git-repo-claude` (or wherever the `xigma_i`/XIGMA checkout lives) — the other physics engine plugged into the same GUI, entirely independent of this code.
+- `../compton-suite` — shared physical constants/pint registry/parameter-
+  convention framework (`compton_suite`), depended on by *this* repo now
+  (constants only, see above), the reverse direction from the
+  `compton-gui` relationship above. Found via `_bootstrap.py`, same
+  content-based autodiscovery pattern.
 - `compton_guide`'s `bootstrap.py` **autodiscovers** this repo among its sibling directories by content (looking for a `kascade.py` marker file), not by a hardcoded name or path — so this repo can be renamed/relocated without updating the GUI, as long as it stays a sibling of `compton-gui`'s checkout. Override with the `COMPTON_GUIDE_KASCADE_PATH` env var if it lives elsewhere entirely.

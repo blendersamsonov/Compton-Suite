@@ -66,16 +66,26 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
+import _bootstrap
+
+_bootstrap.setup_paths()
+from compton_suite import constants as _suite_constants
+
 # ---------------------------------------------------------------------------
-# Physical constants (SI)
+# Physical constants (SI) -- from compton_suite.constants (shared, pint-
+# derived source of truth also used by compton_guide/xigma_i) rather than
+# hand-typed literals. Zero numeric change here: this module's previous
+# literals already agreed with compton_suite's values to their quoted
+# precision (unlike xigma_i's older-CODATA-vintage hbar/electron mass,
+# which did need an actual, deliberate numeric update).
 # ---------------------------------------------------------------------------
-C_LIGHT = 299_792_458.0           # speed of light            [m/s]
-E_CHARGE = 1.602_176_634e-19      # elementary charge         [C]
-HBAR = 1.054_571_817e-34          # reduced Planck constant   [J s]
-EPS0 = 8.854_187_8128e-12         # vacuum permittivity       [F/m]
-SIGMA_T = 6.652_458_7321e-29      # Thomson cross section     [m^2]
-MEC2_EV = 510_998.950             # electron rest energy      [eV]
-MEC2_J = MEC2_EV * E_CHARGE       # electron rest energy      [J]
+C_LIGHT = _suite_constants.C_LIGHT        # speed of light            [m/s]
+E_CHARGE = _suite_constants.E_CHARGE      # elementary charge         [C]
+HBAR = _suite_constants.HBAR              # reduced Planck constant   [J s]
+EPS0 = _suite_constants.EPS0              # vacuum permittivity       [F/m]
+SIGMA_T = _suite_constants.SIGMA_T_M2     # Thomson cross section     [m^2]
+MEC2_EV = _suite_constants.MEC2_EV        # electron rest energy      [eV]
+MEC2_J = MEC2_EV * E_CHARGE               # electron rest energy      [J]
 
 # ---------------------------------------------------------------------------
 # Configuration
