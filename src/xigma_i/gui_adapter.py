@@ -87,6 +87,24 @@ class Config:
     phi_pol: float = 0.0                # polarization angle [rad]
     emulate_nonlinearity: bool = True   # phenomenological a0 downshift/broadening
 
+    # xigma-i-only numerical/resolution controls -- no physical meaning, but
+    # surfaced through extra_params() (see below) so the pipeline's
+    # accuracy/cost knobs (CLAUDE.md's "Convergence testing" section) are
+    # user-tunable from the GUI instead of hardcoded module constants.
+    # Stored here (rather than only in the params_to_config `extra` dict)
+    # because run_simulation only ever receives ``cfg``, not the raw fields.
+    n_particles_01: float = 60_000.0    # Stage 0/1 particle count (push_and_sample rows)
+    n_steps_0: float = 64.0             # Stage 0 per-particle trajectory-integration steps
+    n_bins_gamma: float = 48.0          # Stage 1 table bins, gamma axis
+    n_bins_theta_x: float = 48.0        # Stage 1 table bins, theta_x axis
+    n_bins_theta_y: float = 48.0        # Stage 1 table bins, theta_y axis
+    n_bins_a0: float = 12.0             # Stage 1 table bins, a0 axis
+    a0_max: float = 0.5                 # model's valid a0 range upper bound (deposition.retarget_a0)
+    samples_per_point_2: float = 32.0   # Stage 2 quadrature samples per output point
+    n_time_bins: float = 128.0          # temporal_envelope histogram bins
+    n_spatial_bins_x: float = 64.0      # spatial_distribution histogram bins, x
+    n_spatial_bins_y: float = 64.0      # spatial_distribution histogram bins, y
+
     # derived in __post_init__, mirroring dfe5_compton_mc.Config so the
     # model-agnostic spread-estimate formula in the GUI works unmodified
     omega_L: float = field(init=False)
@@ -260,6 +278,17 @@ def extra_params() -> list[tuple[str, float, str]]:
     return [
         ("Flying-focus factor (0=static, 1=co-moving)", 0.0, "beta_ff"),
         ("Polarization angle [rad]", 0.0, "phi_pol"),
+        ("Stage 0/1 particles", 60_000, "n_particles_01"),
+        ("Stage 0 trajectory steps", 64, "n_steps_0"),
+        ("Grid bins: gamma", 48, "n_bins_gamma"),
+        ("Grid bins: theta_x", 48, "n_bins_theta_x"),
+        ("Grid bins: theta_y", 48, "n_bins_theta_y"),
+        ("Grid bins: a0", 12, "n_bins_a0"),
+        ("a0_max (model valid range)", 0.5, "a0_max"),
+        ("Stage 2 samples/point", 32, "samples_per_point_2"),
+        ("Temporal envelope bins", 128, "n_time_bins"),
+        ("Spatial bins: x", 64, "n_spatial_bins_x"),
+        ("Spatial bins: y", 64, "n_spatial_bins_y"),
     ]
 
 
@@ -312,6 +341,22 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
     beta_ff = g("beta_ff")
     phi_pol = g("phi_pol")
 
+    # Numerical/resolution knobs -- integers clamped to >= 1 so a stray 0 or
+    # negative GUI entry can't crash Stage 0/1/2 (e.g. an empty table or a
+    # zero-size histogram) rather than raising a clear ParamError; there's
+    # no physical reason to allow smaller values.
+    n_particles_01 = max(1, int(round(g("n_particles_01"))))
+    n_steps_0 = max(1, int(round(g("n_steps_0"))))
+    n_bins_gamma = max(1, int(round(g("n_bins_gamma"))))
+    n_bins_theta_x = max(1, int(round(g("n_bins_theta_x"))))
+    n_bins_theta_y = max(1, int(round(g("n_bins_theta_y"))))
+    n_bins_a0 = max(1, int(round(g("n_bins_a0"))))
+    a0_max = g("a0_max")
+    samples_per_point_2 = max(1, int(round(g("samples_per_point_2"))))
+    n_time_bins = max(1, int(round(g("n_time_bins"))))
+    n_spatial_bins_x = max(1, int(round(g("n_spatial_bins_x"))))
+    n_spatial_bins_y = max(1, int(round(g("n_spatial_bins_y"))))
+
     warnings = []
     if crossing_angle != 0.0:
         raise ParamError(
@@ -324,10 +369,12 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
         warnings.append("Rayleigh length must be > 0; using a very small laser "
                         "waist as a fallback.")
     warnings.append(
-        "xigma-i: 'Number of macroelectrons' controls the sampling density of "
-        "the beam-laser overlap integral, not a per-electron photon-emission "
-        "event count -- this model has no discrete electron/photon event "
-        "generator (no final electron state, no photon-multiplicity stats).")
+        "xigma-i: 'Number of macroelectrons' is ignored -- use this model's "
+        "own 'Stage 0/1 particles' field (Model Parameters panel) instead. "
+        "That count sets the sampling density of the beam-laser overlap "
+        "integral, not a per-electron photon-emission event count -- this "
+        "model has no discrete electron/photon event generator (no final "
+        "electron state, no photon-multiplicity stats).")
 
     cfg = Config(
         eps0=eps0, sigma_eps_rel=sigma_eps_rel,
@@ -342,6 +389,11 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
         quantum=quantum,
         Theta_x=theta_x_col, Theta_y=theta_y_col,
         beta_ff=beta_ff, phi_pol=phi_pol,
+        n_particles_01=n_particles_01, n_steps_0=n_steps_0,
+        n_bins_gamma=n_bins_gamma, n_bins_theta_x=n_bins_theta_x,
+        n_bins_theta_y=n_bins_theta_y, n_bins_a0=n_bins_a0, a0_max=a0_max,
+        samples_per_point_2=samples_per_point_2, n_time_bins=n_time_bins,
+        n_spatial_bins_x=n_spatial_bins_x, n_spatial_bins_y=n_spatial_bins_y,
     )
     extra = dict(n_mc=int(g("n_mc")), seed=int(g("seed")),
                  rep_rate_hz=rep_rate_hz, warnings=warnings)
@@ -351,20 +403,17 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
-# TabulatedEngine.run()'s Stage 0/1 sizing for GUI use. Cost is close to
-# linear in n_particles*n_steps for Stage 0/1 and independent of
-# n_particles for Stage 2's quadrature. These are a first-cut, deliberately
-# not profiled against an actual interactive GUI session -- revisit with
-# real timings before trusting them at the high end of the n_mc range.
-_N_PARTICLES_NEW_MIN = 20_000
-_N_PARTICLES_NEW_MAX = 150_000
-_N_STEPS_NEW = 64
-_N_BINS_NEW = (48, 48, 48, 12)
-_SAMPLES_PER_POINT_NEW = 32
-# temporal_envelope/spatial_distribution resolution -- a reasonable-looking
-# display size, not independently profiled.
-_N_TIME_BINS_NEW = 128
-_N_SPATIAL_BINS_NEW = (64, 64)
+# TabulatedEngine.run()'s Stage 0/1/2 sizing is user-tunable via Config's
+# numerical-control fields (n_particles_01, n_steps_0, n_bins_*, a0_max,
+# samples_per_point_2, n_time_bins, n_spatial_bins_*; see extra_params()) --
+# the defaults on those fields are the same first-cut values this module
+# used to hardcode here, still deliberately not profiled against an actual
+# interactive GUI session. Cost is close to linear in n_particles*n_steps
+# for Stage 0/1 and independent of n_particles for Stage 2's quadrature.
+# _N_PARTICLES_SANITY_MAX is the one clamp still applied unconditionally
+# (in run_simulation), as a guard against a fat-fingered GUI value hanging
+# the GPU/CPU for a very long time -- everything else is taken from cfg as-is.
+_N_PARTICLES_SANITY_MAX = 2_000_000
 
 
 def _theta_grid(cfg: Config, n_points: int = 33,
@@ -389,6 +438,9 @@ def _theta_grid(cfg: Config, n_points: int = 33,
 
 def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
                    electrons: dict | None = None) -> XigmaResults:
+    """``n_mc`` is accepted for ``ModelAdapter.run`` signature compatibility
+    but unused: xigma-i sizes Stage 0/1 from ``cfg.n_particles_01`` instead
+    (see extra_params()/Config's numerical-control fields above)."""
     if electrons is not None:
         raise NotImplementedError(
             "xigma-i: loaded .ele electron bunches are not supported "
@@ -436,14 +488,19 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # still validated/parsed by params_to_config, for interface stability.
     engine = TabulatedEngine(compton)
     push_backend = 'cupy' if device == 'gpu' else 'numpy'
-    # ``n_mc`` here is a quadrature-sampling density for the beam-laser
-    # overlap integral, not a per-electron event count (see the warning
-    # raised in params_to_config) -- clamped to _N_PARTICLES_NEW_MIN/MAX
-    # regardless of what the GUI field says.
-    n_particles_new = int(np.clip(int(n_mc), _N_PARTICLES_NEW_MIN, _N_PARTICLES_NEW_MAX))
-    engine.run(n_particles_new, gamma_0, sigma_gamma_0, n_steps=_N_STEPS_NEW,
-               n_bins=_N_BINS_NEW, backend=push_backend, rng=rng,
-               n_time_bins=_N_TIME_BINS_NEW, n_spatial_bins=_N_SPATIAL_BINS_NEW)
+    # ``n_mc`` (the shared "Number of macroelectrons" field/arg) is ignored
+    # here -- xigma-i's own 'Stage 0/1 particles' field (cfg.n_particles_01)
+    # is the sampling density for the beam-laser overlap integral, not a
+    # per-electron event count (see the warning raised in params_to_config).
+    # Only clamped against a runaway-cost sanity ceiling, not a floor --
+    # params_to_config already enforces >= 1 on every numerical field.
+    n_particles_new = min(int(cfg.n_particles_01), _N_PARTICLES_SANITY_MAX)
+    n_bins = (int(cfg.n_bins_gamma), int(cfg.n_bins_theta_x),
+              int(cfg.n_bins_theta_y), int(cfg.n_bins_a0))
+    n_spatial_bins = (int(cfg.n_spatial_bins_x), int(cfg.n_spatial_bins_y))
+    engine.run(n_particles_new, gamma_0, sigma_gamma_0, n_steps=int(cfg.n_steps_0),
+               n_bins=n_bins, backend=push_backend, rng=rng, a0_max=cfg.a0_max,
+               n_time_bins=int(cfg.n_time_bins), n_spatial_bins=n_spatial_bins)
     total_yield = engine.total_yield
 
     # engine.temporal_envelope/.spatial_distribution: rate vs seconds /
@@ -474,7 +531,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     s_ang = (xp.linspace(0.0, 1.1, 96, dtype=xp.float32) * gamma_0 ** 2)
     d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
         s_ang, xp.asarray(theta_x), xp.asarray(theta_y), cfg.phi_pol,
-        samples_per_point=_SAMPLES_PER_POINT_NEW, device=device)
+        samples_per_point=int(cfg.samples_per_point_2), device=device)
     E_ang_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
     d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6  # -> eV^-1 sr^-1
 
@@ -535,7 +592,7 @@ def spectrum_in_angular_range(
              * res._gamma_0 ** 2)
     d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
         s_ang, xp.asarray(theta_x), xp.asarray(theta_y), cfg.phi_pol,
-        samples_per_point=_SAMPLES_PER_POINT_NEW, device=res._device)
+        samples_per_point=int(cfg.samples_per_point_2), device=res._device)
     s_scale_MeV = 4.0 * compton.Wph
     E_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
     d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6
