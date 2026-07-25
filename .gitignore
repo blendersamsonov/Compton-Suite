@@ -19,3 +19,10 @@ dist/
 # when run from this directory (e.g. via validation/*.py) -- a run
 # byproduct, not source.
 *.ele
+
+# validation/visualize.py's generated plots -- regenerate, don't commit.
+/validation/plots/
+
+# validation/cache.py's commit-hash-keyed result cache -- regenerate,
+# don't commit (and it's keyed to local commit state anyway).
+/validation/.cache/
