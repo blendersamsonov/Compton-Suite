@@ -505,12 +505,29 @@ adapter reports through its `capabilities()`.
   at the `set_*_parameters` call boundary. `crossing_angle` must be `0.0`
   (head-on only -- this pipeline has no crossing-angle support at all).
   `quantum` is accepted for interface symmetry but has no effect. `beta_ff`/
-  `phi_pol` are xigma-i-only extras with no dfe5 analogue -- surfaced in the
-  GUI through `XigmaAdapter.extra_params()` (a small `(label, default, key)`
-  spec list, mirrored in `compton_gui.model_api.ModelAdapter.extra_params`)
-  rather than the shared Electrons/Laser/Compton field panels, since those
-  are common to every model. `emulate_nonlinearity` is still accepted/
-  parsed (interface stability) but is inert (see Traps).
+  `phi_pol`, plus a block of pipeline numerical/resolution knobs
+  (`n_particles_01`, `n_steps_0`, `n_bins_gamma`/`n_bins_theta_x`/
+  `n_bins_theta_y`/`n_bins_a0`, `a0_max`, `samples_per_point_2`,
+  `n_time_bins`, `n_spatial_bins_x`/`n_spatial_bins_y`), are xigma-i-only
+  extras with no dfe5 analogue -- surfaced in the GUI through
+  `XigmaAdapter.extra_params()` (a small `(label, default, key)` spec list,
+  mirrored in `compton_gui.model_api.ModelAdapter.extra_params`) rather
+  than the shared Electrons/Laser/Compton field panels, since those are
+  common to every model. The numerical knobs have no physical meaning --
+  they're `run_simulation`'s former hardcoded module constants
+  (`_N_PARTICLES_NEW_*`/`_N_STEPS_NEW`/`_N_BINS_NEW`/
+  `_SAMPLES_PER_POINT_NEW`/`_N_TIME_BINS_NEW`/`_N_SPATIAL_BINS_NEW`),
+  moved onto `Config` (the only object `run_simulation` receives) so the
+  GUI can tune Stage 0/1/2 cost/accuracy per run instead of it being fixed
+  at import time; the shared "Number of macroelectrons" field (`n_mc`) is
+  parsed but ignored by xigma-i now that `n_particles_01` is the real
+  Stage 0/1 particle-count knob (`params_to_config` raises a warning
+  saying so). `run_simulation` still clamps `n_particles_01` against a
+  `_N_PARTICLES_SANITY_MAX` ceiling (2,000,000) as a guard against a
+  fat-fingered GUI value hanging the GPU/CPU; every numerical field is
+  otherwise floored at 1 in `params_to_config`, not re-validated later.
+  `emulate_nonlinearity` is still accepted/parsed (interface stability)
+  but is inert (see Traps).
 - `XigmaAdapter` caches `self._last_results` (which itself carries private
   `_compton`/`_gamma_0`/`_sigma_gamma_0`/`_engine`/`_device`, set by
   `run_simulation`) so `spectrum_in_angular_range()` can reuse the cached
@@ -522,15 +539,18 @@ adapter reports through its `capabilities()`.
   `TabulatedEngine`, and calls `.run(..., n_time_bins=, n_spatial_bins=)`
   once to get every observable the GUI needs (total yield, angle-integrated
   spectrum, angular spectrum, temporal envelope, spatial distribution) in
-  a single Stage 0/1/2 pass. `n_particles`/`n_steps`/`n_bins`/
-  `samples_per_point`/`n_time_bins`/`n_spatial_bins` for this call
-  (`gui_adapter.py`'s `_N_PARTICLES_NEW_*`/`_N_STEPS_NEW`/`_N_BINS_NEW`/
-  `_SAMPLES_PER_POINT_NEW`/`_N_TIME_BINS_NEW`/`_N_SPATIAL_BINS_NEW`) are a
-  first-cut, **not profiled against a real interactive GUI session** --
-  smoke-tested only (see below). One full `run()` takes ~1s on a GTX 1660
-  Ti GPU / ~8s on CPU/numba at the current defaults (`n_particles=
-  20k-150k` clamped from `n_mc`, `n_steps=64`, `n_bins=(48,48,48,12)`,
-  `n_time_bins=128`, `n_spatial_bins=(64,64)`).
+  a single Stage 0/1/2 pass. `n_particles`/`n_steps`/`n_bins`/`a0_max`/
+  `samples_per_point`/`n_time_bins`/`n_spatial_bins` for this call come
+  from `cfg`'s numerical-control fields (see above); their *defaults*
+  (`Config`'s field defaults, echoed in `extra_params()`) are a first-cut,
+  **not profiled against a real interactive GUI session** -- smoke-tested
+  only (see below). One full `run()` takes ~1s on a GTX 1660 Ti GPU / ~8s
+  on CPU/numba at those defaults (`n_particles_01=60_000`, `n_steps_0=64`,
+  `n_bins=(48,48,48,12)`, `a0_max=0.5`, `samples_per_point_2=32`,
+  `n_time_bins=128`, `n_spatial_bins=(64,64)`) -- dialing any of them up
+  from the GUI increases cost roughly as documented in "Convergence
+  testing" above (particles/steps ~linear in Stage 0/1 cost, quadrature
+  samples independent of particle count in Stage 2).
 
 ### GUI-side testing
 
