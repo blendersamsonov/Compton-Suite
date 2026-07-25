@@ -1,17 +1,17 @@
-"""Shared physical constants, pint unit registry, and parameter-semantics/
-convention framework for the Compton-scattering GUI + physics-engine suite
-(``compton_guide``, ``xigma_i``, ``kascade``).
+"""Shared physical constants, pint unit registry, parameter-semantics/
+convention framework, and electron-bunch/laser-pulse representations for
+the ComptonSuite toolkit (``compton_suite``, ``compton_guide``, ``xigma_i``,
+``xigma_direct``, ``kascade``).
 
-Three independently-versioned sibling repos plug physics engines into a
-shared GUI through a duck-typed ``ModelAdapter`` contract, and previously
-each hand-maintained its own copy of physical constants and (where a
-convention layer existed at all) its own copy of the enums/dataclasses used
-to describe parameter semantics -- with a real, ~1.6e-8 relative numeric
-disagreement between two of the constant copies (see ``constants.py``'s
-docstring), and, for the convention layer, structurally-identical-but-not-
-the-same-class duplication once more than one repo had a copy. This package
-exists so there is exactly one copy of both, that every consumer imports
-directly (never vendors or re-derives):
+Sibling repos plug physics engines into a shared GUI through a duck-typed
+``ModelAdapter`` contract, and previously each hand-maintained its own copy
+of physical constants and (where a convention layer existed at all) its own
+copy of the enums/dataclasses used to describe parameter semantics -- with
+a real, ~1.6e-8 relative numeric disagreement between two of the constant
+copies (see ``constants.py``'s docstring), and, for the convention layer,
+structurally-identical-but-not-the-same-class duplication once more than
+one repo had a copy. This package exists so there is exactly one copy of
+each, that every consumer imports directly (never vendors or re-derives):
 
 1. **Physical constants** -- ``constants.py``, derived from pint's own
    built-in CODATA values rather than hand-typed literals.
@@ -26,10 +26,28 @@ directly (never vendors or re-derives):
    out to whatever convention/unit a specific model declares in its own
    ``ModelSpec`` (owned by that model's own repo -- e.g.
    ``xigma_i.params.spec.XIGMA_SPEC`` -- not by this package).
+4. **Electron-bunch representation** -- ``bunch.py``: ``MacroBunch`` (raw
+   macroparticle arrays, e.g. loaded from an elegant ``.ele`` file) and
+   ``GaussianElectronBeam`` (the ``gaussian_6d_waist`` v0.1 analytic
+   contract, defined at the beam waist -- see ``specs/
+   electron_beam_io_v0.1_full.md``), plus ``sample_gaussian_bunch``/
+   ``fit_gaussian`` to convert between the two.
+5. **Laser-pulse representation** -- ``laser.py``: ``GaussianParaxialLaser``,
+   the ``gaussian_paraxial`` v0.1 analytic contract (see ``specs/
+   gaussian_paraxial_laser_io_v0.1.md``).
+6. **Photon/observable representations** -- ``photons.py``: the
+   ``Sampled*``/``Binned*`` spectrum, angular-spectrum, temporal-envelope,
+   and spatial-distribution dataclasses every model reports results
+   through, and the GUI renders from -- the single shared type every model
+   constructs directly, instead of each defining its own structurally-
+   identical-but-separate lookalikes.
+7. **External-format I/O** -- ``io_formats/``: ``sdds.py`` (elegant
+   ``.ele``), ``yaml_spec.py`` (this package's own ``gaussian_6d_waist``/
+   ``gaussian_paraxial`` YAML formats).
 
 Typical use:
 
-    from compton_suite import (
+    from compton_io import (
         PhysicalQuantity, PhysicalMeaning, WidthConvention, adapt_to_model,
     )
     from xigma_i.params import XIGMA_SPEC
@@ -42,15 +60,16 @@ Typical use:
     adapted = adapt_to_model({"sigma0_l": laser_width, ...}, XIGMA_SPEC)
     # adapted["sigma0_l"] is now in XIGMA_SPEC's own convention/unit
 
-Not pip-installed by any consumer today -- found at runtime via each
-consumer's own content-based sys.path bootstrap (mirroring
-``compton_guide.bootstrap``'s existing marker-file autodiscovery for
-``kascade``/``xigma_i``), because sibling checkout directory names aren't
-stable across machines. See each consumer's own ``CLAUDE.md`` for its
-bootstrap entry point.
+Not pip-installed standalone by every consumer -- found at runtime either
+via the root ``compton_suite`` meta-package's editable install, or (for
+zero-install development) via each consumer's own content-based sys.path
+bootstrap (mirroring ``compton_guide.bootstrap``'s marker-file
+autodiscovery for ``kascade``/``xigma_i``), because sibling checkout
+directory names aren't stable across machines. See each consumer's own
+``CLAUDE.md`` for its bootstrap entry point.
 """
 
-from . import constants
+from . import bunch, constants, io_formats, laser, photons
 from .adapter import adapt_to_model, params_to_floats
 from .canonical import CANONICAL_CONVENTIONS, CANONICAL_UNIT, from_canonical, to_canonical
 from .enums import AmplitudeConvention, PhysicalMeaning, TimeConvention, WidthConvention
@@ -92,4 +111,8 @@ __all__ = [
     "UnknownConversionError",
     "UnitMismatchError",
     "MeaningMismatchError",
+    "bunch",
+    "laser",
+    "photons",
+    "io_formats",
 ]

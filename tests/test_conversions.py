@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from compton_suite import (  # noqa: E402
+from compton_io import (  # noqa: E402
     PhysicalMeaning,
     PhysicalQuantity,
     TimeConvention,
@@ -22,9 +22,9 @@ from compton_suite import (  # noqa: E402
     adapt_to_model,
     params_to_floats,
 )
-from compton_suite.converters import fwhm_to_sigma_intensity  # noqa: E402
-from compton_suite.schema import ParameterSpec  # noqa: E402
-from compton_suite.units import ureg  # noqa: E402
+from compton_io.converters import fwhm_to_sigma_intensity  # noqa: E402
+from compton_io.schema import ParameterSpec  # noqa: E402
+from compton_io.units import ureg  # noqa: E402
 
 _EXAMPLE_SPEC = {
     "sigma0_l": ParameterSpec(

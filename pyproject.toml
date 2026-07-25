@@ -3,13 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "compton-suite"
+name = "compton-io"
 version = "0.1.0"
-description = "Shared physical constants, pint registry, and parameter-semantics/convention framework for the Compton-GUIde + xigma-i + kascade suite"
+description = "Shared physical constants, pint registry, parameter-semantics/convention framework, and electron-bunch/laser-pulse representations for the ComptonSuite toolkit"
 authors = [{name = "Alexander Samsonov", email = "asams@ipfran.ru"}]
 dependencies = [
     "numpy",
-    "pint>=0.24"
+    "pint>=0.24",
+    "pyyaml"
 ]
 requires-python = ">=3.10"
 
