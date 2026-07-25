@@ -185,17 +185,21 @@ class XigmaResults:
 # Capabilities / availability
 # ---------------------------------------------------------------------------
 _TRUST_NOTE = (
-    "passport.md self-rates this engine trust level C (linear/classical "
-    "regime) / D (nonlinear-emulation regime): no unit tests, no "
-    "cross-code validation, no guaranteed run-to-run reproducibility, "
-    "crossing-angle and astigmatic-laser geometries not modeled. All "
-    "outputs -- total yield, angle-integrated spectrum, angular spectrum, "
-    "temporal envelope, spatial distribution -- come from the tabulated-"
-    "energy pipeline (particles.py/deposition.py/spectrum4d.py/"
-    "reference.py/tabulated_engine.py, see CLAUDE.md). Runs on a CUDA GPU "
-    "if one is available, else falls back to a CPU/numba implementation of "
-    "the same kernels -- numerically validated against the GPU kernels but "
-    "noticeably slower."
+    "passport.md self-rates this engine trust level C: no unit tests, no "
+    "cross-code/external/experimental validation, no fixed reproducible "
+    "benchmark case, crossing-angle and astigmatic-laser geometries not "
+    "modeled. Valid only for a0 <~ a0_max (default 0.5, a weakly-nonlinear "
+    "model range, not a phenomenological correction -- a0 is a real "
+    "trajectory-averaged table axis). A known, flagged-but-unresolved "
+    "caveat: narrow-angle/sparse-table configs show large unstable "
+    "variance in the angular-spectrum kernel vs. its own independent "
+    "reference paths. All outputs -- total yield, angle-integrated "
+    "spectrum, angular spectrum, temporal envelope, spatial distribution "
+    "-- come from the tabulated-energy pipeline (particles.py/"
+    "deposition.py/spectrum4d.py/reference.py/tabulated_engine.py, see "
+    "CLAUDE.md). Runs on a CUDA GPU if one is available, else falls back "
+    "to a CPU/numba implementation of the same kernels -- numerically "
+    "validated against the GPU kernels but noticeably slower."
 )
 
 
@@ -220,7 +224,7 @@ def capabilities() -> dict:
         supports_spatial_distribution=True,
         supports_angular_distribution=True,
         supports_angular_range_spectrum=True,
-        trust_level="experimental-C/D",
+        trust_level="experimental-C",
         trust_note=_TRUST_NOTE,
     )
 
