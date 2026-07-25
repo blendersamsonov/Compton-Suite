@@ -46,6 +46,12 @@ def test_a0_matches_practical_approximation():
     assert abs(_EXAMPLE_PULSE.a0_focus / approx - 1.0) < 5e-3
 
 
+def test_a0sq_is_a0_squared():
+    assert abs(_EXAMPLE_PULSE.a0sq_focus - _EXAMPLE_PULSE.a0_focus ** 2) < 1e-12 * _EXAMPLE_PULSE.a0sq_focus
+    assert abs(_EXAMPLE_PULSE.a0sq_interaction - _EXAMPLE_PULSE.a0_interaction ** 2) < 1e-12 * _EXAMPLE_PULSE.a0sq_interaction
+    assert abs(_EXAMPLE_PULSE.a0sq_at(1e-6) - _EXAMPLE_PULSE.a0_at(1e-6) ** 2) < 1e-12 * _EXAMPLE_PULSE.a0sq_at(1e-6)
+
+
 def test_defocused_interaction_intensity_is_lower():
     defocused = GaussianParaxialLaser(
         pulse_energy_J=0.05, wavelength_m=0.8e-6,

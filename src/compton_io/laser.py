@@ -117,6 +117,26 @@ class GaussianParaxialLaser:
     def a0_interaction(self) -> float:
         return self.a0_at(0.0)
 
+    def a0sq_at(self, z_m: float) -> float:
+        """``a0_at(z_m)**2`` -- the mean-square amplitude.
+
+        Consumers that only ever work with intensity/photon density (not a
+        field amplitude) -- e.g. ``xigma_i``, whose weakly-nonlinear-regime
+        formalism only ever needs ``a0**2`` (its own docs call this
+        quantity ``a0`` by convention, but it is never a linear field
+        amplitude anywhere in that codebase) -- should read this directly
+        rather than squaring ``a0_at()`` themselves at each call site.
+        """
+        return self.a0_at(z_m) ** 2
+
+    @property
+    def a0sq_focus(self) -> float:
+        return self.a0sq_at(self.focus_z_m)
+
+    @property
+    def a0sq_interaction(self) -> float:
+        return self.a0sq_at(0.0)
+
 
 def validate(pulse: GaussianParaxialLaser) -> list[str]:
     """Validate a :class:`GaussianParaxialLaser` per spec Sec. 12.
