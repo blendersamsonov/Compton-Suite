@@ -30,6 +30,24 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+# compton_io is load-bearing (not cupy-optional) for this whole package
+# already -- config.py itself calls this same bootstrap at module scope
+# (see that module's docstring) -- so importing compton_io.photons here
+# doesn't weaken this module's "no cupy at module scope" promise, which is
+# specifically about cupy/config/tabulated_engine, not compton_io.
+from . import _bootstrap
+
+_bootstrap.setup_paths()
+
+from compton_io.bunch import MacroBunch  # noqa: E402
+from compton_io.photons import (  # noqa: E402
+    AngularRangeSpectrumResult,
+    BinnedAngularSpectrum,
+    BinnedSpatialDistribution,
+    BinnedSpectrum,
+    BinnedTemporalEnvelope,
+)
+
 # Matches xigma_i.config.elC exactly; duplicated here (rather than
 # imported) purely to keep this module's own promise of no xigma_i imports
 # at module scope (see module docstring) -- config.py itself is actually
@@ -121,53 +139,6 @@ class Config:
         return self.sigma_eps_rel * self.eps0
 
 
-# ---------------------------------------------------------------------------
-# Local result dataclasses (shape-compatible with MC-Kost/model_api.py, but
-# not imported from there -- this package stays MC-Kost-agnostic)
-# ---------------------------------------------------------------------------
-@dataclass
-class BinnedSpectrum:
-    E_eV: np.ndarray
-    dNdE_per_eV: np.ndarray
-
-
-@dataclass
-class BinnedAngularSpectrum:
-    theta_x: np.ndarray
-    theta_y: np.ndarray
-    E_eV: np.ndarray
-    d2NdEdOmega: np.ndarray
-
-
-@dataclass
-class BinnedTemporalEnvelope:
-    """Photon-emission rate vs. time -- see
-    ``tabulated_engine.TabulatedEngine.temporal_envelope``."""
-
-    t_seconds: np.ndarray
-    rate: np.ndarray
-
-
-@dataclass
-class BinnedSpatialDistribution:
-    """Transverse (x, y) areal density of photon emission -- see
-    ``tabulated_engine.TabulatedEngine.spatial_distribution``."""
-
-    x_centers: np.ndarray
-    y_centers: np.ndarray
-    density: np.ndarray
-
-
-@dataclass
-class AngularRangeSpectrumResult:
-    """Result of an on-demand spectrum computed over a user-picked angular
-    sub-range (see ``spectrum_in_angular_range``)."""
-
-    spectrum: BinnedSpectrum
-    theta_x_range: tuple[float, float]
-    theta_y_range: tuple[float, float]
-
-
 @dataclass
 class XigmaResults:
     model_name: str
@@ -197,6 +168,11 @@ class XigmaResults:
     _sigma_gamma_0: float | None = None
     _engine: object | None = None
     _device: str | None = None
+    # QUICK-FIX rescale factor (see run_simulation's "QUICK FIX, FLAGGED
+    # FOR FUTURE INVESTIGATION" comment) -- reapplied identically in
+    # spectrum_in_angular_range so an on-demand angular-range query stays
+    # consistent with the main run's total_yield too.
+    _angular_rescale: float = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -235,13 +211,14 @@ def capabilities() -> dict:
         supports_nonlinearity_emulation=False,
         supports_electron_final_state=False,
         supports_photon_multiplicity=False,
-        supports_ele_file_io=False,
+        supports_ele_file_io=True,
         supports_seed_reproducibility=False,
         requires_recompute_on_collimation_change=False,
         supports_temporal_envelope=True,
         supports_spatial_distribution=True,
         supports_angular_distribution=True,
         supports_angular_range_spectrum=True,
+        is_fast_preview=False,
         trust_level="experimental-C",
         trust_note=_TRUST_NOTE,
     )
@@ -441,14 +418,13 @@ def _theta_grid(cfg: Config, n_points: int = 33,
 
 
 def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
-                   electrons: dict | None = None) -> XigmaResults:
+                   electrons: MacroBunch | None = None) -> XigmaResults:
     """``n_mc`` is accepted for ``ModelAdapter.run`` signature compatibility
     but unused: xigma-i sizes Stage 0/1 from ``cfg.n_particles_01`` instead
-    (see extra_params()/Config's numerical-control fields above)."""
-    if electrons is not None:
-        raise NotImplementedError(
-            "xigma-i: loaded .ele electron bunches are not supported "
-            "(capabilities().supports_ele_file_io is False)")
+    (see extra_params()/Config's numerical-control fields above), UNLESS
+    ``electrons`` (a loaded ``.ele`` bunch) is given, in which case its own
+    size determines the particle count instead (mirrors kascade's
+    ``run_simulation``: a loaded bunch overrides internal sampling)."""
     if cfg.crossing_angle != 0.0:
         raise ValueError(
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
@@ -498,25 +474,41 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # per-electron event count (see the warning raised in params_to_config).
     # Only clamped against a runaway-cost sanity ceiling, not a floor --
     # params_to_config already enforces >= 1 on every numerical field.
-    n_particles_new = min(int(cfg.n_particles_01), _N_PARTICLES_SANITY_MAX)
+    pushed_bunch = None
+    if electrons is not None:
+        from .particles import bunch_from_macrobunch
+        pushed_bunch = bunch_from_macrobunch(electrons, compton)
+        n_particles_new = pushed_bunch.n_particles
+    else:
+        n_particles_new = min(int(cfg.n_particles_01), _N_PARTICLES_SANITY_MAX)
     n_bins = (int(cfg.n_bins_gamma), int(cfg.n_bins_theta_x),
               int(cfg.n_bins_theta_y), int(cfg.n_bins_a0))
     n_spatial_bins = (int(cfg.n_spatial_bins_x), int(cfg.n_spatial_bins_y))
     engine.run(n_particles_new, gamma_0, sigma_gamma_0, n_steps=int(cfg.n_steps_0),
                n_bins=n_bins, backend=push_backend, rng=rng, a0_max=cfg.a0_max,
-               n_time_bins=int(cfg.n_time_bins), n_spatial_bins=n_spatial_bins)
+               n_time_bins=int(cfg.n_time_bins), n_spatial_bins=n_spatial_bins,
+               bunch=pushed_bunch)
     total_yield = engine.total_yield
 
     # engine.temporal_envelope/.spatial_distribution: rate vs seconds /
     # areal density vs cm -- see tabulated_engine.py's module docstring.
-    # Convert cm/photons-per-cm^2 to SI (m/photons-per-m^2).
-    t_seconds, rate = engine.temporal_envelope
+    # Convert cm/photons-per-cm^2 to SI (m/photons-per-m^2). These stay
+    # on-device (cupy) when push_backend='cupy' -- particles.py's
+    # _bin_temporal/_bin_spatial never convert to host -- so must be
+    # converted here before matplotlib (which cannot implicitly convert a
+    # cupy array; this was a real, previously-latent bug never exercised
+    # by headless_test.py, which only checks array .size, not actual
+    # rendering).
+    t_seconds_raw, rate_raw = engine.temporal_envelope
+    t_seconds = compton.asnumpy(t_seconds_raw)
+    rate = compton.asnumpy(rate_raw)
     temporal_envelope = BinnedTemporalEnvelope(t_seconds=t_seconds, rate=rate)
 
     x_centers_cm, y_centers_cm, density_per_cm2 = engine.spatial_distribution
     spatial_distribution = BinnedSpatialDistribution(
-        x_centers=x_centers_cm / _M_TO_CM, y_centers=y_centers_cm / _M_TO_CM,
-        density=density_per_cm2 * (_M_TO_CM ** 2))
+        x_centers=compton.asnumpy(x_centers_cm) / _M_TO_CM,
+        y_centers=compton.asnumpy(y_centers_cm) / _M_TO_CM,
+        density=compton.asnumpy(density_per_cm2) * (_M_TO_CM ** 2))
 
     # Angle-integrated spectrum, s in [0, 1.1*gamma0^2] (covers up to just
     # past the classical Compton edge), 512 points.
@@ -539,6 +531,29 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     E_ang_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
     d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6  # -> eV^-1 sr^-1
 
+    # QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION: spectrum_kernel_4d's
+    # angular_spectrum is known to disagree with the correctly-normalised
+    # total_yield/angle-integrated spectrum by a still-open, deliberately-
+    # deferred ~2*pi residual (see CLAUDE.md's "Current state" section and
+    # reference.py's module docstring -- this is pre-existing, not
+    # introduced by this adapter). Rather than leave angular_spectrum
+    # (and therefore the GUI's "collimated flux" stat and Angular-Range
+    # Spectrum tab) silently over-normalised -- which can show a
+    # collimated flux EXCEEDING the total flux for a wide enough
+    # collimation window, a real bug users can trip over -- rescale
+    # d2NdEdOmega so integrating it over this run's own full theta/energy
+    # grid reproduces total_yield exactly, by construction. This does NOT
+    # fix the underlying kernel normalisation (still unexplained, still
+    # worth chasing) -- it only guarantees the numbers shown in the GUI
+    # are mutually consistent (collimated <= total) in the meantime.
+    # The factor is cached on the result (_angular_rescale) and reapplied
+    # identically in spectrum_in_angular_range's on-demand recompute.
+    _dtx, _dty = np.gradient(theta_x), np.gradient(theta_y)
+    _dE_ang = np.gradient(E_ang_eV)
+    _full_integral = float(np.einsum("ijk,i,j,k->", d2NdEdOmega, _dtx, _dty, _dE_ang))
+    angular_rescale = (total_yield / _full_integral) if _full_integral > 0 else 1.0
+    d2NdEdOmega = d2NdEdOmega * angular_rescale
+
     summary = dict(
         total_yield=total_yield,
         crossing_angle_rad=cfg.crossing_angle,
@@ -546,6 +561,12 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         E_gamma_eV_mean=float(np.average(E_eV, weights=dNdE_per_eV)) if dNdE_per_eV.sum() else 0.0,
         emulate_nonlinearity=float(bool(cfg.emulate_nonlinearity)),
         a0=float(compton.a0),
+        # FLAGGED: see the "QUICK FIX" comment above angular_rescale's
+        # computation -- 1.0 would mean the kernel's own normalisation
+        # already agreed with total_yield; it currently doesn't (~2*pi-ish),
+        # so this is visibly != 1.0 until the underlying kernel issue is
+        # actually root-caused.
+        angular_spectrum_rescale_applied=angular_rescale,
     )
 
     return XigmaResults(
@@ -564,7 +585,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         spatial_distribution=spatial_distribution,
         final_distribution_path=None,
         _compton=compton, _gamma_0=gamma_0, _sigma_gamma_0=sigma_gamma_0,
-        _engine=engine, _device=device,
+        _engine=engine, _device=device, _angular_rescale=angular_rescale,
     )
 
 
@@ -600,14 +621,20 @@ def spectrum_in_angular_range(
     s_scale_MeV = 4.0 * compton.Wph
     E_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
     d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6
+    # Same QUICK-FIX rescale run_simulation applied, cached on res so an
+    # on-demand angular-range query stays numerically consistent with the
+    # main run's total_yield too (see run_simulation's comment).
+    d2NdEdOmega = d2NdEdOmega * res._angular_rescale
 
     dtx = np.gradient(theta_x)
     dty = np.gradient(theta_y)
     dNdE_per_eV = np.einsum("ijk,i,j->k", d2NdEdOmega, dtx, dty)
+    n_photons_in_range = float(np.einsum("ijk,i,j,k->", d2NdEdOmega, dtx, dty, np.gradient(E_eV)))
 
     return AngularRangeSpectrumResult(
         spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
-        theta_x_range=theta_x_range, theta_y_range=theta_y_range)
+        theta_x_range=theta_x_range, theta_y_range=theta_y_range,
+        n_photons_in_range=n_photons_in_range)
 
 
 # ---------------------------------------------------------------------------
@@ -638,7 +665,7 @@ class XigmaAdapter:
     def params_to_config(self, fields: dict, quantum: bool = False):
         return params_to_config(fields, quantum)
 
-    def run(self, cfg: Config, n_mc: int, seed: int, electrons: dict | None = None):
+    def run(self, cfg: Config, n_mc: int, seed: int, electrons: MacroBunch | None = None):
         res = run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=electrons)
         self._last_results = res
         return res
@@ -651,12 +678,23 @@ class XigmaAdapter:
         return spectrum_in_angular_range(
             self._last_results, theta_x_range, theta_y_range, **kwargs)
 
-    def load_ele_file(self, path: str):
-        raise NotImplementedError(
-            "xigma-i: .ele bunch loading is not supported "
-            "(capabilities().supports_ele_file_io is False)")
+    def load_ele_file(self, path: str) -> MacroBunch:
+        from compton_io.io_formats.sdds import load_elegant_ele
+        return load_elegant_ele(path)
 
-    def ele_file_summary(self, bunch: dict):
-        raise NotImplementedError(
-            "xigma-i: .ele bunch loading is not supported "
-            "(capabilities().supports_ele_file_io is False)")
+    def ele_file_summary(self, bunch: MacroBunch) -> dict:
+        from compton_io.bunch import fit_gaussian
+        beam = fit_gaussian(bunch)
+        return dict(
+            mean_energy_MeV=beam.kinetic_energy_eV * 1e-6,
+            rel_spread_pct=beam.rel_energy_spread_rms * 100.0,
+            bunch_duration_ps=beam.sigma_t_s * 1e12,
+            beta_x_m=beam.beta_star_x_m,
+            beta_y_m=beam.beta_star_y_m,
+            emit_x_mmmrad=beam.emit_norm_x_m * 1e6,
+            emit_y_mmmrad=beam.emit_norm_y_m * 1e6,
+            sigma_ex_um=beam.sigma_x_m * 1e6,
+            sigma_ey_um=beam.sigma_y_m * 1e6,
+            eps0=beam.gamma0,
+            N_e=bunch.n_particles,
+        )

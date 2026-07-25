@@ -153,6 +153,38 @@ class Bunch:
         return self.x0.shape[0]
 
 
+_M_TO_CM = 100.0
+
+
+def bunch_from_macrobunch(macrobunch, compton) -> "Bunch":
+    """Convert a ``compton_io.bunch.MacroBunch`` (SI, external/engine-
+    agnostic representation) into this module's ``Bunch`` (CGS,
+    ``k0_las``-normalised positions). ``gamma``/``theta_x``/``theta_y``
+    pass through unchanged -- both kascade and xigma_i use the same
+    position-at-a-reference-slice-plus-ballistic-angle convention, so no
+    angle/energy conversion is needed, only the position normalisation
+    ``sample_bunch`` itself applies (``k0_las * x[cm]``).
+
+    ``weight`` is deliberately NOT taken from ``macrobunch.weight`` --
+    recomputed as ``compton.N_e / macrobunch.n_particles`` instead, so the
+    GUI's charge/N_e field (which sets ``compton.N_e`` via
+    ``set_electron_parameters``) stays authoritative, matching how a
+    loaded ``.ele`` file carries no charge information of its own (see
+    ``compton_io.io_formats.sdds``'s module docstring) and how kascade's
+    own ``run_simulation`` already ignores a loaded bunch's weight the
+    same way.
+    """
+    k0 = compton.k0_las
+    x0 = k0 * (np.asarray(macrobunch.x, dtype=float) * _M_TO_CM)
+    y0 = k0 * (np.asarray(macrobunch.y, dtype=float) * _M_TO_CM)
+    z0 = k0 * (np.asarray(macrobunch.z, dtype=float) * _M_TO_CM)
+    gamma = np.asarray(macrobunch.gamma, dtype=float)
+    theta_x = np.asarray(macrobunch.thx, dtype=float)
+    theta_y = np.asarray(macrobunch.thy, dtype=float)
+    weight = compton.N_e / macrobunch.n_particles
+    return Bunch(x0=x0, y0=y0, z0=z0, gamma=gamma, theta_x=theta_x, theta_y=theta_y, weight=weight)
+
+
 def sample_bunch(compton, n_particles, gamma0, sigma_gamma0, *,
                   chirp=0.0, angle_energy_corr=0.0, rng=None):
     """Draw a macroparticle bunch from the beam's (possibly correlated) phase space.

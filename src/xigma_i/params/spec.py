@@ -19,13 +19,13 @@ hand-rolled conversion, i.e. what ``Config`` itself expects; it does not
 Originally lived in compton-gui as ``schemas/xigma.py`` (one of several
 per-model schemas in a GUI-side, multi-model framework); moved here so
 this model declares its own parameter contract directly, on top of the
-shared ``compton_suite`` framework -- see this package's ``__init__.py``
+shared ``compton_io`` framework -- see this package's ``__init__.py``
 docstring.
 """
 
 from __future__ import annotations
 
-from compton_suite import AmplitudeConvention, ParameterSpec, PhysicalMeaning, TimeConvention, WidthConvention
+from compton_io import AmplitudeConvention, ParameterSpec, PhysicalMeaning, TimeConvention, WidthConvention
 
 XIGMA_SPEC: dict[str, ParameterSpec] = {
     "sigma0_x": ParameterSpec(

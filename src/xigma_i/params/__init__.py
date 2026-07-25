@@ -1,10 +1,10 @@
 """This model's own parameter contract, built on the shared
-``compton_suite`` framework.
+``compton_io`` framework.
 
 The parameter-semantics/units framework itself (``PhysicalQuantity``, the
 ``PhysicalMeaning``/``WidthConvention``/``TimeConvention``/
 ``AmplitudeConvention`` enums, canonical conversion, ``ParameterSpec``/
-``ModelSpec``, ``adapt_to_model``) lives in ``compton_suite`` -- found at
+``ModelSpec``, ``adapt_to_model``) lives in ``compton_io`` -- found at
 import time via ``xigma_i._bootstrap.setup_paths()`` -- and is re-exported
 here unchanged, so ``xigma_i.params.PhysicalQuantity`` and (say)
 ``compton_guide.physics_params.PhysicalQuantity`` are the *same* class, not
@@ -36,7 +36,7 @@ from .. import _bootstrap
 
 _bootstrap.setup_paths()
 
-from compton_suite import (  # noqa: E402
+from compton_io import (  # noqa: E402
     CANONICAL_CONVENTIONS,
     CANONICAL_UNIT,
     AmplitudeConvention,
