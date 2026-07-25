@@ -27,4 +27,19 @@ def discover_models() -> dict:
         register("xigma-i", UnavailableAdapter(
             _name="xigma-i", _reason=str(e), _display_name="XIGMA-I (experimental)"))
 
+    try:
+        from xigma_direct import gui_adapter as _xigma_direct_gui
+        register("xigma-i-direct", _xigma_direct_gui.XigmaDirectAdapter())
+    except Exception as e:
+        register("xigma-i-direct", UnavailableAdapter(
+            _name="xigma-i-direct", _reason=str(e),
+            _display_name="XIGMA-I Direct (brute-force binning, experimental)"))
+
+    try:
+        from compton_suite import analytical_adapter as _analytical
+        register("analytical", _analytical.AnalyticalAdapter())
+    except Exception as e:
+        register("analytical", UnavailableAdapter(
+            _name="analytical", _reason=str(e), _display_name="Analytical (fast estimate)"))
+
     return registered_models()

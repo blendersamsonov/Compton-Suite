@@ -1,5 +1,7 @@
 """sys.path wiring so ``compton_guide`` can import ``kascade``, ``xigma_i``,
-and ``compton_suite`` without any of them being pip-installed.
+``xigma_direct``, ``compton_io``, and the root ``compton_suite``
+meta-package (for its analytical model) without any of them being
+pip-installed.
 
 These packages currently live in locations that aren't stable
 package-manager paths: ``kascade`` is a loose script directory
@@ -9,17 +11,23 @@ path are not stable across machines -- e.g. it may be a plain repo clone
 on one machine and a git-worktree checkout on another, under whatever
 name that machine's checkout happens to have (this has already changed
 once, when ``xigma_i``'s GUI adapter moved out of a git worktree and into
-that repo's ``main`` branch) -- and ``compton_suite`` (shared physical
-constants, pint registry, parameter-convention framework) is a newer
-sibling repo with the same instability risk despite being deliberately
-created rather than historically drifted. A hardcoded ``pyproject.toml``
-path-dependency, or even a hardcoded sibling directory *name*, would
-break on the next machine or the next reorganization -- so this is a
-runtime ``sys.path`` bootstrap that autodiscovers all three locations by
-content (looking for a marker file inside each candidate sibling
-directory) rather than by name, with all three still overridable via
-environment variables for anyone whose checkout layout doesn't match
-autodiscovery at all (e.g. it lives outside ``_XIGMA_ROOT`` entirely).
+that repo's ``main`` branch) -- and ``compton_io`` (shared physical
+constants, pint registry, parameter-convention framework, electron-bunch/
+laser-pulse representations) is a newer sibling repo with the same
+instability risk despite being deliberately created rather than
+historically drifted. A hardcoded ``pyproject.toml`` path-dependency, or
+even a hardcoded sibling directory *name*, would break on the next machine
+or the next reorganization -- so this is a runtime ``sys.path`` bootstrap
+that autodiscovers all four locations by content (looking for a marker
+file inside each candidate directory) rather than by name, with all four
+still overridable via environment variables for anyone whose checkout
+layout doesn't match autodiscovery at all.
+
+The root ``compton_suite`` meta-package is the one exception to "sibling
+directory": its source sits at this project's *parent* directory (it is
+the repo that contains ``GUIde``/``IO``/``Kaskade``/``Xigma`` as
+subdirectories, not a sibling of them), so its discovery step also checks
+one level up, not just siblings.
 """
 
 from __future__ import annotations
@@ -29,14 +37,16 @@ import sys
 from pathlib import Path
 
 _THIS_DIR = Path(__file__).resolve().parent
-# .../compton-gui/src/compton_guide -> .../compton-gui -> .../XIGMA (sibling dir)
-_XIGMA_ROOT = _THIS_DIR.parents[2]
+# .../compton-gui/src/compton_guide -> .../compton-gui -> .../ComptonSuite (parent/sibling-root dir)
+_SUITE_ROOT = _THIS_DIR.parents[2]
 
-# Marker files used to recognize each physics package among _XIGMA_ROOT's
-# sibling directories, relative to the sibling directory itself.
+# Marker files used to recognize each package, relative to the candidate
+# directory itself.
 _KASCADE_MARKER = "kascade.py"
 _XIGMA_MARKER = "src/xigma_i/gui_adapter.py"
-_COMPTON_SUITE_MARKER = "src/compton_suite/constants.py"
+_XIGMA_DIRECT_MARKER = "src/xigma_direct/gui_adapter.py"
+_COMPTON_IO_MARKER = "src/compton_io/constants.py"
+_COMPTON_SUITE_MARKER = "src/compton_suite/analytical_adapter.py"
 
 
 def _find_siblings(root: Path, marker: str) -> list[Path]:
@@ -69,38 +79,69 @@ def _discover(root: Path, marker: str, env_var: str) -> Path | None:
     return matches[0]
 
 
+def _discover_root_package(root: Path, marker: str, env_var: str) -> Path | None:
+    """Like ``_discover``, but for the root ``compton_suite`` meta-package,
+    whose source is not a sibling of this project but sits at ``root``
+    itself (this project's parent directory contains it, rather than
+    being contained alongside it) -- checks ``root`` directly (does its
+    own marker check, not ``root``'s children) before falling back to a
+    sibling-style search, in case the layout ever changes."""
+    if (root / marker).exists():
+        return root
+    return _discover(root, marker, env_var)
+
+
 def setup_paths() -> None:
-    """Insert the kascade, xigma_i, and compton_suite source directories
-    into ``sys.path`` if they aren't already importable. Safe to call more
-    than once.
+    """Insert the kascade, xigma_i, compton_io, and root compton_suite
+    source directories into ``sys.path`` if they aren't already
+    importable. Safe to call more than once.
 
     Resolution order for each, highest priority first:
       1. The relevant ``COMPTON_GUIDE_*`` environment variable, if set --
          used verbatim, no autodiscovery, for checkouts autodiscovery
-         can't find (e.g. outside ``_XIGMA_ROOT``).
+         can't find.
       2. Autodiscovery: the (alphabetically first, if several) sibling of
-         this project containing the package's marker file.
+         this project containing the package's marker file (or, for the
+         root ``compton_suite`` package only, this project's own parent
+         directory).
 
-    Never raises -- kascade/xigma_i are optional physics engines (a
-    missing one just greys out a GUI menu entry), so a warning to stderr
-    is enough. ``compton_suite`` is *not* optional for anything that
-    actually imports it (``physics_params``/``physics_constants``), but
-    the natural ``ImportError`` those imports raise on their own if
-    ``compton_suite`` isn't on ``sys.path`` already does the "fail loudly"
-    job -- this function's contract (never raises) stays uniform across
-    all three targets.
+    Never raises -- kascade/xigma_i/compton_suite are optional (a missing
+    one just greys out a GUI menu entry / disables the analytical preview
+    panel), so a warning to stderr is enough. ``compton_io`` is *not*
+    optional for anything that actually imports it
+    (``physics_params``/``physics_constants``), but the natural
+    ``ImportError`` those imports raise on their own if ``compton_io``
+    isn't on ``sys.path`` already does the "fail loudly" job -- this
+    function's contract (never raises) stays uniform across all four
+    targets.
     """
     kascade_override = os.environ.get("COMPTON_GUIDE_KASCADE_PATH")
     kascade_path = (
         Path(kascade_override) if kascade_override
-        else _discover(_XIGMA_ROOT, _KASCADE_MARKER, "COMPTON_GUIDE_KASCADE_PATH")
+        else _discover(_SUITE_ROOT, _KASCADE_MARKER, "COMPTON_GUIDE_KASCADE_PATH")
     )
 
     xigma_override = os.environ.get("COMPTON_GUIDE_XIGMA_SRC")
     xigma_src = (
         Path(xigma_override) if xigma_override
         else (lambda d: d / "src" if d is not None else None)(
-            _discover(_XIGMA_ROOT, _XIGMA_MARKER, "COMPTON_GUIDE_XIGMA_SRC")
+            _discover(_SUITE_ROOT, _XIGMA_MARKER, "COMPTON_GUIDE_XIGMA_SRC")
+        )
+    )
+
+    xigma_direct_override = os.environ.get("COMPTON_GUIDE_XIGMA_DIRECT_SRC")
+    xigma_direct_src = (
+        Path(xigma_direct_override) if xigma_direct_override
+        else (lambda d: d / "src" if d is not None else None)(
+            _discover(_SUITE_ROOT, _XIGMA_DIRECT_MARKER, "COMPTON_GUIDE_XIGMA_DIRECT_SRC")
+        )
+    )
+
+    compton_io_override = os.environ.get("COMPTON_GUIDE_COMPTON_IO_SRC")
+    compton_io_src = (
+        Path(compton_io_override) if compton_io_override
+        else (lambda d: d / "src" if d is not None else None)(
+            _discover(_SUITE_ROOT, _COMPTON_IO_MARKER, "COMPTON_GUIDE_COMPTON_IO_SRC")
         )
     )
 
@@ -108,19 +149,22 @@ def setup_paths() -> None:
     compton_suite_src = (
         Path(compton_suite_override) if compton_suite_override
         else (lambda d: d / "src" if d is not None else None)(
-            _discover(_XIGMA_ROOT, _COMPTON_SUITE_MARKER, "COMPTON_GUIDE_COMPTON_SUITE_SRC")
+            _discover_root_package(
+                _SUITE_ROOT, _COMPTON_SUITE_MARKER, "COMPTON_GUIDE_COMPTON_SUITE_SRC")
         )
     )
 
     for p, label, env_var in (
         (kascade_path, "kascade", "COMPTON_GUIDE_KASCADE_PATH"),
         (xigma_src, "xigma_i", "COMPTON_GUIDE_XIGMA_SRC"),
+        (xigma_direct_src, "xigma_direct", "COMPTON_GUIDE_XIGMA_DIRECT_SRC"),
+        (compton_io_src, "compton_io", "COMPTON_GUIDE_COMPTON_IO_SRC"),
         (compton_suite_src, "compton_suite", "COMPTON_GUIDE_COMPTON_SUITE_SRC"),
     ):
         if p is None:
             print(
                 f"compton_guide.bootstrap: could not find {label} under "
-                f"{_XIGMA_ROOT} -- set {env_var} to its location if it's "
+                f"{_SUITE_ROOT} -- set {env_var} to its location if it's "
                 f"installed elsewhere.",
                 file=sys.stderr,
             )

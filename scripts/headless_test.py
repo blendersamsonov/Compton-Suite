@@ -135,6 +135,22 @@ def test_model(name: str, adapter) -> bool:
         has_angle_data = (res.angular_spectrum is not None
                           or getattr(res.photon_samples, "ph_thx_lab", None) is not None)
         ok &= check("angular data available (angular_spectrum or photon_samples)", has_angle_data)
+        # angular_spectrum, integrated over its own full theta/energy grid,
+        # must reproduce total_yield -- catches the class of bug where
+        # angular_spectrum is normalised inconsistently with total_yield
+        # (e.g. the ~2*pi residual documented in Xigma/CLAUDE.md, quick-
+        # fixed via a self-consistent rescale in gui_adapter.py -- see
+        # that fix's own "QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION"
+        # comment for why this is a rescale, not a root-cause fix).
+        if res.angular_spectrum is not None:
+            import numpy as _np
+            ang = res.angular_spectrum
+            dtx, dty = _np.gradient(ang.theta_x), _np.gradient(ang.theta_y)
+            dE = _np.gradient(ang.E_eV)
+            full_integral = float(_np.einsum("ijk,i,j,k->", ang.d2NdEdOmega, dtx, dty, dE))
+            ratio = full_integral / res.total_yield if res.total_yield else float("nan")
+            ok &= check("angular_spectrum integrates to ~total_yield",
+                        0.9 < ratio < 1.1, f"ratio={ratio:.4g}")
 
     # 5. spectrum_in_angular_range -- the on-demand call the GUI's "Compute"
     #    button on the Angular-Range Spectrum tab makes.
@@ -154,12 +170,52 @@ def test_model(name: str, adapter) -> bool:
     return ok
 
 
+def test_preview_alongside(models: dict) -> bool:
+    """Same mechanism app.py's on_start() uses: whichever model is
+    'selected', the always-on analytical preview (ModelCapabilities.
+    is_fast_preview) should also run successfully alongside it, using the
+    same shared fields -- this is exactly the check that would have caught
+    the is_fast_preview AttributeError / unseeded extra_params() bugs
+    found while wiring this up."""
+    preview_name, preview_adapter = next(
+        ((n, a) for n, a in models.items()
+         if a.available()[0] and getattr(a.capabilities(), "is_fast_preview", False)),
+        (None, None))
+    print(f"\n=== always-on preview ({preview_name}) ===")
+    if preview_adapter is None:
+        print("  SKIPPED (no fast-preview model registered/available)")
+        return True
+
+    ok = True
+    for name, adapter in models.items():
+        if name == preview_name or not adapter.available()[0]:
+            continue
+        extras = {key: default for _label, default, key in adapter.extra_params()}
+        extras.update({key: default for _label, default, key in preview_adapter.extra_params()})
+        fields = make_fields(extras)
+        try:
+            p_cfg, p_extra = preview_adapter.params_to_config(fields, quantum=False)
+            p_res = preview_adapter.run(p_cfg, n_mc=int(p_extra["n_mc"]), seed=int(p_extra["seed"]))
+            problems = validate_results(p_res)
+            this_ok = check(f"preview runs alongside '{name}''s fields",
+                            not problems and p_res.total_yield is not None and p_res.total_yield >= 0,
+                            "; ".join(problems))
+        except Exception as e:
+            print(f"  [FAIL] preview alongside '{name}' raised: {e}")
+            traceback.print_exc()
+            this_ok = False
+        ok &= this_ok
+    print(f"  -> preview-alongside: {'ALL PASS' if ok else 'FAILURES ABOVE'}")
+    return ok
+
+
 def main() -> int:
     models = discover_models()
     print(f"Discovered models: {list(models.keys())}")
     all_ok = True
     for name, adapter in models.items():
         all_ok &= test_model(name, adapter)
+    all_ok &= test_preview_alongside(models)
     print("\n" + ("=" * 40))
     print("RESULT:", "ALL PASS" if all_ok else "SOME FAILURES")
     return 0 if all_ok else 1

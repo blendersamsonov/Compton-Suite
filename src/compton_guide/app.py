@@ -21,16 +21,21 @@ Layout (top -> bottom):
     total and collimated flux, the mean photon number per electron and the
     fractions of electrons emitting 0/1/2 photons.
   * A tabbed plot area:
-      1. Spectrum & Electron  -- collimated photon spectrum + initial-vs-final
-         electron energy distribution (the original two-figure view).
+      1. Spectrum & Electron  -- full (4*pi) + collimated photon spectrum
+         (collimated to the Compton-photons panel's current theta_x,col/
+         theta_y,col window) + initial-vs-final electron energy
+         distribution (the original two-figure view).
       2. Temporal Envelope    -- photon-emission rate/count vs. time.
       3. Spatial Distribution -- transverse (x, y) distribution of photons
          at emission.
       4. Angular Distribution -- angle-only (theta_x, theta_y) photon density,
          integrated over energy.
-      5. Angular-Range Spectrum -- an on-demand spectrum restricted to a
-         user-picked (theta_x, theta_y) sub-range, computed on request via
-         its own "Compute" button (independent of the main Calculate run).
+
+    (A separate on-demand "Angular-Range Spectrum" tab, restricted to an
+    arbitrary user-picked sub-range independent of the Calculate run,
+    existed previously and was removed for now -- ModelAdapter.
+    spectrum_in_angular_range still exists on every adapter, just isn't
+    wired into this UI at the moment.)
 
 This GUI is model-agnostic: physics engines are plugged in through the
 ``model_api.ModelAdapter`` registry (see ``model_api.py``) instead of a
@@ -163,13 +168,12 @@ class ComptonGuideApp(tk.Tk):
         self.quantum_var = tk.BooleanVar(value=False)  # False = classical, True = quantum
         self.nonlin_var = tk.BooleanVar(value=True)    # xigma-i-only: emulate a0 downshift
         self.res = None                 # model_api.CommonResults | None
+        self.preview_res = None         # always-on analytical model's CommonResults | None
         self.cfg_used = None            # active model's Config-shaped object | None
         self.rep_rate_hz = 1.0
         self.a0_used = 0.0
         self.q: queue.Queue = queue.Queue()
         self.worker: threading.Thread | None = None
-        self.q_ang: queue.Queue = queue.Queue()
-        self.ang_worker: threading.Thread | None = None
 
         # Model registry: discover once, pick kascade as the startup default
         # (it's always available; xigma-i may be registered as an
@@ -178,11 +182,31 @@ class ComptonGuideApp(tk.Tk):
         self.model_var = tk.StringVar(value="kascade")
         self.active_adapter: ModelAdapter = self.models["kascade"]
 
-        # SDDS-bunch loading state.  ``loaded_bunch`` is the dict returned by
-        # the active adapter's ``load_ele_file`` (per-particle arrays + header
-        # parameters) and is fed to the adapter's ``run`` as the ``electrons``
-        # argument.  ``loaded_path`` is the source filename shown in the menu.
-        self.loaded_bunch: dict | None = None
+        # The fast analytical model (ModelCapabilities.is_fast_preview) runs
+        # automatically alongside whichever model is selected, on every
+        # Calculate click -- a real-time preview and base sanity check, not
+        # one of the models the Model menu switches between. None if it
+        # isn't registered/available (e.g. compton_suite not discoverable).
+        self.preview_adapter = next(
+            (a for a in self.models.values()
+             if a.available()[0] and getattr(a.capabilities(), "is_fast_preview", False)), None)
+        # The preview adapter's own extra_params() (e.g. a collimation
+        # angle) need a value in self.fields even when it isn't the active
+        # model -- _rebuild_model_params_panel only ever seeds the ACTIVE
+        # model's extra fields, so without this the preview would KeyError
+        # on startup unless the user happened to switch to it once first.
+        # No widget is created for these (invisible until the user actually
+        # selects this model) -- just a usable default for the background run.
+        if self.preview_adapter is not None:
+            for _label, default, key in self.preview_adapter.extra_params():
+                self.fields.setdefault(key, tk.StringVar(value=str(default)))
+
+        # SDDS-bunch loading state.  ``loaded_bunch`` is the MacroBunch
+        # returned by the active adapter's ``load_ele_file`` (per-particle
+        # arrays + header parameters in ``.meta``) and is fed to the
+        # adapter's ``run`` as the ``electrons`` argument.  ``loaded_path``
+        # is the source filename shown in the menu.
+        self.loaded_bunch = None  # compton_io.bunch.MacroBunch | None
         self.loaded_path: str | None = None
         # Cached list of (Entry widget, key) tuples for the Electron panel
         # input fields, so we can flip their state when the panel switches
@@ -199,6 +223,7 @@ class ComptonGuideApp(tk.Tk):
         self._build_laser_panel()
         self._build_compton_panel()
         self._build_model_params_panel()
+        self._build_preview_panel()
         self._build_plot_area()
         self._wire_live_updates()
         self._update_derived()
@@ -306,11 +331,8 @@ class ComptonGuideApp(tk.Tk):
         for tab, supported in (
                 (self.tab_temporal, caps.supports_temporal_envelope),
                 (self.tab_spatial, caps.supports_spatial_distribution),
-                (self.tab_angular, caps.supports_angular_distribution),
-                (self.tab_angular_range, caps.supports_angular_range_spectrum)):
+                (self.tab_angular, caps.supports_angular_distribution)):
             self.notebook.tab(tab, state="normal" if supported else "disabled")
-        self.angular_range_compute_btn.config(
-            state="normal" if caps.supports_angular_range_spectrum else "disabled")
 
         # trust banner
         colour = "#175" if caps.trust_level == "production" else "#a52"
@@ -617,6 +639,49 @@ class ComptonGuideApp(tk.Tk):
         add_field_grid(self.model_params_frame, seeded, self.fields,
                        n_cols=4, bg=GREY, width=8)
 
+    # ---- analytical preview panel (always-on, independent of the
+    # selected model) --------------------------------------------------
+    def _build_preview_panel(self):
+        """Small always-visible panel showing the fast analytical model's
+        estimate, run automatically alongside whichever model is actually
+        selected (see on_start/_poll_queue) -- a real-time preview and base
+        sanity check, not gated by the active model's tab-capabilities the
+        way the plot-area tabs are (_apply_model_capabilities)."""
+        p = tk.LabelFrame(self, text="ANALYTICAL PREVIEW (always-on)", bg=GREY, fg="#123",
+                          font=("TkDefaultFont", 11, "bold"))
+        p.pack(side="top", fill="x", padx=6, pady=3)
+        mono = ("TkFixedFont", 10)
+        self.preview_lbls: dict[str, tk.Label] = {}
+        specs = [("status", "Status:"), ("total_yield", "Total yield:"),
+                 ("width", "Est. spectrum width (FWHM, s):")]
+        for c, (key, name) in enumerate(specs):
+            tk.Label(p, text=name, bg=GREY, font=mono).grid(row=0, column=2 * c, sticky="w", padx=(8, 3), pady=3)
+            lab = tk.Label(p, text="--", bg=GREY, font=mono, width=16, anchor="w")
+            lab.grid(row=0, column=2 * c + 1, sticky="w", padx=(0, 8))
+            self.preview_lbls[key] = lab
+        if self.preview_adapter is None:
+            self.preview_lbls["status"].config(text="unavailable")
+
+    def _render_preview(self):
+        """Update the preview panel from self.preview_res (set by
+        _poll_queue). Never raises -- a malformed/missing preview result
+        just shows as unavailable, it must never break the main model's
+        own output rendering."""
+        if self.preview_adapter is None:
+            return
+        if self.preview_res is None:
+            self.preview_lbls["status"].config(text="failed")
+            self.preview_lbls["total_yield"].config(text="--")
+            self.preview_lbls["width"].config(text="--")
+            return
+        try:
+            self.preview_lbls["status"].config(text="ok")
+            self.preview_lbls["total_yield"].config(text=f"{self.preview_res.total_yield:.4e}")
+            width = self.preview_res.summary.get("estimated_spectrum_width_fwhm")
+            self.preview_lbls["width"].config(text=f"{width:.4g}" if width is not None else "--")
+        except Exception:
+            self.preview_lbls["status"].config(text="render error")
+
     # ---- plots (tabbed notebook) ----------------------------------------
     def _build_plot_area(self):
         outer = ttk.Frame(self)
@@ -656,45 +721,7 @@ class ComptonGuideApp(tk.Tk):
         self.canvas_a = FigureCanvasTkAgg(self.fig_a, master=self.tab_angular)
         self.canvas_a.get_tk_widget().pack(fill="both", expand=True)
 
-        # Tab 5: Angular-Range Spectrum (on-demand, own Compute button)
-        self.tab_angular_range = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_angular_range, text="Angular-Range Spectrum")
-        self._build_angular_range_tab(self.tab_angular_range)
-
         self._render_placeholder()
-
-    def _build_angular_range_tab(self, parent):
-        ctrl = tk.Frame(parent)
-        ctrl.pack(side="top", fill="x", padx=6, pady=6)
-        self.ang_range_vars: dict[str, tk.StringVar] = {}
-        tx0 = _float_or_none(self.fields.get("theta_x_col_mrad")) or 0.05
-        ty0 = _float_or_none(self.fields.get("theta_y_col_mrad")) or 0.05
-        specs = [
-            ("theta_x min [mrad]", -tx0, "tx_min"),
-            ("theta_x max [mrad]", tx0, "tx_max"),
-            ("theta_y min [mrad]", -ty0, "ty_min"),
-            ("theta_y max [mrad]", ty0, "ty_max"),
-        ]
-        for i, (label, default, key) in enumerate(specs):
-            tk.Label(ctrl, text=label).grid(row=0, column=2 * i, sticky="w", padx=(8, 3))
-            var = tk.StringVar(value=str(default))
-            tk.Entry(ctrl, textvariable=var, width=9, justify="right").grid(
-                row=0, column=2 * i + 1, padx=(0, 6))
-            self.ang_range_vars[key] = var
-        self.angular_range_compute_btn = tk.Button(
-            ctrl, text="Compute", command=self.on_compute_angular_range)
-        self.angular_range_compute_btn.grid(row=0, column=8, padx=12)
-        self.angular_range_status_lbl = tk.Label(ctrl, text="idle", width=10)
-        self.angular_range_status_lbl.grid(row=0, column=9, padx=4)
-
-        self.fig_r = plt.Figure(figsize=(11, 3.2))
-        self.ax_r = self.fig_r.add_subplot(111)
-        self.canvas_r = FigureCanvasTkAgg(self.fig_r, master=parent)
-        self.canvas_r.get_tk_widget().pack(fill="both", expand=True)
-        self.ax_r.text(0.5, 0.5, "Pick a range and press Compute",
-                       ha="center", va="center")
-        self.ax_r.set_xticks([]); self.ax_r.set_yticks([])
-        self.canvas_r.draw()
 
     def _render_placeholder(self):
         for ax, t in ((self.ax_spec, "Collimated photon spectrum"),
@@ -770,13 +797,28 @@ class ComptonGuideApp(tk.Tk):
         n_mc = int(extra["n_mc"])
         if self.loaded_bunch is not None:
             electrons = self.loaded_bunch
-            n_mc = int(self.loaded_bunch["n_mc"])
+            n_mc = self.loaded_bunch.n_particles
 
         self.cfg_used = cfg
         self.rep_rate_hz = extra["rep_rate_hz"]
         self.a0_used = peak_a0(self.fields) or 0.0
         self.calc_btn.config(state="disabled")
         self.status_lbl.config(text="running...")
+
+        # The always-on analytical preview (see _build_preview_panel) runs
+        # alongside the selected model on every Calculate click, using the
+        # same shared fields. params_to_config is parsed synchronously here
+        # (like the main model's cfg above) so a bad preview config doesn't
+        # silently swallow a real parameter error; running it happens in
+        # the worker thread below, wrapped so a preview failure can never
+        # block or corrupt the main model's own result.
+        preview_cfg = preview_extra = None
+        if self.preview_adapter is not None:
+            try:
+                preview_cfg, preview_extra = self.preview_adapter.params_to_config(
+                    self.fields, self.quantum_var.get())
+            except Exception:
+                preview_cfg = None
 
         def work():
             try:
@@ -787,9 +829,20 @@ class ComptonGuideApp(tk.Tk):
                     raise RuntimeError(
                         f"{adapter.capabilities().display_name} adapter returned "
                         f"malformed results: {'; '.join(problems)}")
-                self.q.put(("ok", res))
             except Exception as e:
                 self.q.put(("error", "".join(traceback.format_exception(e))))
+                return
+
+            preview_res = None
+            if preview_cfg is not None:
+                try:
+                    preview_res = self.preview_adapter.run(
+                        preview_cfg, n_mc=int(preview_extra["n_mc"]),
+                        seed=int(preview_extra["seed"]), electrons=electrons)
+                except Exception:
+                    preview_res = None  # preview is best-effort, never fatal
+
+            self.q.put(("ok", (res, preview_res)))
 
         self.worker = threading.Thread(target=work, daemon=True)
         self.worker.start()
@@ -806,57 +859,10 @@ class ComptonGuideApp(tk.Tk):
             self.status_lbl.config(text="error")
             messagebox.showerror("Simulation failed", payload)
             return
-        self.res = payload
+        self.res, self.preview_res = payload
         self.status_lbl.config(text="done")
         self._update_outputs()
-
-    # ---- on-demand angular-range spectrum (own worker/queue) ------------
-    def on_compute_angular_range(self):
-        if self.ang_worker is not None and self.ang_worker.is_alive():
-            return
-        if self.res is None:
-            messagebox.showwarning("No results yet", "Run Calculate at least once first.")
-            return
-        adapter = self.active_adapter
-        try:
-            tx_min = float(self.ang_range_vars["tx_min"].get()) * 1e-3
-            tx_max = float(self.ang_range_vars["tx_max"].get()) * 1e-3
-            ty_min = float(self.ang_range_vars["ty_min"].get()) * 1e-3
-            ty_max = float(self.ang_range_vars["ty_max"].get()) * 1e-3
-        except (ValueError, tk.TclError) as e:
-            messagebox.showerror("Invalid range", str(e))
-            return
-
-        self.angular_range_compute_btn.config(state="disabled")
-        self.angular_range_status_lbl.config(text="running...")
-
-        def work():
-            try:
-                result = adapter.spectrum_in_angular_range(
-                    (tx_min, tx_max), (ty_min, ty_max))
-                self.q_ang.put(("ok", result))
-            except Exception as e:
-                self.q_ang.put(("error", "".join(traceback.format_exception(e))))
-
-        self.ang_worker = threading.Thread(target=work, daemon=True)
-        self.ang_worker.start()
-        self.after(100, self._poll_queue_angular)
-
-    def _poll_queue_angular(self):
-        try:
-            status, payload = self.q_ang.get_nowait()
-        except queue.Empty:
-            self.after(100, self._poll_queue_angular)
-            return
-        caps = self.active_adapter.capabilities()
-        self.angular_range_compute_btn.config(
-            state="normal" if caps.supports_angular_range_spectrum else "disabled")
-        if status == "error":
-            self.angular_range_status_lbl.config(text="error")
-            messagebox.showerror("Angular-range spectrum failed", payload)
-            return
-        self.angular_range_status_lbl.config(text="done")
-        self._render_angular_range_result(payload)
+        self._render_preview()
 
     # ---- collimation-dependent outputs (no re-run) ---------------------
     def _collimation_rad(self):
@@ -1141,28 +1147,6 @@ class ComptonGuideApp(tk.Tk):
         self.ax_a.set_title("Photon angular distribution (energy-integrated)")
         self.fig_a.tight_layout()
         self.canvas_a.draw()
-
-    def _render_angular_range_result(self, result):
-        self.ax_r.clear()
-        spec = result.spectrum
-        # Duck-typed on shape, not isinstance -- see _render_temporal_envelope.
-        if hasattr(spec, "weight"):
-            E_keV = spec.E_eV / 1e3
-            if E_keV.size:
-                self.ax_r.hist(E_keV, bins=120,
-                               weights=np.full(E_keV.size, spec.weight),
-                               color="crimson")
-        else:
-            self.ax_r.plot(spec.E_eV / 1e3, spec.dNdE_per_eV * 1e3, color="crimson")
-        self.ax_r.set_xlabel(r"photon energy $\hbar\omega_\gamma$ [keV]")
-        self.ax_r.set_ylabel("photons (or dN/dE) in range")
-        tx0, tx1 = result.theta_x_range
-        ty0, ty1 = result.theta_y_range
-        self.ax_r.set_title(
-            f"Spectrum in theta_x in [{tx0*1e3:.3g},{tx1*1e3:.3g}] mrad, "
-            f"theta_y in [{ty0*1e3:.3g},{ty1*1e3:.3g}] mrad")
-        self.fig_r.tight_layout()
-        self.canvas_r.draw()
 
 
 def main():

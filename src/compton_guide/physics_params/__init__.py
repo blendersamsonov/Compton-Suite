@@ -1,9 +1,9 @@
-"""Thin re-export of ``compton_suite``'s parameter-semantics/unit
+"""Thin re-export of ``compton_io``'s parameter-semantics/unit
 normalisation framework, per ``Conventions-and-units.md``.
 
 The framework itself (``PhysicalQuantity``, the enums, canonical
 conversion, ``ParameterSpec``/``ModelSpec``, ``adapt_to_model``) lives in
-the sibling ``compton_suite`` repo now, found via
+the sibling ``compton_io`` repo now, found via
 ``compton_guide.bootstrap.setup_paths()`` -- **not defined here**, so
 ``compton_guide.physics_params.PhysicalQuantity`` is the literal same
 class as e.g. ``xigma_i.params.PhysicalQuantity``, not an independently-
@@ -46,7 +46,7 @@ from .. import bootstrap
 
 bootstrap.setup_paths()
 
-from compton_suite import (  # noqa: E402
+from compton_io import (  # noqa: E402
     CANONICAL_CONVENTIONS,
     CANONICAL_UNIT,
     AmplitudeConvention,

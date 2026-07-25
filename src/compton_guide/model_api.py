@@ -1,9 +1,20 @@
 """Model-agnostic contract between app.py and physics-engine adapters.
 
-This module knows nothing about ``kascade`` or ``xigma_i`` -- adapters
-for those packages return plain, locally-defined dataclasses that are merely
-*shape-compatible* with the ones below (duck typing), so neither physics
-package needs to import this module or the GUI.
+This module knows nothing about ``kascade`` or ``xigma_i`` -- every adapter
+constructs its result fields (``spectrum``, ``angular_spectrum``, ...) using
+the shared observable-representation classes re-exported below from
+``compton_io.photons``, which every model already depends on (for units).
+This is why they can be the *literal same classes* everywhere rather than
+each adapter defining its own structurally-identical lookalikes: neither
+physics package needs to import this GUI module or depend on it, only on
+``compton_io``, which is a shared dependency by design already. (An earlier
+version of this module defined these dataclasses locally, and
+``xigma_i.gui_adapter`` kept its own separately-defined,
+structurally-identical copies specifically to avoid depending on this
+module -- see git history / ``GUIde/CLAUDE.md``'s "The ModelAdapter
+contract, and the bug it caused" for the isinstance-vs-duck-typing bug that
+caused. That workaround is obsolete now that these types live in
+``compton_io`` instead.)
 
 Two physics engines currently target this contract:
 
@@ -25,107 +36,51 @@ exact shape -- see ``CommonResults`` field docs below.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, Union
+from typing import Any, Protocol
 
-import numpy as np
+from . import bootstrap
 
+# compton_io.photons is needed below at module scope, so wire sys.path up
+# eagerly here rather than relying on some other module having already
+# called this first (same self-contained precedent physics_constants.py
+# establishes).
+bootstrap.setup_paths()
 
-# ---------------------------------------------------------------------------
-# Spectrum representations
-# ---------------------------------------------------------------------------
-@dataclass
-class SampledSpectrum:
-    """Unbinned per-macro-photon energies (kascade-style event generator)."""
+from compton_io.bunch import MacroBunch  # noqa: E402
+from compton_io.photons import (  # noqa: E402
+    AngularRangeSpectrumResult,
+    BinnedAngularSpectrum,
+    BinnedSpatialDistribution,
+    BinnedSpectrum,
+    BinnedTemporalEnvelope,
+    ElectronFinalState,
+    PhotonMultiplicity,
+    SampledSpatialDistribution,
+    SampledSpectrum,
+    SampledTemporalEnvelope,
+)
 
-    E_eV: np.ndarray            # per-macro-photon energy [eV]
-    weight: float                # macro->real particle weight (multiply counts by this)
-
-
-@dataclass
-class BinnedSpectrum:
-    """Pre-integrated angle-integrated spectral density (xigma-i-style)."""
-
-    E_eV: np.ndarray            # energy grid, bin centres [eV]
-    dNdE_per_eV: np.ndarray     # absolute, already-weighted dN/dE [photons / eV]
-
-
-@dataclass
-class BinnedAngularSpectrum:
-    """Pre-integrated angle x angle x energy spectral density."""
-
-    theta_x: np.ndarray          # [rad]
-    theta_y: np.ndarray          # [rad]
-    E_eV: np.ndarray             # [eV]
-    d2NdEdOmega: np.ndarray      # shape (theta_x.size, theta_y.size, E_eV.size), [1/(eV*sr)]
-
-
-@dataclass
-class ElectronFinalState:
-    """Initial vs. final electron energy (only meaningful for models that
-    track per-electron recoil/emission kinematics)."""
-
-    eps_i: np.ndarray            # initial Lorentz gamma per macro-electron
-    eps_f: np.ndarray            # final Lorentz gamma per macro-electron
-    weight: float
-
-
-@dataclass
-class PhotonMultiplicity:
-    """Per-electron photon-count statistics (only meaningful for models that
-    track discrete emission events per electron)."""
-
-    mean_n_phot: float
-    frac_n0: float
-    frac_n1: float
-    frac_n2: float
-    frac_n3plus: float
-
-
-@dataclass
-class SampledTemporalEnvelope:
-    """Unbinned per-macro-photon emission times (kascade-style)."""
-
-    t_seconds: np.ndarray        # per-macro-photon emission time [s]
-    weight: float
-
-
-@dataclass
-class BinnedTemporalEnvelope:
-    """Pre-integrated emission-rate-vs-time density (xigma-i-style)."""
-
-    t_seconds: np.ndarray        # time grid [s]
-    rate: np.ndarray             # emission rate at each time point
-
-
-@dataclass
-class SampledSpatialDistribution:
-    """Unbinned per-macro-photon transverse position at emission (kascade-style)."""
-
-    x: np.ndarray                # per-macro-photon transverse x at emission [m]
-    y: np.ndarray
-    weight: float
-
-
-@dataclass
-class BinnedSpatialDistribution:
-    """Pre-integrated transverse-position density (only populated by models
-    with a dedicated spatial-deposition kernel; xigma-i does not have one
-    yet -- see docs/new-features-plan.md)."""
-
-    x_centers: np.ndarray
-    y_centers: np.ndarray
-    density: np.ndarray           # shape (x_centers.size, y_centers.size)
-
-
-@dataclass
-class AngularRangeSpectrumResult:
-    """Result of an on-demand spectrum computed over a user-picked angular
-    sub-range (``ModelAdapter.spectrum_in_angular_range``)."""
-
-    spectrum: Union[SampledSpectrum, BinnedSpectrum]
-    theta_x_range: tuple[float, float]
-    theta_y_range: tuple[float, float]
-    n_photons_in_range: float | None = None
+__all__ = [
+    "MacroBunch",
+    "SampledSpectrum",
+    "BinnedSpectrum",
+    "BinnedAngularSpectrum",
+    "ElectronFinalState",
+    "PhotonMultiplicity",
+    "SampledTemporalEnvelope",
+    "BinnedTemporalEnvelope",
+    "SampledSpatialDistribution",
+    "BinnedSpatialDistribution",
+    "AngularRangeSpectrumResult",
+    "CommonResults",
+    "validate_results",
+    "ModelCapabilities",
+    "ModelAdapter",
+    "UnavailableAdapter",
+    "MODEL_REGISTRY",
+    "register",
+    "registered_models",
+]
 
 
 @dataclass
@@ -209,6 +164,8 @@ class ModelCapabilities:
     supports_spatial_distribution: bool = False
     supports_angular_distribution: bool = False
     supports_angular_range_spectrum: bool = False
+    is_fast_preview: bool = False   # True only for the always-on analytical
+                                     # model (compton_suite.analytical_adapter)
 
 
 class ModelAdapter(Protocol):
@@ -232,13 +189,13 @@ class ModelAdapter(Protocol):
     def params_to_config(self, fields: dict, quantum: bool) -> tuple[Any, dict]: ...
 
     def run(self, cfg: Any, n_mc: int, seed: int,
-            electrons: dict | None = None) -> CommonResults: ...
+            electrons: MacroBunch | None = None) -> CommonResults: ...
 
-    def load_ele_file(self, path: str) -> dict:
+    def load_ele_file(self, path: str) -> MacroBunch:
         """Raise NotImplementedError if capabilities().supports_ele_file_io is False."""
         ...
 
-    def ele_file_summary(self, bunch: dict) -> dict:
+    def ele_file_summary(self, bunch: MacroBunch) -> dict:
         """Raise NotImplementedError if capabilities().supports_ele_file_io is False."""
         ...
 

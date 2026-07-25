@@ -12,7 +12,10 @@ from __future__ import annotations
 import numpy as np
 
 import kascade as _kascade
-from compton_suite import constants as _suite_constants
+from compton_io import constants as _io_constants
+from compton_io.bunch import MacroBunch
+from compton_io.bunch import fit_gaussian as _fit_gaussian
+from compton_io.io_formats.sdds import load_elegant_ele as _load_elegant_ele
 from compton_guide.model_api import (
     AngularRangeSpectrumResult,
     CommonResults,
@@ -34,6 +37,24 @@ def _float(fields: dict, key: str) -> float:
         return float(fields[key].get())
     except ValueError:
         raise ParamError(f"'{key}' is not a valid number: {fields[key].get()!r}")
+
+
+def _macrobunch_to_kascade_electrons(bunch: MacroBunch) -> dict:
+    """Convert a MacroBunch into the plain dict kascade.run_simulation's
+    ``electrons`` parameter expects (``eps, z0, x_w, y_w, thx, thy`` --
+    kascade.py itself is untouched, this is GUI-boundary glue only, same
+    as before this migration). ``bunch.meta`` carries ``sdds_params``
+    (the loaded file's header, used by run_simulation to pick a reference
+    energy) when the bunch came from ``load_ele_file``."""
+    return dict(
+        eps=np.asarray(bunch.gamma, dtype=float),
+        z0=np.asarray(bunch.z, dtype=float),
+        x_w=np.asarray(bunch.x, dtype=float),
+        y_w=np.asarray(bunch.y, dtype=float),
+        thx=np.asarray(bunch.thx, dtype=float),
+        thy=np.asarray(bunch.thy, dtype=float),
+        params=bunch.meta.get("sdds_params"),
+    )
 
 
 class KascadeAdapter:
@@ -76,10 +97,10 @@ class KascadeAdapter:
         g = lambda k: _float(fields, k)
 
         # --- electrons ---
-        eps0 = g("mean_energy_MeV") * 1e6 / _suite_constants.MEC2_EV
-        N_e = g("charge_nC") * 1e-9 / _suite_constants.E_CHARGE
+        eps0 = g("mean_energy_MeV") * 1e6 / _io_constants.MEC2_EV
+        N_e = g("charge_nC") * 1e-9 / _io_constants.E_CHARGE
         sigma_eps_rel = g("rel_spread_pct") / 100.0
-        sigma_par_e = _suite_constants.C_LIGHT * (g("bunch_duration_ps") * 1e-12)
+        sigma_par_e = _io_constants.C_LIGHT * (g("bunch_duration_ps") * 1e-12)
         emit_x = g("emit_x_mmmrad") * 1e-6 / eps0
         emit_y = g("emit_y_mmmrad") * 1e-6 / eps0
         beta_x = g("beta_x_m")
@@ -90,7 +111,7 @@ class KascadeAdapter:
         # --- laser ---
         lambda_L = g("laser_wavelength_nm") * 1e-9
         pulse_energy_J = g("laser_energy_mJ") * 1e-3
-        sigma_par_L = _suite_constants.C_LIGHT * (g("pulse_duration_ps") * 1e-12)
+        sigma_par_L = _io_constants.C_LIGHT * (g("pulse_duration_ps") * 1e-12)
         R_sf = g("rayleigh_length_m")
         sigma0_l = 0.5 * np.sqrt(max(R_sf, 0.0) * lambda_L / np.pi) if R_sf > 0 else 0.0
         rep_rate_hz = g("pulse_frequency_Hz")
@@ -99,7 +120,7 @@ class KascadeAdapter:
         # --- relative position (mismatch) ---
         delta_x = g("x_mismatch_mm") * 1e-3
         delta_y = g("y_mismatch_mm") * 1e-3
-        delta_z = g("z_mismatch_mm") * 1e-3 + _suite_constants.C_LIGHT * (g("time_mismatch_ps") * 1e-12)
+        delta_z = g("z_mismatch_mm") * 1e-3 + _io_constants.C_LIGHT * (g("time_mismatch_ps") * 1e-12)
 
         warnings = []
         if sigma0_x <= 0 or sigma0_y <= 0:
@@ -125,8 +146,9 @@ class KascadeAdapter:
                      rep_rate_hz=rep_rate_hz, warnings=warnings)
         return cfg, extra
 
-    def run(self, cfg, n_mc: int, seed: int, electrons: dict | None = None) -> CommonResults:
-        res = _kascade.run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=electrons)
+    def run(self, cfg, n_mc: int, seed: int, electrons: MacroBunch | None = None) -> CommonResults:
+        kascade_electrons = _macrobunch_to_kascade_electrons(electrons) if electrons is not None else None
+        res = _kascade.run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=kascade_electrons)
         self._last_results = res
         s = res.summary
         return CommonResults(
@@ -152,11 +174,24 @@ class KascadeAdapter:
             final_distribution_path=s.get("final_distribution_path"),
         )
 
-    def load_ele_file(self, path: str) -> dict:
-        return _kascade.load_ele_file(path)
+    def load_ele_file(self, path: str) -> MacroBunch:
+        return _load_elegant_ele(path)
 
-    def ele_file_summary(self, bunch: dict) -> dict:
-        return _kascade.ele_file_summary(bunch)
+    def ele_file_summary(self, bunch: MacroBunch) -> dict:
+        beam = _fit_gaussian(bunch)
+        return dict(
+            mean_energy_MeV=beam.kinetic_energy_eV * 1e-6,
+            rel_spread_pct=beam.rel_energy_spread_rms * 100.0,
+            bunch_duration_ps=beam.sigma_t_s * 1e12,
+            beta_x_m=beam.beta_star_x_m,
+            beta_y_m=beam.beta_star_y_m,
+            emit_x_mmmrad=beam.emit_norm_x_m * 1e6,
+            emit_y_mmmrad=beam.emit_norm_y_m * 1e6,
+            sigma_ex_um=beam.sigma_x_m * 1e6,
+            sigma_ey_um=beam.sigma_y_m * 1e6,
+            eps0=beam.gamma0,
+            N_e=bunch.n_particles,
+        )
 
     def spectrum_in_angular_range(self, theta_x_range, theta_y_range, **kwargs):
         """Mask the cached per-photon lab angles against the picked range and
