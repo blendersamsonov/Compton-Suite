@@ -33,9 +33,16 @@ Layout (top -> bottom):
 
     (A separate on-demand "Angular-Range Spectrum" tab, restricted to an
     arbitrary user-picked sub-range independent of the Calculate run,
-    existed previously and was removed for now -- ModelAdapter.
-    spectrum_in_angular_range still exists on every adapter, just isn't
-    wired into this UI at the moment.)
+    existed previously and was removed for now. ModelAdapter.
+    spectrum_in_angular_range isn't exposed as its own tab any more, but
+    IS used -- by _photon_fluxes/_render_spectrum_binned above, as the
+    "collimated" curve/flux source for the current theta_x,col/theta_y,col
+    window, on every collimation-field edit. That's a fresh on-demand
+    query sized for the actual requested window, not a re-integration of
+    the wider-range angular_spectrum cache the Angular Distribution tab
+    still uses for its own visualization -- reusing that cache here used
+    to badly overcount for tight windows on a coarse-grid model like
+    xigma-i-direct; see _photon_fluxes' own docstring.)
 
 This GUI is model-agnostic: physics engines are plugged in through the
 ``model_api.ModelAdapter`` registry (see ``model_api.py``) instead of a
