@@ -259,8 +259,14 @@ Three independent, non-GPU-kernel ways to compute a spectrum from Stage
 
 ### Shared config -- `config.py`
 
-Physical constants (`hbar`, `me`, `c`, `el`, `rel`, `sigma_T`, `alpha`,
-`PHI`), the GPU kernel sizing constants `spectrum_kernel_4d` needs
+Physical constants (`hbar`, `me`, `c`, `el`, `elC`, `rel`, `sigma_T`,
+`alpha`, `PHI`) -- `hbar`/`me`/`c`/`el`/`elC` come from
+`compton_suite.constants` (found via `_bootstrap.setup_paths()`, raises
+`ImportError` if not found -- see "Parameter semantics & units" below),
+not local literals; `rel`/`sigma_T`/`alpha` are still derived locally from
+those via this module's own CGS formulas, and `PHI` (golden ratio,
+unrelated to physics) stays local. The GPU kernel sizing constants
+`spectrum_kernel_4d` needs
 (`X_THREADS`, `MAX_RINGS`, `MAX_ARCS`, `PHI_EDGES`, `CDF_PHI_RESOLUTION`,
 ...; see "Sizing constants" in Conventions), `_detect_device()`, and the
 `Compton` collision-configuration class.
@@ -570,6 +576,13 @@ interpreter`).
   through `gui_adapter.py`'s contract (never touches `deposition.py`/etc.
   directly). `bootstrap.py` there assumes this repo's `src/` sits at a
   sibling path unless overridden via `COMPTON_GUI_XIGMA_SRC`.
+- `../compton-suite` -- shared physical constants, pint registry, and
+  parameter-convention framework (`compton_suite`), depended on by *this*
+  repo now (`config.py`, `params/`), the reverse direction from the other
+  two sibling relationships above. Found the same way `compton-gui` finds
+  this repo -- content-based sibling autodiscovery, see `_bootstrap.py` and
+  "Parameter semantics & units" above. Local-only (no GitHub remote) as of
+  this writing.
 
 ### pyproject.toml note
 
@@ -579,43 +592,57 @@ cupy-cudaXXx` doesn't find a matching wheel, a conda/mamba env
 (conda-forge) is the more reliable install path -- confirmed working on
 this machine via the `core` env above.
 
-## Parameter semantics & units (`params/`)
+## Parameter semantics & units (`params/`), and `compton_suite`
 
 `src/xigma_i/params/` is this model's own declaration of parameter
-semantics and units for values crossing the `compton-gui` boundary. Every
-laser/electron width, duration, or amplitude travels as a
-`PhysicalQuantity` (value + unit + `PhysicalMeaning` + a convention enum
--- `WidthConvention`/`TimeConvention`/`AmplitudeConvention`), gets
-normalised through one canonical convention per meaning (`canonical.py`),
-and is adapted out to this model's own convention/units via
-`adapter.adapt_to_model()` against `spec.py`'s `XIGMA_SPEC` (the
-convention/unit contract for `gui_adapter.Config`'s own fields).
-`XIGMA_DIAGNOSTIC_SPEC` covers derived/read-only quantities (`a0`) that
-aren't GUI inputs. Units are handled by `pint` (`units.py`), including a
-custom `"light_time"` context so a length can stand in for `c * duration`
--- `Config` stores pulse/bunch length that way
-(`sigma_par_L`/`sigma_par_e`).
+semantics and units for values crossing the `compton-gui` boundary --
+`spec.py`'s `XIGMA_SPEC` (the convention/unit contract for
+`gui_adapter.Config`'s own fields) and `XIGMA_DIAGNOSTIC_SPEC` (derived/
+read-only quantities, e.g. `a0`, that aren't GUI inputs). The framework
+those specs are built on -- `PhysicalQuantity` (value + unit +
+`PhysicalMeaning` + a convention enum -- `WidthConvention`/
+`TimeConvention`/`AmplitudeConvention`), canonical conversion
+(`to_canonical`/`from_canonical`), `ParameterSpec`/`ModelSpec`,
+`adapt_to_model` -- is **not defined here**; it's re-exported unchanged
+from the sibling `compton_suite` package (a separate repo, see next
+paragraph), so `xigma_i.params.PhysicalQuantity` and (say)
+`compton_guide.physics_params.PhysicalQuantity` are the literal same
+Python class, not two independently-defined look-alikes (an earlier
+version of this move gave each repo its own copy, which broke exactly
+that -- see this repo's git history if curious). `compton_suite` also
+provides the shared `pint` unit registry (including a custom
+`"light_time"` context so a length can stand in for `c * duration` --
+`Config` stores pulse/bunch length that way).
 
-Moved here from `compton-gui`'s `physics_params/` package (see that
-repo's `Conventions-and-units.md` for the original design and
-`CLAUDE.md` for its own notes) so this model declares its own parameter
-contract instead of the GUI declaring it on the model's behalf --
-`compton-gui` keeps its own copy of the generic framework
-(`enums.py`/`units.py`/`quantities.py`/`canonical.py`/`converters.py`/
-`validation.py`/`schema.py`/`adapter.py`, all unchanged from what moved)
-in place there for `kascade`, which hasn't had the same schema-ownership
-move yet -- expect the two copies to read near-identically until it does.
+**`compton_suite` is load-bearing, not optional.** `src/xigma_i/
+_bootstrap.py` (mirroring `compton-gui`'s own `bootstrap.py` -- same
+content-based sibling-directory autodiscovery, physically duplicated here
+because the discovery code has to run before the thing it discovers is
+importable) is called eagerly both by `params/__init__.py` **and by
+`config.py` itself** (see "Shared config" above -- `hbar`/`me`/`c`/`el`/
+`elC` come from `compton_suite.constants`). `setup_paths()` raises
+`ImportError` with a clear message if `compton_suite` isn't discoverable
+and `XIGMA_COMPTON_SUITE_SRC` isn't set, rather than degrading silently --
+unlike `cupy`, there's no graceful-fallback story for missing physical
+constants. In practice this is low-risk: every caller that imports
+`xigma_i` today (`gui_adapter.available()`, `compton-gui`'s model
+discovery) already wraps the import in a broad `try/except Exception`, so
+a missing `compton_suite` surfaces as "model unavailable: <error>" exactly
+like a missing cupy/numba does, never a crash. The real cost is that
+`xigma_i` is no longer usable as a fully standalone pip install outside
+this multi-repo dev checkout without also having `compton_suite`
+discoverable (env var or sibling checkout) -- a conscious tradeoff, not an
+oversight, made so constants/conventions are genuinely shared rather than
+hand-kept-in-sync.
 
 **Not yet wired into `gui_adapter.params_to_config`** -- that still does
 the FWHM/waist/duration arithmetic by hand (see `spec.py`'s module
-docstring). `compton-gui/scripts/physics_params_demo.py` exercises this
-module end to end: it calls `compton_guide.bootstrap.setup_paths()` to put
-this repo's `src/` on `sys.path`, then imports `XIGMA_SPEC` straight from
-`xigma_i.params` (local `KASCADE_SPEC` still comes from `compton-gui`'s
-own `physics_params.schemas.kascade`).
+docstring). `compton-gui/scripts/physics_params_demo.py` exercises
+`xigma_i.params` end to end, alongside `compton-gui`'s own
+`physics_params.schemas.kascade.KASCADE_SPEC`.
 
-Needs `pint` (a hard dependency in `pyproject.toml` -- pure Python, no
-GPU/cupy involvement, so importing `xigma_i.params` never requires cupy
-even though the base `xigma_i` package import chain
-(`config.py`/`gui_adapter.py`) is cupy-optional throughout, see "GUI
-integration" above).
+Needs `pint` (a hard dependency in `pyproject.toml`, transitively required
+by `compton_suite` -- pure Python, no GPU/cupy involvement, so neither
+`compton_suite` nor `xigma_i.params`/`config.py`'s use of it ever requires
+cupy, even though `gui_adapter.py` itself stays cupy-optional throughout,
+see "GUI integration" above).

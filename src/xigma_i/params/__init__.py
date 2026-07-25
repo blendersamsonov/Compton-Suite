@@ -1,27 +1,16 @@
-"""Parameter semantics & unit normalisation layer for this model's own
-parameter contract.
+"""This model's own parameter contract, built on the shared
+``compton_suite`` framework.
 
-Solves two independent problems for values crossing the compton-gui <->
-xigma-i boundary:
-
-1. **Units** -- handled by ``pint`` (see ``units.py``).
-2. **Semantics/convention** -- is a "width" the RMS of the intensity
-   profile, the FWHM, or the 1/e^2 radius? Is a "duration" a sigma or a
-   FWHM? Is an amplitude peak or RMS? Handled by this module: every value
-   is a ``PhysicalQuantity`` (value + unit + meaning + convention), never a
-   bare float, converted through one canonical representation per meaning
-   (``canonical.py``) and out to this model's own convention/unit,
-   declared in ``spec.py``'s ``XIGMA_SPEC``.
-
-Originally implemented inside compton-gui (see that repo's
-``Conventions-and-units.md``) as a GUI-side framework with one
-``ModelSpec`` per pluggable physics engine (``schemas/xigma.py``,
-``schemas/kascade.py``); moved here so this model declares its own
-parameter contract instead of the GUI declaring it on the model's behalf.
-compton-gui's copy of the generic framework (``enums``/``units``/
-``quantities``/``canonical``/``converters``/``validation``/``schema``/
-``adapter``, unchanged) stays in place there for ``kascade``, which hasn't
-had the same schema-ownership move yet.
+The parameter-semantics/units framework itself (``PhysicalQuantity``, the
+``PhysicalMeaning``/``WidthConvention``/``TimeConvention``/
+``AmplitudeConvention`` enums, canonical conversion, ``ParameterSpec``/
+``ModelSpec``, ``adapt_to_model``) lives in ``compton_suite`` -- found at
+import time via ``xigma_i._bootstrap.setup_paths()`` -- and is re-exported
+here unchanged, so ``xigma_i.params.PhysicalQuantity`` and (say)
+``compton_guide.physics_params.PhysicalQuantity`` are the *same* class, not
+two independently-defined look-alikes. Only ``spec.py``'s ``XIGMA_SPEC``/
+``XIGMA_DIAGNOSTIC_SPEC`` -- this model's own parameter contract instance --
+is defined here.
 
 Typical use (see ``spec.py`` for the concrete spec, and compton-gui's
 ``scripts/physics_params_demo.py`` for a full example):
@@ -43,21 +32,34 @@ Typical use (see ``spec.py`` for the concrete spec, and compton-gui's
 the FWHM/waist/duration arithmetic by hand.
 """
 
-from .adapter import adapt_to_model, params_to_floats
-from .canonical import CANONICAL_CONVENTIONS, CANONICAL_UNIT, from_canonical, to_canonical
-from .enums import AmplitudeConvention, PhysicalMeaning, TimeConvention, WidthConvention
-from .quantities import PhysicalQuantity
-from .schema import ModelSpec, ParameterSpec
-from .spec import XIGMA_DIAGNOSTIC_SPEC, XIGMA_SPEC
-from .validation import (
+from .. import _bootstrap
+
+_bootstrap.setup_paths()
+
+from compton_suite import (  # noqa: E402
+    CANONICAL_CONVENTIONS,
+    CANONICAL_UNIT,
+    AmplitudeConvention,
     MeaningMismatchError,
     MissingConventionError,
+    ModelSpec,
+    ParameterSpec,
+    PhysicalMeaning,
+    PhysicalQuantity,
     PhysicsParamsError,
+    TimeConvention,
     UnitMismatchError,
     UnknownConversionError,
+    WidthConvention,
+    adapt_to_model,
+    from_canonical,
+    params_to_floats,
+    to_canonical,
     validate_against_spec,
     validate_quantity,
 )
+
+from .spec import XIGMA_DIAGNOSTIC_SPEC, XIGMA_SPEC
 
 __all__ = [
     "PhysicalQuantity",
