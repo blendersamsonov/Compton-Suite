@@ -26,7 +26,8 @@ import numpy as np
 
 from .constants import C_LIGHT, E_CHARGE, MEC2_EV
 
-__all__ = ["MacroBunch", "GaussianElectronBeam", "validate", "sample_gaussian_bunch", "fit_gaussian"]
+__all__ = ["MacroBunch", "GaussianElectronBeam", "validate", "sample_gaussian_bunch", "fit_gaussian",
+           "beam_from_shared_fields"]
 
 
 @dataclass
@@ -204,6 +205,49 @@ def sample_gaussian_bunch(beam: GaussianElectronBeam, n_particles: int, *, rng=N
     weight = beam.N_e / n_particles
     return MacroBunch(x=x, y=y, z=z, thx=thx, thy=thy, gamma=gamma, weight=weight,
                        meta={"source": "sample_gaussian_bunch", "beam": beam})
+
+
+def beam_from_shared_fields(*, eps0: float, sigma_eps_rel: float, emit_x: float, emit_y: float,
+                             sigma0_x: float, sigma0_y: float, sigma_par_e: float,
+                             N_e: float) -> GaussianElectronBeam:
+    """Build a :class:`GaussianElectronBeam` from the flat SI field set every
+    model's own ``Config`` already derives and agrees on (``eps0``,
+    ``sigma_eps_rel``, ``emit_x/y``, ``sigma0_x/y``, ``sigma_par_e``, ``N_e``
+    -- see ``ComptonSuite/validation/scenarios.py``'s ``scenario_to_shared_
+    fields``, this function's exact inverse).
+
+    Exists so a GUI (or any other caller) that already has one model's
+    ``Config`` on hand can hand this beam to :func:`sample_gaussian_bunch`
+    and pass the SAME sampled :class:`MacroBunch` into every model's
+    ``run()`` -- one canonical electron sample per Calculate click, drawn
+    here by the IO layer, rather than each model silently falling back to
+    its own independent internal sampler whenever no bunch is supplied.
+
+    ``sigma_eps_rel`` here is relative to gamma/total energy (every
+    ``Config``'s own convention -- confirmed by ``KASCADE_SPEC``/
+    ``XIGMA_SPEC`` "machine-checking" that all these engines already agree
+    on it), NOT :class:`GaussianElectronBeam`'s own ``rel_energy_spread_
+    rms`` (relative to *kinetic* energy, spec Sec. 10) -- converted
+    explicitly below, same distinction that caused a real bug in
+    ``AnalyticalConfig`` earlier (see that class's ``sigma_eps_rel``
+    docstring).
+    """
+    gamma0 = eps0
+    kinetic_energy_eV = (gamma0 - 1.0) * MEC2_EV
+    sigma_gamma = sigma_eps_rel * gamma0
+    rel_energy_spread_rms = (sigma_gamma * MEC2_EV) / kinetic_energy_eV
+    beta0 = (1.0 - 1.0 / gamma0**2) ** 0.5
+
+    return GaussianElectronBeam(
+        bunch_charge_C=N_e * E_CHARGE,
+        kinetic_energy_eV=kinetic_energy_eV,
+        rel_energy_spread_rms=rel_energy_spread_rms,
+        sigma_x_m=sigma0_x,
+        sigma_y_m=sigma0_y,
+        emit_geom_x_m=emit_x,
+        emit_geom_y_m=emit_y,
+        sigma_t_s=sigma_par_e / (beta0 * C_LIGHT),
+    )
 
 
 def fit_gaussian(bunch: MacroBunch) -> GaussianElectronBeam:
