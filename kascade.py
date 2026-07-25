@@ -59,7 +59,6 @@ Input parameters are read from ``kascade_config.toml`` (override with
 from __future__ import annotations
 
 import os
-import re
 import tomllib
 from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Tuple
@@ -69,22 +68,24 @@ import numpy as np
 import _bootstrap
 
 _bootstrap.setup_paths()
-from compton_suite import constants as _suite_constants
+from compton_io import constants as _io_constants
+from compton_io.bunch import MacroBunch as _MacroBunch
+from compton_io.io_formats.sdds import save_elegant_ele as _save_elegant_ele
 
 # ---------------------------------------------------------------------------
-# Physical constants (SI) -- from compton_suite.constants (shared, pint-
+# Physical constants (SI) -- from compton_io.constants (shared, pint-
 # derived source of truth also used by compton_guide/xigma_i) rather than
 # hand-typed literals. Zero numeric change here: this module's previous
-# literals already agreed with compton_suite's values to their quoted
+# literals already agreed with compton_io's values to their quoted
 # precision (unlike xigma_i's older-CODATA-vintage hbar/electron mass,
 # which did need an actual, deliberate numeric update).
 # ---------------------------------------------------------------------------
-C_LIGHT = _suite_constants.C_LIGHT        # speed of light            [m/s]
-E_CHARGE = _suite_constants.E_CHARGE      # elementary charge         [C]
-HBAR = _suite_constants.HBAR              # reduced Planck constant   [J s]
-EPS0 = _suite_constants.EPS0              # vacuum permittivity       [F/m]
-SIGMA_T = _suite_constants.SIGMA_T_M2     # Thomson cross section     [m^2]
-MEC2_EV = _suite_constants.MEC2_EV        # electron rest energy      [eV]
+C_LIGHT = _io_constants.C_LIGHT           # speed of light            [m/s]
+E_CHARGE = _io_constants.E_CHARGE         # elementary charge         [C]
+HBAR = _io_constants.HBAR                 # reduced Planck constant   [J s]
+EPS0 = _io_constants.EPS0                 # vacuum permittivity       [F/m]
+SIGMA_T = _io_constants.SIGMA_T_M2        # Thomson cross section     [m^2]
+MEC2_EV = _io_constants.MEC2_EV           # electron rest energy      [eV]
 MEC2_J = MEC2_EV * E_CHARGE               # electron rest energy      [J]
 
 # ---------------------------------------------------------------------------
@@ -195,317 +196,6 @@ def load_config(path: str = DEFAULT_CONFIG_PATH) -> Tuple[Config, Dict[str, Any]
         )
 
     return Config(**flat), run_opts
-
-
-# ---------------------------------------------------------------------------
-# SDDS .ele file loading (6D electron bunch in the Self-Describing Data Set
-# format used by the Elegant / SDDS tools, ASCII flavour).
-# ---------------------------------------------------------------------------
-def load_ele_file(path: str) -> Dict[str, np.ndarray]:
-    """Parse a 6-D electron-bunch ``.ele`` file in SDDS ASCII format.
-
-    The parser is intentionally minimal: it reads the header parameters
-    (``Energy``, ``SigmaX``, ``SigmaXp``, ...) and the per-particle columns
-    (``x``, ``xp``, ``y``, ``yp``, ``z``, ``dP``).  Returns a dict with:
-
-      * ``eps``    -- Lorentz factor γ = 1 + E[MeV] / m_e c^2  (per particle)
-      * ``z0``     -- longitudinal position in metres (head-tail sign)
-      * ``x_w``    -- horizontal waist position in metres
-      * ``y_w``    -- vertical waist position in metres
-      * ``thx``    -- horizontal divergence (rad)
-      * ``thy``    -- vertical divergence (rad)
-      * ``n_mc``   -- number of macro-particles
-      * ``params`` -- dict of scalar parameters parsed from the header
-                     (mean energy [MeV], mean bunch duration [ps],
-                      relative energy spread [%], beta [m],
-                      normalised emittance [mm mrad] in x/y, ...)
-    """
-    with open(path, "r") as fh:
-        text = fh.read()
-
-    lines = text.splitlines()
-    if not lines or not lines[0].strip().startswith("SDDS"):
-        raise ValueError(f"{path}: not an SDDS file (missing SDDS1 header)")
-
-    params: Dict[str, float] = {}
-    columns: List[str] = []
-    in_data = False
-    data_lines: List[str] = []
-
-    # Header scanner: a name="..." or name=... and fix=value sequence on a
-    # &parameter line, or a list of &column lines.  ``&end`` closes the data
-    # block.  Names may be quoted or bare.
-    name_re = re.compile(r'name\s*=\s*(?:"([^"]+)"|(\S+))', re.IGNORECASE)
-    val_re = re.compile(r'fix\s*=\s*("([^"]*)"|[+\-]?\d+\.?\d*(?:[eE][+\-]?\d+)?)',
-                        re.IGNORECASE)
-
-    i = 1
-    while i < len(lines):
-        raw = lines[i]
-        line = raw.strip()
-        i += 1
-        if not line or line.startswith("!"):
-            continue
-        low = line.lower()
-        if low.startswith("&description"):
-            continue
-        if low.startswith("&end"):
-            break
-        if low.startswith("&parameter"):
-            m_n = name_re.search(line)
-            m_v = val_re.search(line)
-            if m_n and m_v:
-                name = m_n.group(1) or m_n.group(2)
-                v = m_v.group(2) if m_v.group(2) is not None else m_v.group(1)
-                try:
-                    params[name] = float(v)
-                except (TypeError, ValueError):
-                    pass
-            continue
-        if low.startswith("&column"):
-            m_n = name_re.search(line)
-            if m_n:
-                columns.append(m_n.group(1) or m_n.group(2))
-            continue
-        if low.startswith("&data"):
-            in_data = True
-            continue
-        if in_data:
-            data_lines.append(raw)
-
-    if not columns:
-        raise ValueError(f"{path}: no &column definitions found")
-    if not data_lines:
-        raise ValueError(f"{path}: no data rows found before &end")
-
-    # Parse numeric rows.  Tolerate a leading 'n=' on the first line that some
-    # SDDS variants emit after ``&data mode=ascii``.
-    rows: List[List[float]] = []
-    expected = len(columns)
-    for raw in data_lines:
-        s = raw.strip()
-        if not s:
-            continue
-        # strip a leading SDDS "n=" line if present
-        if "=" in s.split()[0]:
-            continue
-        vals = s.split()
-        if len(vals) < expected:
-            raise ValueError(
-                f"{path}: row has {len(vals)} fields, expected {expected}")
-        try:
-            row = [float(v) for v in vals[:expected]]
-        except ValueError as e:
-            raise ValueError(f"{path}: cannot parse row: {s!r}") from e
-        rows.append(row)
-
-    arr = np.asarray(rows, dtype=float)
-    col = {c: arr[:, j] for j, c in enumerate(columns)}
-
-    # Required columns
-    for required in ("x", "xp", "y", "yp", "z", "dP"):
-        if required not in col:
-            raise ValueError(f"{path}: required column '{required}' missing")
-
-    # Energy.  Prefer the header Energy (GeV); fall back to (1 + dP)*E0.
-    if "Energy" in params:
-        energy_MeV = float(params["Energy"]) * 1000.0
-    else:
-        # ``dP`` is the relative momentum deviation, eps ≈ eps0 * (1 + dP)
-        energy_MeV = None
-    eps0_mean = energy_MeV * 1e6 / MEC2_EV if energy_MeV is not None else None
-    if eps0_mean is None or not np.isfinite(eps0_mean) or eps0_mean <= 0:
-        raise ValueError(f"{path}: cannot determine mean beam energy")
-    # Per-particle energy: relative momentum spread applies to total momentum.
-    # In the ultra-relativistic limit p ≈ E, so eps_i = eps0 * (1 + dP).
-    eps = eps0_mean * (1.0 + col["dP"])
-    eps = np.clip(eps, 1.0 + 1e-9, None)
-
-    # Per-particle geometry (already in SI units)
-    x_w = col["x"]
-    y_w = col["y"]
-    thx = col["xp"]
-    thy = col["yp"]
-    z0 = col["z"]
-    n_mc = x_w.size
-
-    return dict(
-        eps=eps, z0=z0, x_w=x_w, y_w=y_w, thx=thx, thy=thy,
-        n_mc=int(n_mc), params=params, path=path,
-    )
-
-
-def ele_file_summary(bunch: Dict[str, np.ndarray]) -> Dict[str, float]:
-    """Compute the GUI input quantities from a loaded SDDS bunch.
-
-    Returns a dict with the practical-unit fields that the Electron panel
-    displays (``mean_energy_MeV``, ``rel_spread_pct``,
-    ``bunch_duration_ps``, ``beta_x_m``/``beta_y_m``,
-    ``emit_x_mmmrad``/``emit_y_mmmrad``) plus the derived transverse sizes
-    ``sigma_ex_um``/``sigma_ey_um``.
-
-    Where the loaded file already supplies the canonical SDDS header value
-    (e.g. ``SigmaX``) we use it; otherwise we compute it from the particle
-    data and the corresponding Twiss/emit formula.
-    """
-    params = bunch.get("params", {}) or {}
-    eps = bunch["eps"]
-    z0 = bunch["z0"]
-    x_w = bunch["x_w"]
-    y_w = bunch["y_w"]
-    thx = bunch["thx"]
-    thy = bunch["thy"]
-
-    eps0 = float(np.mean(eps))
-    mean_energy_MeV = eps0 * MEC2_EV / 1e6
-    rel_spread_pct = float(np.std(eps) / eps0) * 100.0
-
-    bunch_duration_ps = float(np.std(z0)) / C_LIGHT * 1e12
-
-    sx = float(params.get("SigmaX", np.std(x_w, ddof=0)))
-    sy = float(params.get("SigmaY", np.std(y_w, ddof=0)))
-    sxp = float(params.get("SigmaXp", np.std(thx, ddof=0)))
-    syp = float(params.get("SigmaYp", np.std(thy, ddof=0)))
-
-    # Beta function: σ_x^2 = ε_geo β_x + D_x^2 (with D=0 in the simple SDDS file).
-    # σ_x σ_xp ≈ ε_geo / sqrt(1 - ...); we use the linear approximation
-    # β_x = σ_x^2 / ε_geo, ε_geo = σ_x σ_xp; emit_n = ε_geo γ.
-    if sxp > 0 and sx > 0:
-        emit_x_geom = sx * sxp
-        beta_x_m = sx * sx / emit_x_geom
-        emit_x_norm_mmmrad = emit_x_geom * eps0 * 1e6
-    else:
-        emit_x_geom = float(params.get("NormEmittance", 0.0)) * 1e-6 / max(eps0, 1e-9)
-        beta_x_m = float(params.get("BetaFunction", 0.0))
-        emit_x_norm_mmmrad = float(params.get("NormEmittance", 0.0))
-    if syp > 0 and sy > 0:
-        emit_y_geom = sy * syp
-        beta_y_m = sy * sy / emit_y_geom
-        emit_y_norm_mmmrad = emit_y_geom * eps0 * 1e6
-    else:
-        emit_y_geom = emit_x_geom
-        beta_y_m = beta_x_m
-        emit_y_norm_mmmrad = emit_x_norm_mmmrad
-
-    return dict(
-        mean_energy_MeV=mean_energy_MeV,
-        rel_spread_pct=rel_spread_pct,
-        bunch_duration_ps=bunch_duration_ps,
-        beta_x_m=beta_x_m,
-        beta_y_m=beta_y_m,
-        emit_x_mmmrad=emit_x_norm_mmmrad,
-        emit_y_mmmrad=emit_y_norm_mmmrad,
-        sigma_ex_um=sx * 1e6,
-        sigma_ey_um=sy * 1e6,
-        eps0=eps0,
-        N_e=bunch.get("n_mc", 0),
-    )
-
-
-def save_ele_file(path: str,
-                  x: np.ndarray, xp: np.ndarray,
-                  y: np.ndarray, yp: np.ndarray,
-                  z: np.ndarray, dP: np.ndarray,
-                  *,
-                  mean_energy_MeV: float | None = None,
-                  description: str = "6D electron bunch written by kascade",
-                  ) -> None:
-    """Write a 6-D electron distribution in SDDS ASCII ``.ele`` format.
-
-    Mirrors the layout produced by ``load_ele_file`` / ``gaussian_beam_example.py``:
-    one ``&parameter`` per header scalar (``TotalParticles``, ``Energy``,
-    ``NormEmittance``, ``BetaFunction``, ``SigmaX``, ``SigmaXp``,
-    ``SigmaY``, ``SigmaYp``, ``SigmaZ``, ``SigmaDp``) and one ``&column`` per
-    particle coordinate (``x``, ``xp``, ``y``, ``yp``, ``z``, ``dP``).
-
-    Parameters
-    ----------
-    path : str
-        Destination file (overwrites if it exists).
-    x, xp, y, yp, z, dP : array_like
-        Per-particle columns.  ``z`` is the longitudinal position in metres
-        (head-tail sign), ``dP`` is the relative momentum deviation
-        ``(p - p0) / p0``.  All other units are SI.
-    mean_energy_MeV : float, optional
-        Mean beam energy in MeV used to derive the header ``Energy``
-        parameter.  Defaults to the value implied by ``dP`` (i.e. treating
-        ``dP = 0`` as the reference energy and ignoring absolute scale, in
-        which case the header is left blank).
-    description : str, optional
-        Free-form text written to the ``&description`` line.
-    """
-    x = np.asarray(x, dtype=float).ravel()
-    xp = np.asarray(xp, dtype=float).ravel()
-    y = np.asarray(y, dtype=float).ravel()
-    yp = np.asarray(yp, dtype=float).ravel()
-    z = np.asarray(z, dtype=float).ravel()
-    dP = np.asarray(dP, dtype=float).ravel()
-    n = x.size
-    if not (xp.size == y.size == yp.size == z.size == dP.size == n):
-        raise ValueError(
-            f"save_ele_file: all six columns must be the same length, "
-            f"got n={n} with xp={xp.size} y={y.size} yp={yp.size} "
-            f"z={z.size} dP={dP.size}")
-
-    sx = float(np.std(x, ddof=0))
-    sxp = float(np.std(xp, ddof=0))
-    sy = float(np.std(y, ddof=0))
-    syp = float(np.std(yp, ddof=0))
-    sz = float(np.std(z, ddof=0))
-    sdp = float(np.std(dP, ddof=0))
-
-    if sxp > 0 and sx > 0:
-        emit_x_geom = sx * sxp
-        beta_x = sx * sx / emit_x_geom
-    else:
-        emit_x_geom = 0.0
-        beta_x = 0.0
-    if syp > 0 and sy > 0:
-        emit_y_geom = sy * syp
-        beta_y = sy * sy / emit_y_geom
-    else:
-        emit_y_geom = 0.0
-        beta_y = 0.0
-
-    if mean_energy_MeV is not None and np.isfinite(mean_energy_MeV) and mean_energy_MeV > 0:
-        energy_GeV = mean_energy_MeV / 1000.0
-        gamma0 = mean_energy_MeV * 1e6 / MEC2_EV
-        emit_x_norm_mm_mrad = emit_x_geom * gamma0 * 1e6
-        emit_y_norm_mm_mrad = emit_y_geom * gamma0 * 1e6
-    else:
-        energy_GeV = 0.0
-        emit_x_norm_mm_mrad = 0.0
-        emit_y_norm_mm_mrad = 0.0
-    # Fall back to the x-emittance if y is zero/unphysical (round beam).
-    if emit_y_norm_mm_mrad <= 0 and emit_x_norm_mm_mrad > 0:
-        emit_y_norm_mm_mrad = emit_x_norm_mm_mrad
-        beta_y = beta_x
-
-    lines: List[str] = []
-    lines.append("SDDS1")
-    lines.append(f"&description text=\"{description}\" &")
-    lines.append(f"&parameter name=TotalParticles type=long description=\"Number of macroparticles\" fix={n} &")
-    lines.append(f"&parameter name=Energy type=double units=GeV description=\"Mean beam energy\" fix={energy_GeV:.6e} &")
-    lines.append(f"&parameter name=NormEmittance type=double units=mm*mrad description=\"Normalized emittance\" fix={emit_x_norm_mm_mrad:.6e} &")
-    lines.append(f"&parameter name=BetaFunction type=double units=m description=\"Beta function at location\" fix={beta_x:.6e} &")
-    lines.append(f"&parameter name=SigmaX type=double units=m description=\"RMS horizontal beam size\" fix={sx:.6e} &")
-    lines.append(f"&parameter name=SigmaXp type=double units=rad description=\"RMS horizontal divergence\" fix={sxp:.6e} &")
-    lines.append(f"&parameter name=SigmaY type=double units=m description=\"RMS vertical beam size\" fix={sy:.6e} &")
-    lines.append(f"&parameter name=SigmaYp type=double units=rad description=\"RMS vertical divergence\" fix={syp:.6e} &")
-    lines.append(f"&parameter name=SigmaZ type=double units=m description=\"RMS bunch length\" fix={sz:.6e} &")
-    lines.append(f"&parameter name=SigmaDp type=double description=\"RMS momentum spread\" fix={sdp:.6e} &")
-    lines.append("&column name=x type=double units=m description=\"Horizontal position\" &")
-    lines.append("&column name=xp type=double units=rad description=\"Horizontal angle (px/pz)\" &")
-    lines.append("&column name=y type=double units=m description=\"Vertical position\" &")
-    lines.append("&column name=yp type=double units=rad description=\"Vertical angle (py/pz)\" &")
-    lines.append("&column name=z type=double units=m description=\"Longitudinal position (head-tail, positive = ahead)\" &")
-    lines.append("&column name=dP type=double description=\"Relative momentum deviation (p-p0)/p0\" &")
-    lines.append("&data mode=ascii")
-    for xi, xpi, yi, ypi, zi, di in zip(x, xp, y, yp, z, dP):
-        lines.append(f" {xi:.6e}  {xpi:.6e}  {yi:.6e}  {ypi:.6e}  {zi:.6e}  {di:.6e}")
-    lines.append("&end")
-    with open(path, "w") as fh:
-        fh.write("\n".join(lines) + "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -1086,18 +776,15 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     #      in the Electrons panel.
     eps_i_mean = float(np.mean(el["eps"])) if el["eps"].size else float(cfg.eps0)
     ref_gamma = eps_i_mean
-    ref_energy_MeV = ref_gamma * MEC2_EV / 1e6
     if electrons is not None and electrons.get("params"):
         params = electrons["params"]
         if params.get("Energy"):
-            ref_energy_MeV = float(params["Energy"]) * 1000.0
-            ref_gamma = ref_energy_MeV * 1e6 / MEC2_EV
+            ref_gamma = float(params["Energy"]) * 1000.0 * 1e6 / MEC2_EV
     if not (np.isfinite(ref_gamma) and ref_gamma > 0):
         ref_gamma = float(cfg.eps0) if cfg.eps0 > 0 else 1.0
-        ref_energy_MeV = ref_gamma * MEC2_EV / 1e6
-    # In the ultra-relativistic limit p ≈ E (m_e c^2 terms negligible),
-    # so (p - p0)/p0 ≈ (eps - eps0)/eps0.
-    dP_f = (eps_f - ref_gamma) / ref_gamma
+    # save_elegant_ele derives the dP column from this reference gamma
+    # (dP = gamma/reference_gamma - 1) -- ultra-relativistic limit
+    # p ~ E, so (p - p0) / p0 ~= (eps - eps0) / eps0.
     # Default output filename; can be overridden via the
     # ``final_ele_path`` entry of the ``electrons`` dict (e.g. when
     # ``_load_ele`` wants a per-input-file path) or by an environment
@@ -1107,12 +794,13 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         final_ele_path = electrons["final_ele_path"]
     elif os.environ.get("KASCADE_FINAL_ELE_PATH"):
         final_ele_path = os.environ["KASCADE_FINAL_ELE_PATH"]
-    save_ele_file(final_ele_path,
-                  x_f, thx_f, y_f, thy_f, z_f, dP_f,
-                  mean_energy_MeV=ref_energy_MeV,
-                  description=("Final 6D electron distribution after "
-                               "interaction with the laser pulse "
-                               "(kascade)"))
+    _save_elegant_ele(
+        _MacroBunch(x=x_f, y=y_f, z=z_f, thx=thx_f, thy=thy_f, gamma=eps_f, weight=weight),
+        final_ele_path,
+        reference_gamma=ref_gamma,
+        description=("Final 6D electron distribution after "
+                     "interaction with the laser pulse "
+                     "(kascade)"))
     summary = dict(summary)
     summary["final_distribution_path"] = final_ele_path
 
