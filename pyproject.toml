@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "compton-suite"
+version = "0.1.0"
+description = "Umbrella meta-package gluing the ComptonSuite toolkit's sibling repos together (compton_io, compton_guide, kascade, xigma_i, ...), plus the fast analytical model."
+authors = [{name = "Alexander Samsonov", email = "asams@ipfran.ru"}]
+dependencies = [
+    "numpy",
+    "scipy",
+]
+requires-python = ">=3.10"
+
+[project.scripts]
+comptonsuite-gui = "compton_suite.gui:run_gui"
+
+[tool.setuptools.package-dir]
+"" = "src"

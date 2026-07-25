@@ -1,0 +1,90 @@
+"""Cross-checks for analytical.py's estimate_yield/estimate_spectrum_width/
+angle_integrated_spectrum.
+
+Needs compton_io and numpy/scipy on sys.path -- either via
+`pip install -e .` (and -e ../IO) or the usual sibling-directory
+autodiscovery (compton_suite._bootstrap). Run with `python3 -m pytest
+tests/` or `python3 tests/test_analytical.py` directly (plain asserts).
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+import numpy as np
+
+from compton_suite import analytical  # noqa: E402
+from compton_io.bunch import GaussianElectronBeam  # noqa: E402
+from compton_io.laser import GaussianParaxialLaser  # noqa: E402
+
+_EXAMPLE_BEAM = GaussianElectronBeam(
+    bunch_charge_C=100.0e-12,
+    kinetic_energy_eV=200.0e6,
+    rel_energy_spread_rms=0.001,
+    sigma_x_m=10.0e-6,
+    sigma_y_m=10.0e-6,
+    emit_geom_x_m=0.05e-6,
+    emit_geom_y_m=0.05e-6,
+    sigma_t_s=1.0e-12,
+)
+_EXAMPLE_PULSE = GaussianParaxialLaser(
+    pulse_energy_J=0.05,
+    wavelength_m=0.8e-6,
+    waist_rms_x_m=2.5e-6,
+    waist_rms_y_m=2.5e-6,
+    duration_rms_s=12.74e-15,
+)
+
+
+def test_estimate_yield_is_positive_finite():
+    y = analytical.estimate_yield(_EXAMPLE_BEAM, _EXAMPLE_PULSE)
+    assert np.isfinite(y) and y > 0
+
+
+def test_estimate_spectrum_width_is_positive_finite():
+    w = analytical.estimate_spectrum_width(_EXAMPLE_BEAM, _EXAMPLE_PULSE, theta_col=1e-3)
+    assert np.isfinite(w) and w > 0
+
+
+def test_estimate_spectrum_width_grows_with_larger_collimation_angle():
+    # Larger collimation aperture admits a wider range of Doppler-shifted
+    # angles -> broader collected spectrum.
+    narrow = analytical.estimate_spectrum_width(_EXAMPLE_BEAM, _EXAMPLE_PULSE, theta_col=1e-4)
+    wide = analytical.estimate_spectrum_width(_EXAMPLE_BEAM, _EXAMPLE_PULSE, theta_col=1e-2)
+    assert wide > narrow
+
+
+def test_angle_integrated_spectrum_shape_and_scalar_input():
+    rng = np.random.default_rng(0)
+    n = 10_000
+    gamma = rng.normal(_EXAMPLE_BEAM.gamma0, _EXAMPLE_BEAM.sigma_gamma, n)
+    weight = np.full(n, _EXAMPLE_BEAM.N_e / n)
+
+    s_array = np.linspace(0.01, 0.99, 16)
+    out_array = analytical.angle_integrated_spectrum(gamma, weight, s_array)
+    assert out_array.shape == s_array.shape
+    assert np.all(np.isfinite(out_array)) and np.all(out_array >= 0)
+
+    out_scalar = analytical.angle_integrated_spectrum(gamma, weight, 0.5)
+    assert np.ndim(out_scalar) == 0 or isinstance(out_scalar, float)
+
+
+def test_angle_integrated_spectrum_zero_outside_kinematic_range():
+    # s = E/E_max(gamma) must vanish for s/gamma^2 outside [0, 1] --
+    # a single monoenergetic bunch has a hard Compton edge.
+    gamma = np.array([100.0])
+    weight = np.array([1.0])
+    s_beyond_edge = np.array([gamma[0] ** 2 * 1.5])
+    out = analytical.angle_integrated_spectrum(gamma, weight, s_beyond_edge)
+    assert out[0] == 0.0
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            fn()
+            print(f"OK: {name}")
+    print("\nAll analytical tests passed.")

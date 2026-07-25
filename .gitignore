@@ -1,0 +1,16 @@
+# Sibling repos: each is its own independent git repository, not part of
+# this one. Excluded explicitly so a plain `git add -A` here can never
+# accidentally stage them as gitlinks or otherwise get tangled with their
+# own history.
+/GUIde/
+/IO/
+/Kaskade/
+/Xigma/
+/XigmaDirect/
+
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+build/
+dist/
