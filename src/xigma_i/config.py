@@ -20,6 +20,16 @@ arrays on the chosen device and needs to bring results back to host
 afterwards -- `Compton` itself runs no GPU kernels, so `cupy` is only
 needed here for `.xp`/`.asnumpy` to work when `device='gpu'`, and is
 therefore imported lazily/optionally like everywhere else in this package.
+
+`hbar`/`me`/`c`/`el`/`elC` below come from `compton_suite.constants`
+(found via `_bootstrap.setup_paths()`) rather than local literals -- the
+single shared source of truth also used by `compton_guide`/`kascade`, see
+`compton_suite`'s own CLAUDE.md. This is a deliberate, real physics change
+from this module's previous hand-typed `hbar`/`me` (an older, ~1.6e-8
+relative CODATA vintage that only this module used -- `compton_guide` and
+`kascade` already agreed with `compton_suite`'s value). Unlike `cupy`,
+`compton_suite` is load-bearing here, not optional: `_bootstrap.setup_paths()`
+raises `ImportError` (not a silent fallback) if it can't be found.
 """
 import numpy as np
 from scipy.special import erfcx
@@ -31,11 +41,16 @@ except Exception:
     cp = None
     _HAS_CUPY = False
 
-hbar = 1.054571800e-27               # Planck's constant
-me = 9.10938356e-28                  # electron mass
-c = 2.99792458e+10                   # speed of light
-el = 4.803204673e-10                 # electron charge, statcoulombs
-elC = 1.602176634e-19                # electron charge, Coulombs
+from . import _bootstrap
+
+_bootstrap.setup_paths()
+from compton_suite import constants as _suite_constants  # noqa: E402
+
+hbar = _suite_constants.HBAR_ERG_S   # Planck's constant, erg*s
+me = _suite_constants.ME_G           # electron mass, g
+c = _suite_constants.C_CM_S          # speed of light, cm/s
+el = _suite_constants.EL_STATC       # electron charge, statcoulombs
+elC = _suite_constants.E_CHARGE      # electron charge, Coulombs
 rel = el ** 2 / (me * c ** 2)        # classical electron radius
 sigma_T = 8.0 * np.pi / 3.0 * rel**2 # Thomson cross section
 alpha = el ** 2 / (hbar * c)         # fine structure constant
