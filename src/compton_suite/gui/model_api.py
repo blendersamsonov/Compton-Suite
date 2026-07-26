@@ -111,15 +111,25 @@ class ModelAdapter(Protocol):
         (False, reason). Must never raise."""
         ...
 
-    def extra_params(self) -> list[tuple[str, float, str]]:
-        """Model-specific numeric fields with no shared-panel analogue
+    def extra_params(self) -> list[tuple[str, float | str, str]]:
+        """Model-specific fields with no shared-panel analogue
         (kascade's Electrons/Laser/Compton panels), as (label, default, key)
         triples -- the same shape app.py's add_field_grid already consumes.
         The GUI renders these in a dedicated pane that's rebuilt whenever the
         active model changes, and feeds the resulting values into the same
         flat ``fields`` dict passed to ``params_to_config``. Return ``[]`` if
-        the model has none (e.g. kascade today)."""
+        the model has none (e.g. kascade today).
+        
+        Default can be float (for numeric fields) or str (for choice/enum fields).
+        For choice fields, also implement ``extra_choices()`` to provide allowed values."""
         ...
+
+    def extra_choices(self) -> dict[str, list[str]]:
+        """Optional: return a dict mapping parameter keys to allowed string values
+        for choice/enum fields declared in ``extra_params()``. If a key appears
+        here, the GUI will render a dropdown (Combobox) instead of an Entry.
+        Example: ``{"device_preference": ["auto", "gpu", "cpu"]}``."""
+        return {}
 
     def params_to_config(self, fields: dict, quantum: bool) -> tuple[Any, dict]: ...
 
@@ -180,6 +190,9 @@ class UnavailableAdapter:
 
     def extra_params(self) -> list[tuple[str, float, str]]:
         return []
+
+    def extra_choices(self) -> dict[str, list[str]]:
+        return {}
 
     def params_to_config(self, fields, quantum):
         raise NotImplementedError(f"{self._name}: {self._reason}")

@@ -97,6 +97,7 @@ class DirectConfig:
 
     beta_ff: float = 0.0
     phi_pol: float = 0.0
+    device_preference: str = "auto"     # "auto" | "gpu" | "cpu"
 
     n_particles_01: float = 20_000.0
     n_steps_0: float = 64.0
@@ -151,14 +152,22 @@ def available() -> tuple[bool, str]:
     return True, ""
 
 
-def extra_params() -> list[tuple[str, float, str]]:
+def extra_params() -> list[tuple[str, float | str, str]]:
     return [
         ("Flying-focus factor (0=static, 1=co-moving)", 0.0, "beta_ff"),
         ("Polarization angle [rad]", 0.0, "phi_pol"),
+        ("Device (auto/gpu/cpu)", "auto", "device_preference"),
         ("Stage 0 particles", 20_000, "n_particles_01"),
         ("Stage 0 trajectory steps", 64, "n_steps_0"),
         ("Angular-spectrum grid points/axis", 9, "n_theta_grid"),
     ]
+
+
+def extra_choices() -> dict[str, list[str]]:
+    """Allowed values for choice/enum fields in extra_params()."""
+    return {
+        "device_preference": ["auto", "gpu", "cpu"],
+    }
 
 
 class ParamError(Exception):
@@ -291,7 +300,20 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     from compton_suite.io.laser import laser_from_shared_fields
     from compton_suite.models.xigma_i import particles, spectrum_from_particles
 
-    device = detect_device()
+    # Resolve device preference: "auto" (default), "gpu", or "cpu"
+    if cfg.device_preference == "auto":
+        device = detect_device()
+    else:
+        device = cfg.device_preference
+        if device == "gpu":
+            try:
+                import cupy as cp
+                if cp.cuda.runtime.getDeviceCount() == 0:
+                    device = "cpu"
+            except Exception:
+                device = "cpu"
+        if device not in ("gpu", "cpu"):
+            raise ValueError(f"device_preference must be 'auto', 'gpu', or 'cpu', got {device!r}")
 
     # ``seed`` is unused here: electron sampling is the caller's job (see
     # this function's docstring), so there's no RNG left for this function

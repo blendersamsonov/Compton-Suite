@@ -93,6 +93,7 @@ class Config:
     # xigma-i-only extras, no dfe5 analogue
     beta_ff: float = 0.0                # flying-focus factor: 0=static, 1=co-moving
     phi_pol: float = 0.0                # polarization angle [rad]
+    device_preference: str = "auto"     # "auto" | "gpu" | "cpu"
 
     # xigma-i-only numerical/resolution controls -- no physical meaning, but
     # surfaced through extra_params() (see below) so the pipeline's
@@ -228,7 +229,7 @@ def _backend_note() -> str:
         return "unavailable"
 
 
-def extra_params() -> list[tuple[str, float, str]]:
+def extra_params() -> list[tuple[str, float | str, str]]:
     """Model-specific numeric fields with no dfe5 analogue, for the GUI to
     render in a model-specific pane (see compton_gui.model_api.ModelAdapter.
     extra_params). Each entry is (label, default, key) -- the same shape as
@@ -239,6 +240,7 @@ def extra_params() -> list[tuple[str, float, str]]:
     return [
         ("Flying-focus factor (0=static, 1=co-moving)", 0.0, "beta_ff"),
         ("Polarization angle [rad]", 0.0, "phi_pol"),
+        ("Device (auto/gpu/cpu)", "auto", "device_preference"),
         ("Stage 0/1 particles", 60_000, "n_particles_01"),
         ("Stage 0 trajectory steps", 64, "n_steps_0"),
         ("Grid bins: gamma", 48, "n_bins_gamma"),
@@ -251,6 +253,13 @@ def extra_params() -> list[tuple[str, float, str]]:
         ("Spatial bins: x", 64, "n_spatial_bins_x"),
         ("Spatial bins: y", 64, "n_spatial_bins_y"),
     ]
+
+
+def extra_choices() -> dict[str, list[str]]:
+    """Allowed values for choice/enum fields in extra_params()."""
+    return {
+        "device_preference": ["auto", "gpu", "cpu"],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -434,7 +443,21 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     from compton_suite.io.laser import laser_from_shared_fields
     from .tabulated_engine import TabulatedEngine
 
-    device = _detect_device()
+    # Resolve device preference: "auto" (default), "gpu", or "cpu"
+    if cfg.device_preference == "auto":
+        device = _detect_device()
+    else:
+        device = cfg.device_preference
+        # Validate: if "gpu" requested but unavailable, fall back to CPU with warning
+        if device == "gpu":
+            try:
+                import cupy as cp
+                if cp.cuda.runtime.getDeviceCount() == 0:
+                    device = "cpu"
+            except Exception:
+                device = "cpu"
+        if device not in ("gpu", "cpu"):
+            raise ValueError(f"device_preference must be 'auto', 'gpu', or 'cpu', got {device!r}")
 
     beam = beam_from_shared_fields(
         eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,

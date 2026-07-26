@@ -142,13 +142,18 @@ def laser_focal_radii(wavelength_nm, rayleigh_length_m):
 # Widget helper -- coloured field grid
 # ---------------------------------------------------------------------------
 def add_field_grid(parent, specs, fields, n_cols, bg, width=10, group_starts=(),
-                   state="normal"):
+                   state="normal", choices=None):
     """Place (label, default, key) triples in an n_cols-wide grid inside a
     coloured (bg) panel, using classic tk widgets so the background shows.
 
-    Returns a list of (Entry widget, label key) for the fields that were placed,
+    Returns a list of (widget, label key) for the fields that were placed,
     so the caller can flip their ``state`` (e.g. disabled when the panel is
-    being used as an output display)."""
+    being used as an output display).
+
+    If ``choices`` is provided (dict mapping key -> list of allowed strings),
+    a ttk.Combobox (dropdown) is created instead of an Entry for those keys.
+    """
+    choices = choices or {}
     entries = []
     for idx, (label, default, key) in enumerate(specs):
         row, col = divmod(idx, n_cols)
@@ -156,8 +161,15 @@ def add_field_grid(parent, specs, fields, n_cols, bg, width=10, group_starts=(),
         tk.Label(parent, text=label, bg=bg, anchor="w").grid(
             row=row, column=col * 2, sticky="w", padx=(lpad, 3), pady=3)
         var = tk.StringVar(value=str(default))
-        ent = tk.Entry(parent, textvariable=var, width=width, justify="right",
-                       state=state)
+        if key in choices:
+            # Choice field: use Combobox (dropdown)
+            ent = ttk.Combobox(parent, textvariable=var, values=choices[key],
+                               width=width, state="readonly" if state == "normal" else "disabled",
+                               justify="right")
+        else:
+            # Numeric/text field: use Entry
+            ent = tk.Entry(parent, textvariable=var, width=width, justify="right",
+                           state=state)
         ent.grid(row=row, column=col * 2 + 1, padx=(0, 10), pady=3)
         fields[key] = var
         entries.append((ent, key))
@@ -645,8 +657,9 @@ class ComptonGuideApp(tk.Tk):
         # adapter's own default.
         seeded = [(label, self.fields[key].get() if key in self.fields else default, key)
                   for label, default, key in specs]
+        choices = self.active_adapter.extra_choices()
         add_field_grid(self.model_params_frame, seeded, self.fields,
-                       n_cols=4, bg=GREY, width=8)
+                       n_cols=4, bg=GREY, width=8, choices=choices)
 
     # ---- analytical preview panel (always-on, independent of the
     # selected model) --------------------------------------------------
