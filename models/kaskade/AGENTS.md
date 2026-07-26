@@ -80,13 +80,13 @@ Pure NumPy/CPU — no cupy needed. This is why `kascade` is always the available
 
 ## Testing
 
-No unit test suite lives in this repo. It's validated via the sibling `Compton-GUIde` repo's `scripts/headless_test.py`, which calls `params_to_config → run → validate_results` through `compton_guide.adapters.kascade_adapter.KascadeAdapter` and checks the temporal/spatial/angular-range fields too. Run that script (from `compton-gui`/`Compton-GUIde`) after changing anything here.
+No unit test suite lives in this repo. It's validated via the sibling `Compton-GUIde` repo's `scripts/headless_test.py`, which calls `params_to_config → run → validate_results` through `kascade_adapter.KascadeAdapter` and checks the temporal/spatial/angular-range fields too. Run that script (from `compton-gui`/`Compton-GUIde`) after changing anything here.
 
 ## Relationship to other components
 
 - `GUIde/` (Python package `compton_guide`) — the Tkinter GUI. Consumes
   this engine exclusively through
-  `GUIde/src/compton_guide/adapters/kascade_adapter.py` — this package has
+  `models/kaskade/kascade_adapter.py` — this package has
   zero knowledge of the GUI/adapter layer by design ("as little
   interruption as possible" was the explicit goal when the GUI was split
   out). If you add a new `Results` field the GUI should see, thread it

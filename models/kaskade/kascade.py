@@ -576,7 +576,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         ``compton_io.bunch.GaussianElectronBeam`` and draw one via
         ``compton_io.bunch.sample_gaussian_bunch``, then convert the
         resulting ``MacroBunch`` to this dict shape (see
-        ``compton_guide.adapters.kascade_adapter._macrobunch_to_kascade_electrons``
+        ``kascade_adapter._macrobunch_to_kascade_electrons``
         or ``validation/runners.py`` for the conversion). Passing
         ``electrons=None`` raises a plain ``TypeError`` below (indexing
         ``None``), not a silent internal resample: there is exactly one

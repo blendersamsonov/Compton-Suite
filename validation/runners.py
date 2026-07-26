@@ -50,9 +50,8 @@ def _kascade_electrons(bunch) -> dict:
     """kascade.run_simulation's ``electrons`` parameter is a plain dict
     (``eps``/``z0``/``x_w``/``y_w``/``thx``/``thy``), not a
     ``compton_io.bunch.MacroBunch`` -- the same boundary conversion
-    GUIde's ``compton_guide.adapters.kascade_adapter.
-    _macrobunch_to_kascade_electrons`` does, duplicated here (not
-    imported) rather than depending on the GUI repo, since this
+    ``kascade_adapter._macrobunch_to_kascade_electrons`` does, duplicated
+    here (not imported) rather than depending on the GUI repo, since this
     validation suite deliberately runs each model directly, bypassing the
     ModelAdapter/GUI layer entirely (see module docstring)."""
     return dict(

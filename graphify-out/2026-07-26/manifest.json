@@ -24,6 +24,16 @@
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
+  "GUIde/src/compton_guide/adapters/__init__.py": {
+    "mtime": 1785084589.381396,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "GUIde/src/compton_guide/adapters/kascade_adapter.py": {
+    "mtime": 1785084589.3817432,
+    "ast_hash": "c562fd03a091a192df6b8301a857952d",
+    "semantic_hash": "c562fd03a091a192df6b8301a857952d"
+  },
   "GUIde/src/compton_guide/app.py": {
     "mtime": 1785084589.382276,
     "ast_hash": "f1a6f2887016c10762f7fb02e832b931",
@@ -35,9 +45,9 @@
     "semantic_hash": "5d4f51e9b259eac30e413da13330e5ee"
   },
   "GUIde/src/compton_guide/models.py": {
-    "mtime": 1785092923.3355875,
-    "ast_hash": "0dea953b5dc38721fdaf4eae8879ade0",
-    "semantic_hash": ""
+    "mtime": 1785084589.3830767,
+    "ast_hash": "549877a8ccbec965b19de74b8eff5e2a",
+    "semantic_hash": "549877a8ccbec965b19de74b8eff5e2a"
   },
   "GUIde/src/compton_guide/physics_constants.py": {
     "mtime": 1785084589.3833663,
@@ -210,14 +220,14 @@
     "semantic_hash": "5c62a441fcfc58dd19acfc18d8a685a8"
   },
   "models/kaskade/kascade.py": {
-    "mtime": 1785093334.748548,
-    "ast_hash": "ab1efc04fe7c651a254036c4525164d2",
-    "semantic_hash": ""
+    "mtime": 1785089277.4592104,
+    "ast_hash": "6087b72d242ca3e43342221141368be3",
+    "semantic_hash": "6087b72d242ca3e43342221141368be3"
   },
   "models/kaskade/pyproject.toml": {
-    "mtime": 1785092868.6462634,
-    "ast_hash": "2a7431ea00c1f12c22966835031d4a45",
-    "semantic_hash": ""
+    "mtime": 1785084589.3970222,
+    "ast_hash": "be2d76e5d71e1f8fc67d44f30a866f7a",
+    "semantic_hash": "be2d76e5d71e1f8fc67d44f30a866f7a"
   },
   "models/xigma/pyproject.toml": {
     "mtime": 1785089277.459939,
@@ -345,9 +355,9 @@
     "semantic_hash": "5041fb56a4060f3b83f6dcd5aa2a769e"
   },
   "validation/runners.py": {
-    "mtime": 1785093208.042289,
-    "ast_hash": "eb0343d68003f05e56767bae76a53ea7",
-    "semantic_hash": ""
+    "mtime": 1785084589.4065244,
+    "ast_hash": "f4519f9f7b117f4708d5034393d39a2b",
+    "semantic_hash": "f4519f9f7b117f4708d5034393d39a2b"
   },
   "validation/scenarios.py": {
     "mtime": 1785089277.4641566,
@@ -383,120 +393,5 @@
     "mtime": 1785084589.4083889,
     "ast_hash": "46b92c2efb3845258f03cb332e2013cb",
     "semantic_hash": "46b92c2efb3845258f03cb332e2013cb"
-  },
-  ".opencode/opencode.json": {
-    "mtime": 1785092663.1941268,
-    "ast_hash": "e5f74d14a81702b55bdf53b33ec991d7",
-    "semantic_hash": ""
-  },
-  ".opencode/plugins/graphify.js": {
-    "mtime": 1785092638.6182983,
-    "ast_hash": "3ea725724bc8ebe483c9f13d6aa1124f",
-    "semantic_hash": ""
-  },
-  "models/kaskade/gui_adapter.py": {
-    "mtime": 1785092486.2419765,
-    "ast_hash": "3646a2c24239072ac508a3b1db528c8e",
-    "semantic_hash": ""
-  },
-  "models/kaskade/kascade_adapter.py": {
-    "mtime": 1785092863.8654249,
-    "ast_hash": "1e89a8eb4a4b0890d220502bf5af1844",
-    "semantic_hash": ""
-  },
-  "AGENTS.md": {
-    "mtime": 1785093209.0712912,
-    "ast_hash": "93d8835efff15b5b734489e2281b4106",
-    "semantic_hash": ""
-  },
-  "CLAUDE.md": {
-    "mtime": 1785093209.0712912,
-    "ast_hash": "93d8835efff15b5b734489e2281b4106",
-    "semantic_hash": ""
-  },
-  "GUIde/AGENTS.md": {
-    "mtime": 1785084589.3790967,
-    "ast_hash": "992f91a8941ceb34aeb4df587d249a11",
-    "semantic_hash": ""
-  },
-  "GUIde/CLAUDE.md": {
-    "mtime": 1785084589.3790967,
-    "ast_hash": "992f91a8941ceb34aeb4df587d249a11",
-    "semantic_hash": ""
-  },
-  "GUIde/Conventions-and-units.md": {
-    "mtime": 1785084589.379385,
-    "ast_hash": "f551958a401531ef6a4a3d219240db09",
-    "semantic_hash": ""
-  },
-  "GUIde/docs/new-features-plan.md": {
-    "mtime": 1785084589.3800344,
-    "ast_hash": "66410ba186b0860a0cf338e5de8139a5",
-    "semantic_hash": ""
-  },
-  "GUIde/tasks.md": {
-    "mtime": 1784993346.9411383,
-    "ast_hash": "ddc6d9c8935e69591a5295da58ee9621",
-    "semantic_hash": ""
-  },
-  "IO/AGENTS.md": {
-    "mtime": 1785084589.3846934,
-    "ast_hash": "d9606c41cb821d9b69c63e6b7480312d",
-    "semantic_hash": ""
-  },
-  "IO/CLAUDE.md": {
-    "mtime": 1785084589.3846934,
-    "ast_hash": "d9606c41cb821d9b69c63e6b7480312d",
-    "semantic_hash": ""
-  },
-  "IO/specs/electron_beam_io_v0.1_full.md": {
-    "mtime": 1785084589.385259,
-    "ast_hash": "b84afacb9335f85298b87305ed878b61",
-    "semantic_hash": ""
-  },
-  "IO/specs/electron_beam_io_v0.1_short.md": {
-    "mtime": 1785084589.3855247,
-    "ast_hash": "f6edcaa70186c798953fc48c7103990f",
-    "semantic_hash": ""
-  },
-  "IO/specs/gaussian_paraxial_laser_io_v0.1.md": {
-    "mtime": 1785084589.385878,
-    "ast_hash": "619ab903e0bf06c7f0b86face864e56a",
-    "semantic_hash": ""
-  },
-  "IO/specs/gaussian_paraxial_laser_io_v0.1_short.md": {
-    "mtime": 1785084589.3862765,
-    "ast_hash": "4e3c194c1a5ca50e1df5ecf3f5305907",
-    "semantic_hash": ""
-  },
-  "models/kaskade/AGENTS.md": {
-    "mtime": 1785093351.797583,
-    "ast_hash": "a6a5b04bfe90de8a6b29b77b08ccfb0c",
-    "semantic_hash": ""
-  },
-  "models/kaskade/CLAUDE.md": {
-    "mtime": 1785093351.797583,
-    "ast_hash": "a6a5b04bfe90de8a6b29b77b08ccfb0c",
-    "semantic_hash": ""
-  },
-  "models/xigma/AGENTS.md": {
-    "mtime": 1785093219.6843765,
-    "ast_hash": "dd8b35e01a43085873f84a67cec2078d",
-    "semantic_hash": ""
-  },
-  "models/xigma/CLAUDE.md": {
-    "mtime": 1785093219.6843765,
-    "ast_hash": "dd8b35e01a43085873f84a67cec2078d",
-    "semantic_hash": ""
-  },
-  "models/xigma/passport.md": {
-    "mtime": 1785084589.3979795,
-    "ast_hash": "c046d077ec51b33f87c8e1481ec03026",
-    "semantic_hash": ""
-  },
-  "tasks.md": {
-    "mtime": 1785071145.7553155,
-    "ast_hash": "5b66d7835096e1ba0d314ce0faa965be",
-    "semantic_hash": ""
   }
 }
