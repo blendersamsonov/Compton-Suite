@@ -48,8 +48,8 @@ build_table's batching still assumes the full (gamma, theta_x, theta_y, a0,
 weight) sample set already exists as one array -- it only bounds the
 *deposition* side. build_table_streaming bounds Stage 0 too: it draws and
 pushes `chunk_particles` macroparticles at a time
-(compton_io.bunch.sample_gaussian_bunch + particles.bunch_from_macrobunch +
-push_and_sample) and deposits+discards each chunk before drawing the next,
+(compton_io.bunch.sample_gaussian_bunch + particles.push_and_sample) and
+deposits+discards each chunk before drawing the next,
 so push_and_sample's own O(n_chunk*n_steps) internal trajectory-integration
 arrays -- not just the (small, O(n_particles)) samples it returns -- never
 scale with the *total* n_particles, only with chunk_particles. Needed
@@ -579,7 +579,7 @@ def build_table(gamma, theta_x, theta_y, a0, weight, *, grid=None, scheme='neare
     )
 
 
-def build_table_streaming(compton, beam, n_particles, n_steps, *, chunk_particles,
+def build_table_streaming(params, beam, n_particles, n_steps, *, chunk_particles,
                            chirp=0.0, angle_energy_corr=0.0, rng=None,
                            push_backend='numpy', grid=None, scheme='nearest', device=None,
                            n_bins=(128, 128, 128, 32), margin=0.05, accumulate_dtype=np.float64,
@@ -595,12 +595,13 @@ def build_table_streaming(compton, beam, n_particles, n_steps, *, chunk_particle
     already-materialised sample array). Deriving the grid from the first
     chunk if not supplied, so every chunk deposits into the same fixed grid.
 
+    params: this pipeline's xigma_i.config.CollisionParams (see build_params).
     beam: a compton_io.bunch.GaussianElectronBeam (SI) describing the
         electron beam to sample -- electron sampling happens here via
         compton_io, not internally to this model (see
         compton_io.bunch.sample_gaussian_bunch); each chunk's SI MacroBunch
-        is converted to this pipeline's own CGS Bunch via
-        particles.bunch_from_macrobunch(macrobunch, compton).
+        is passed straight to particles.push_and_sample, which converts to
+        this pipeline's own CGS convention inline.
     chunk_particles: particles drawn+pushed+deposited per iteration -- size
         this so chunk_particles*n_steps fits comfortably in push_backend's
         memory (GPU memory for 'cupy', system RAM for 'numpy'/'numba').
@@ -624,11 +625,13 @@ def build_table_streaming(compton, beam, n_particles, n_steps, *, chunk_particle
     quiet: if False, prints per-chunk progress.
 
     Each chunk's macroparticle weight is rescaled by n_chunk/n_particles:
-    bunch_from_macrobunch sets weight = compton.N_e/n_chunk (as if this
-    chunk alone were the whole population), so this rescales it to
-    compton.N_e/n_particles, the correct per-macroparticle weight for a
-    fraction of a streamed bunch -- omitting this inflates the total
-    deposited weight by n_particles/chunk_particles.
+    push_and_sample derives weight = params.N_e/n_chunk internally (as if
+    this chunk alone were the whole population), so its output `w` is
+    rescaled to params.N_e/n_particles here, the correct per-macroparticle
+    weight for a fraction of a streamed bunch -- omitting this inflates the
+    total deposited weight by n_particles/chunk_particles. `w` scales
+    linearly with the per-particle weight push_and_sample used internally,
+    so rescaling its output is equivalent to rescaling the input weight.
 
     Returns a Table (same as build_table).
     """
@@ -652,9 +655,8 @@ def build_table_streaming(compton, beam, n_particles, n_steps, *, chunk_particle
         n_chunk = min(chunk_particles, n_particles - n_done)
         macrobunch = sample_gaussian_bunch(beam, n_chunk, chirp=chirp,
                                             angle_energy_corr=angle_energy_corr, rng=rng)
-        bunch = particles.bunch_from_macrobunch(macrobunch, compton)
-        bunch.weight *= n_chunk / n_particles
-        gamma, tx, ty, a0, w = particles.push_and_sample(compton, bunch, n_steps=n_steps, backend=push_backend)
+        gamma, tx, ty, a0, w = particles.push_and_sample(params, macrobunch, n_steps=n_steps, backend=push_backend)
+        w = w * (n_chunk / n_particles)
 
         if xp is None:
             xp = _array_module(gamma)

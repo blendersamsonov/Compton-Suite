@@ -50,8 +50,8 @@ not any individual model's; no model has its own internal bunch sampler.
   `models/xigma/src/xigma_i/gui_adapter.py`.
 - **`xigma-i-direct`** (`models/xigma_direct/src/xigma_direct`) —
   brute-force per-macroparticle binning, no table/kernel; reuses `xigma_i`'s
-  Stage 0 (`particles.bunch_from_macrobunch`/`push_and_sample`) as a library
-  dependency. Adapter: `models/xigma_direct/src/xigma_direct/gui_adapter.py`.
+  Stage 0 (`particles.push_and_sample`) as a library dependency. Adapter:
+  `models/xigma_direct/src/xigma_direct/gui_adapter.py`.
 - **`analytical`** (`models/analytical/`) — closed-form yield/spectrum/width
   estimates, fast enough that the GUI runs it automatically alongside
   whichever other model is selected. Adapter: `analytical_adapter.py`.
@@ -111,11 +111,20 @@ stdout.)
   (`IO/`). Every model/GUI package re-exports it rather than hand-copying
   literals; a hand-typed physical constant anywhere else is a regression,
   not a pattern to follow.
-- **No model-local physics-parameter configs.** Electron-beam and laser
+- **No model-local physics-parameter configs, no model-local particle
+  sampling, no model-local result contract.** Electron-beam and laser
   parameters come from `compton_io.bunch`/`compton_io.laser` (see
   `beam_from_shared_fields`/`laser_from_shared_fields`); a model's own
   `Config` should only carry parameters with no shared cross-model meaning
-  (grid/step/bin counts, chunk sizes, and similar numerics).
+  (grid/step/bin counts, chunk sizes, and similar numerics). No model may
+  sample its own electrons -- `compton_io.bunch.sample_gaussian_bunch` is
+  the only place that happens. A model that needs a derived, unit-converted
+  scalar bundle for its own kernels (e.g. `models/xigma`'s CGS/`k0_las`-
+  normalised `CollisionParams`) builds it fresh, once, via a pure function
+  from `compton_io`'s beam/laser/geometry description -- never a stateful,
+  `set_*`-mutated object the model owns across a run. Every model's `run()`
+  returns `compton_io.results.CommonResults` directly (leaving unsupported
+  fields `None`), not a model-local lookalike class.
 
 ## Commands per component
 

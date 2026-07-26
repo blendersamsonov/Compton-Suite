@@ -136,7 +136,7 @@ BASELINE = _baseline()
 # Same beam, scaled laser pulse energy -- a0 scales ~linearly with
 # pulse_energy_J (N_l), so this is the simplest lever to move the
 # scenario's regime while holding the electron bunch fixed. Calibrated
-# empirically against xigma_i.config.Compton's own a0 (the value the
+# empirically against xigma_i.config.build_params's own a0 (the value the
 # engines actually use, not compton_io's independent formula -- see
 # tier0_wiring.py's flagged a0-formula discrepancy): baseline itself sits
 # at a0~0.093; LOW_A0 at ~0.009 (deep in the classical linear regime,
@@ -203,28 +203,29 @@ def build_analytical_config(scenario: Scenario):
     )
 
 
-def build_compton_for_xigma(cfg, device: str | None = None):
-    """A configured xigma_i.config.Compton instance from an xigma_i/
-    xigma_direct Config -- exactly the set_electron_parameters/
-    set_laser_parameters call sequence xigma_i.gui_adapter.run_simulation
-    itself makes (SI -> CGS at this boundary), so Tier 0/1 can read
-    compton.a0/.N_l/.N_e the same way the real run does, not a
-    reimplementation that could silently drift out of sync."""
-    from xigma_i.config import Compton, _detect_device
-    from compton_io.constants import E_CHARGE
+def build_params_for_xigma(cfg, device: str | None = None):
+    """A xigma_i.config.CollisionParams instance from an xigma_i/
+    xigma_direct Config -- exactly the beam/laser/geometry ->
+    build_params() call xigma_i.gui_adapter.run_simulation itself makes
+    (SI -> CGS at this boundary), so Tier 0/1 can read params.a0/.N_l/.N_e
+    the same way the real run does, not a reimplementation that could
+    silently drift out of sync."""
+    from xigma_i.config import build_params, _detect_device
+    from compton_io.bunch import beam_from_shared_fields
+    from compton_io.interaction import InteractionGeometry
+    from compton_io.laser import laser_from_shared_fields
 
-    _M_TO_CM = 1.0e2
     device = device or _detect_device()
-    compton = Compton(device=device)
-    compton.set_electron_parameters(
-        chargeNC=cfg.N_e * E_CHARGE * 1e9,
-        emit_x=cfg.emit_x * _M_TO_CM, emit_y=cfg.emit_y * _M_TO_CM,
-        sigma_ex=cfg.sigma0_x * _M_TO_CM, sigma_ey=cfg.sigma0_y * _M_TO_CM,
-        sigma_ez=cfg.sigma_par_e * _M_TO_CM)
-    compton.set_laser_parameters(
-        WL=cfg.pulse_energy_J, lambda_l=cfg.lambda_L * _M_TO_CM,
-        sigma_lr0=cfg.sigma0_l * _M_TO_CM, sigma_lz=cfg.sigma_par_L * _M_TO_CM,
-        beta_ff=cfg.beta_ff)
-    compton.set_foci_displacement(
-        cfg.delta_x * _M_TO_CM, cfg.delta_y * _M_TO_CM, cfg.delta_z * _M_TO_CM)
-    return compton
+    beam = beam_from_shared_fields(
+        eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
+        emit_x=cfg.emit_x, emit_y=cfg.emit_y,
+        sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
+        sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
+    )
+    laser = laser_from_shared_fields(
+        lambda_L=cfg.lambda_L, sigma0_l=cfg.sigma0_l,
+        sigma_par_L=cfg.sigma_par_L, pulse_energy_J=cfg.pulse_energy_J,
+    )
+    geometry = InteractionGeometry(delta_x_m=cfg.delta_x, delta_y_m=cfg.delta_y,
+                                    delta_z_m=cfg.delta_z)
+    return build_params(beam, laser, geometry, beta_ff=cfg.beta_ff, device=device)

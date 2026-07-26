@@ -2,7 +2,7 @@
 
 Every model's Config, built from the same Scenario, must derive the same
 gamma0/N_e/lambda_L/beta_x/beta_y -- and each engine's own a0/N_l
-computation (via xigma_i.config.Compton, CGS) must agree with
+computation (via xigma_i.config.build_params, CGS) must agree with
 compton_io.laser.GaussianParaxialLaser's independent SI derivation. This
 is exactly the bug class already found and fixed this session
 (AnalyticalConfig/DirectConfig missing shared fields, the sigma_eps_rel
@@ -22,14 +22,14 @@ from scenarios import (  # noqa: E402
     BASELINE,
     Scenario,
     build_analytical_config,
-    build_compton_for_xigma,
+    build_params_for_xigma,
     build_kascade_config,
     build_xigma_config,
     build_xigma_direct_config,
 )
 
 EXACT_TOL = 1e-9        # same-source floats -- should agree to float precision
-FORMULA_TOL = 1e-2      # independently-derived formulas (CGS Compton.a0 vs SI GaussianParaxialLaser.a0_focus)
+FORMULA_TOL = 1e-2      # independently-derived formulas (CGS params.a0 vs SI GaussianParaxialLaser.a0_focus)
 
 
 def _rel(a: float, b: float) -> float:
@@ -99,17 +99,17 @@ def check_beta_xy_agreement(scenario: Scenario = BASELINE) -> bool:
 
 
 def check_a0_formula_agreement(scenario: Scenario = BASELINE) -> bool:
-    """xigma_i.config.Compton's CGS a0 derivation (set_laser_parameters)
-    vs compton_io.laser.GaussianParaxialLaser's independent SI formula --
+    """xigma_i.config.build_params's CGS a0 derivation vs
+    compton_io.laser.GaussianParaxialLaser's independent SI formula --
     the exact class of cross-check that verified estimate_yield's port
     this session; here applied to a0 itself."""
     xcfg = build_xigma_config(scenario)
-    compton = build_compton_for_xigma(xcfg, device="cpu")
-    a0_engine = float(compton.a0)
+    params = build_params_for_xigma(xcfg, device="cpu")
+    a0_engine = float(params.a0)
     a0_io = scenario.pulse.a0_focus
     rel = _rel(a0_engine, a0_io)
     if rel > FORMULA_TOL:
-        # FLAGGED, not a hard failure: xigma_i.config.Compton's CGS a0
+        # FLAGGED, not a hard failure: xigma_i.config.build_params's CGS a0
         # derivation and GaussianParaxialLaser's independent SI derivation
         # disagree by a real, as-yet-unexplained factor (~1.95x for the
         # baseline scenario) -- both are internally self-consistent with
@@ -123,26 +123,26 @@ def check_a0_formula_agreement(scenario: Scenario = BASELINE) -> bool:
         # internally-computed a0 for real physics runs, never this
         # cross-formula comparison. Flagged for future investigation
         # (mirrors the ~2*pi angular-spectrum residual's treatment).
-        print(f"  [FLAG] a0 formulas disagree: xigma_i.Compton.a0={a0_engine:.6g} vs "
+        print(f"  [FLAG] a0 formulas disagree: xigma_i.params.a0={a0_engine:.6g} vs "
               f"GaussianParaxialLaser.a0_focus={a0_io:.6g} (rel diff {rel:.3g}, tol {FORMULA_TOL:.3g}) "
               f"-- known open question, not blocking; see this function's comment")
         return None  # flagged, not pass/fail
-    print(f"  [PASS] a0 formulas agree: xigma_i.Compton.a0={a0_engine:.6g} vs "
+    print(f"  [PASS] a0 formulas agree: xigma_i.params.a0={a0_engine:.6g} vs "
           f"GaussianParaxialLaser.a0_focus={a0_io:.6g} (rel diff {rel:.3g})")
     return True
 
 
 def check_N_l_formula_agreement(scenario: Scenario = BASELINE) -> bool:
     xcfg = build_xigma_config(scenario)
-    compton = build_compton_for_xigma(xcfg, device="cpu")
-    N_l_engine = float(compton.N_l)
+    params = build_params_for_xigma(xcfg, device="cpu")
+    N_l_engine = float(params.N_l)
     N_l_io = scenario.pulse.n_photons
     rel = _rel(N_l_engine, N_l_io)
     if rel > FORMULA_TOL:
-        print(f"  [FAIL] N_l formulas disagree: xigma_i.Compton.N_l={N_l_engine:.6g} vs "
+        print(f"  [FAIL] N_l formulas disagree: xigma_i.params.N_l={N_l_engine:.6g} vs "
               f"GaussianParaxialLaser.n_photons={N_l_io:.6g} (rel diff {rel:.3g}, tol {FORMULA_TOL:.3g})")
         return False
-    print(f"  [PASS] N_l formulas agree: xigma_i.Compton.N_l={N_l_engine:.6g} vs "
+    print(f"  [PASS] N_l formulas agree: xigma_i.params.N_l={N_l_engine:.6g} vs "
           f"GaussianParaxialLaser.n_photons={N_l_io:.6g} (rel diff {rel:.3g})")
     return True
 

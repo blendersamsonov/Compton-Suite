@@ -3,12 +3,13 @@ deposition.py/spectrum4d.py/reference.py), covering everything
 gui_adapter.py needs: total yield, angle-integrated spectrum, angular
 spectrum, angular-range spectrum, temporal envelope, spatial distribution.
 
-`TabulatedEngine` wraps an already-configured `config.Compton` instance
-purely for its config-bag properties (k0_las, Wph, N_l, a0, beta_ff,
-ellipticity, sigma_ex/sigma_ey, ...) -- particles.bunch_from_macrobunch/
-push_and_sample already take a `compton` object as their parameter source,
-so this is reuse, not a new dependency. `compton` itself runs no
-computation; all of it happens in this class's `.run()`/property methods.
+`TabulatedEngine` wraps an already-built `config.CollisionParams` instance
+(see `config.build_params`) purely for its plain-data properties (k0_las,
+Wph, N_l, a0, beta_ff, ellipticity, sigma_ex/sigma_ey, ...) --
+particles.push_and_sample already takes a `CollisionParams` instance as
+its parameter source, so this is reuse, not a new dependency. `params`
+itself runs no computation; all of it happens in this class's
+`.run()`/property methods.
 
 temporal_envelope/spatial_distribution: particles.push_and_sample's
 n_time_bins/n_spatial_bins bin the exact same per-timestep `contribution`
@@ -33,18 +34,18 @@ from . import particles, deposition, spectrum4d, reference
 # The a0 range the weakly-nonlinear approximation this whole codebase is
 # built on (a0 <~ 1, see CLAUDE.md's "a0 is a trajectory average" section)
 # is meant to be valid over -- a fixed *model* parameter, not derived from
-# any particular collision's actual compton.a0. See deposition.retarget_a0
+# any particular collision's actual params.a0. See deposition.retarget_a0
 # and CLAUDE.md's "Architecture: new path" for the full rationale.
 DEFAULT_A0_MAX = 0.5
 
 
 @dataclass
 class TabulatedEngine:
-    """Drives Stage 0/1/2 of the new path for one `compton` config. `table`/
-    `gamma`/`weight`/`backend`/`diagnostics` are None until `.run()` is
-    called."""
+    """Drives Stage 0/1/2 of the new path for one `params` (CollisionParams)
+    config. `table`/`gamma`/`weight`/`backend`/`diagnostics` are None until
+    `.run()` is called."""
 
-    compton: object
+    params: object
     table: object = field(default=None, repr=False)
     gamma: np.ndarray = field(default=None, repr=False)
     weight: np.ndarray = field(default=None, repr=False)
@@ -56,7 +57,7 @@ class TabulatedEngine:
             n_time_bins=None, n_spatial_bins=None, bunch):
         """Stage 0 (particles.push_and_sample) + Stage 1
         (deposition.build_table, a0_kind='shape') + retarget to this
-        engine's compton.a0 (deposition.retarget_a0) -- one physical,
+        engine's params.a0 (deposition.retarget_a0) -- one physical,
         spectrum-ready table.
 
         backend: 'numpy' or 'cupy', passed to push_and_sample and
@@ -74,16 +75,15 @@ class TabulatedEngine:
         t_edges/spatial_edges override exposed here; construct via
         particles.push_and_sample directly if a specific window is needed).
 
-        bunch: a pre-built particles.Bunch (e.g. from
-        particles.bunch_from_macrobunch) to push -- required, keyword-only.
-        Electron sampling is the caller's job, not this engine's: there is
-        exactly one place electron bunches get drawn from a beam
-        description (compton_io.bunch.sample_gaussian_bunch), not one per
-        model (mirrors kascade's run_simulation: electrons is mandatory,
-        no internal sampling fallback).
+        bunch: a compton_io.bunch.MacroBunch (SI) to push -- required,
+        keyword-only. Electron sampling is the caller's job, not this
+        engine's: there is exactly one place electron bunches get drawn
+        from a beam description (compton_io.bunch.sample_gaussian_bunch),
+        not one per model (mirrors kascade's run_simulation: electrons is
+        mandatory, no internal sampling fallback).
         """
         result = particles.push_and_sample(
-            self.compton, bunch, n_steps=n_steps, backend=backend,
+            self.params, bunch, n_steps=n_steps, backend=backend,
             n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins)
         if n_time_bins is not None or n_spatial_bins is not None:
             gamma, tx, ty, a0_shape, w, diagnostics = result
@@ -94,7 +94,7 @@ class TabulatedEngine:
         table = deposition.build_table(
             gamma, tx, ty, a0_shape, w, n_bins=n_bins, scheme=scheme,
             a0_kind='shape')
-        table = deposition.retarget_a0(table, self.compton.a0, a0_max=a0_max)
+        table = deposition.retarget_a0(table, self.params.a0, a0_max=a0_max)
 
         self.table = table
         self.gamma = gamma

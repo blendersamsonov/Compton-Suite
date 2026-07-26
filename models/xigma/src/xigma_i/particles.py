@@ -5,6 +5,13 @@ laser pulse, per-particle samples (gamma, theta_x, theta_y, a0, weight)
 consumed by Stage 1 deposition (see deposition.py) to build the 4D overlap
 table H[gamma, theta_x, theta_y, a0].
 
+This model holds no complex internal representation of the electron bunch:
+``push_and_sample`` takes a ``compton_io.bunch.MacroBunch`` (SI units,
+sampled/loaded by the caller via ``compton_io.bunch``) directly and
+converts to this pipeline's CGS/k0_las-normalised convention inline, at
+the top of the function -- there is no separate, persistent "Bunch" class
+duplicating what ``MacroBunch`` already provides.
+
 z is the beam axis, theta_x/theta_y are the transverse momentum angles
 p_{x,y}/gamma (same convention throughout this package).
 
@@ -18,9 +25,12 @@ be simple to reason about and validate independently.
 import numpy as np
 from dataclasses import dataclass
 
+from compton_io.propagation import ballistic_position_z0_reference, laser_overlap_time_window
+
 from .config import GAUSS_WIDTH, LORENTZ_WIDTH
 
 V_REL = 2.0  # relative-velocity factor for near-backscattering geometry
+_M_TO_CM = 100.0
 
 
 @dataclass
@@ -74,7 +84,7 @@ def _resolve_time_range(t0_local, t1_local, t_edges, n_time_bins, xp):
     return t_lo, t_hi, n_time_bins
 
 
-def _resolve_spatial_range(compton, spatial_edges, n_spatial_bins):
+def _resolve_spatial_range(params, spatial_edges, n_spatial_bins):
     """(sx_lo, sx_hi, sy_lo, sy_hi, nsx, nsy) in k0_las-normalised units --
     spatial_edges=(x_edges, y_edges) verbatim if given, else a "few sigma
     of whichever of the electron beam / laser waist is larger" window."""
@@ -84,8 +94,8 @@ def _resolve_spatial_range(compton, spatial_edges, n_spatial_bins):
                 float(y_edges[0]), float(y_edges[-1]),
                 len(x_edges) - 1, len(y_edges) - 1)
     nsx, nsy = (n_spatial_bins, n_spatial_bins) if np.isscalar(n_spatial_bins) else n_spatial_bins
-    sx_half = GAUSS_WIDTH * compton.k0_las * max(compton.sigma_ex, compton.sigma_lr0)
-    sy_half = GAUSS_WIDTH * compton.k0_las * max(compton.sigma_ey, compton.sigma_lr0)
+    sx_half = GAUSS_WIDTH * params.k0_las * max(params.sigma_ex, params.sigma_lr0)
+    sy_half = GAUSS_WIDTH * params.k0_las * max(params.sigma_ey, params.sigma_lr0)
     return -sx_half, sx_half, -sy_half, sy_half, nsx, nsy
 
 
@@ -108,11 +118,11 @@ def _bin_temporal(contribution, t, t0_local, t1_local, t_edges, n_time_bins, ome
     return t_edges_out, time_envelope
 
 
-def _bin_spatial(contribution, x, y, spatial_edges, n_spatial_bins, k0_las, compton, xp):
+def _bin_spatial(contribution, x, y, spatial_edges, n_spatial_bins, k0_las, params, xp):
     """Nearest-cell (x, y) histogram of `contribution` -> an areal-density
     PushDiagnostics.spatial_x_edges/spatial_y_edges/spatial_envelope
     triple, in cm / photons/cm^2."""
-    sx_lo, sx_hi, sy_lo, sy_hi, nsx, nsy = _resolve_spatial_range(compton, spatial_edges, n_spatial_bins)
+    sx_lo, sx_hi, sy_lo, sy_hi, nsx, nsy = _resolve_spatial_range(params, spatial_edges, n_spatial_bins)
     dx_bin = (sx_hi - sx_lo) / nsx if nsx > 0 else 1.0
     dy_bin = (sy_hi - sy_lo) / nsy if nsy > 0 else 1.0
 
@@ -131,85 +141,45 @@ def _bin_spatial(contribution, x, y, spatial_edges, n_spatial_bins, k0_las, comp
     return sx_edges_out, sy_edges_out, spatial_envelope
 
 
-@dataclass
-class Bunch:
-    """Macroparticles with real per-particle energy and momentum angles.
-
-    x0, y0, z0 are k0_las-normalised positions. gamma, theta_x, theta_y are
-    true per-particle values -- not grid-supplied. weight is the number of
-    physical electrons represented by each macroparticle (uniform across
-    the bunch).
-    """
-    x0: np.ndarray
-    y0: np.ndarray
-    z0: np.ndarray
-    gamma: np.ndarray
-    theta_x: np.ndarray
-    theta_y: np.ndarray
-    weight: float
-
-    @property
-    def n_particles(self):
-        return self.x0.shape[0]
-
-
-_M_TO_CM = 100.0
-
-
-def bunch_from_macrobunch(macrobunch, compton) -> "Bunch":
+def _normalise_bunch(params, macrobunch, xp):
     """Convert a ``compton_io.bunch.MacroBunch`` (SI, external/engine-
-    agnostic representation) into this module's ``Bunch`` (CGS,
-    ``k0_las``-normalised positions). ``gamma``/``theta_x``/``theta_y``
-    pass through unchanged -- both kascade and xigma_i use the same
-    position-at-a-reference-slice-plus-ballistic-angle convention, so no
-    angle/energy conversion is needed, only the position normalisation
-    below (``k0_las * x[cm]``).
+    agnostic) into this pipeline's CGS, ``k0_las``-normalised position
+    arrays. ``gamma``/``theta_x``/``theta_y`` pass through unchanged --
+    both kascade and xigma_i use the same position-at-a-reference-slice-
+    plus-ballistic-angle convention, so no angle/energy conversion is
+    needed, only the position normalisation below (``k0_las * x[cm]``).
 
     ``weight`` is deliberately NOT taken from ``macrobunch.weight`` --
-    recomputed as ``compton.N_e / macrobunch.n_particles`` instead, so the
-    GUI's charge/N_e field (which sets ``compton.N_e`` via
-    ``set_electron_parameters``) stays authoritative, matching how a
-    loaded ``.ele`` file carries no charge information of its own (see
-    ``compton_io.io_formats.sdds``'s module docstring) and how kascade's
-    own ``run_simulation`` already ignores a loaded bunch's weight the
-    same way.
+    recomputed as ``params.N_e / macrobunch.n_particles`` instead, so the
+    caller's charge/N_e (via ``compton_io.bunch.beam_from_shared_fields``)
+    stays authoritative, matching how a loaded ``.ele`` file carries no
+    charge information of its own (see ``compton_io.io_formats.sdds``'s
+    module docstring) and how kascade's own ``run_simulation`` already
+    ignores a loaded bunch's weight the same way.
+
+    Returns (x0, y0, z0, gamma, theta_x, theta_y, weight) as ``xp`` arrays.
     """
-    k0 = compton.k0_las
-    x0 = k0 * (np.asarray(macrobunch.x, dtype=float) * _M_TO_CM)
-    y0 = k0 * (np.asarray(macrobunch.y, dtype=float) * _M_TO_CM)
-    z0 = k0 * (np.asarray(macrobunch.z, dtype=float) * _M_TO_CM)
-    gamma = np.asarray(macrobunch.gamma, dtype=float)
-    theta_x = np.asarray(macrobunch.thx, dtype=float)
-    theta_y = np.asarray(macrobunch.thy, dtype=float)
-    weight = compton.N_e / macrobunch.n_particles
-    return Bunch(x0=x0, y0=y0, z0=z0, gamma=gamma, theta_x=theta_x, theta_y=theta_y, weight=weight)
+    k0 = params.k0_las
+    x0 = k0 * (xp.asarray(macrobunch.x, dtype=float) * _M_TO_CM)
+    y0 = k0 * (xp.asarray(macrobunch.y, dtype=float) * _M_TO_CM)
+    z0 = k0 * (xp.asarray(macrobunch.z, dtype=float) * _M_TO_CM)
+    gamma = xp.asarray(macrobunch.gamma, dtype=float)
+    theta_x = xp.asarray(macrobunch.thx, dtype=float)
+    theta_y = xp.asarray(macrobunch.thy, dtype=float)
+    weight = params.N_e / macrobunch.n_particles
+    return x0, y0, z0, gamma, theta_x, theta_y, weight
 
 
-def _time_window(compton, z0, xp=np):
-    """Per-particle time window [t0, t1] (k0_las*c*t units) bounding where the
-    particle is within ~2 Rayleigh ranges transversely and ~1 Gauss-width
-    temporally of the pulse. Same bound as calculate_intersection's p_t0/p_t1,
-    ported to plain numpy and evaluated per-particle rather than per-batch.
-
-    xp: array module z0 belongs to (np or cp) -- array-module-agnostic so the
-    same function serves both the numpy and cupy push_and_sample backends.
-    """
-    beta_ff = compton.beta_ff
-    zT = compton.k0_las * compton.sigma_lz
-    zR = (compton.k0_las * compton.sigma_lr0)**2 * (1.0 + beta_ff) * 2.0
-
-    sigma_tau = GAUSS_WIDTH * zT
-    sigma_raileigh = LORENTZ_WIDTH * zR
-
-    t0 = (xp.maximum(-sigma_tau, (-z0 * (1 + beta_ff) - 2 * sigma_raileigh) / (1 - beta_ff)) - z0) / 2
-    t1 = (xp.minimum(sigma_tau, (-z0 * (1 + beta_ff) + 2 * sigma_raileigh) / (1 - beta_ff)) - z0) / 2
-    return t0, t1
-
-
-def push_and_sample(compton, bunch, n_steps=200, backend='numpy', *,
+def push_and_sample(params, macrobunch, n_steps=200, backend='numpy', *,
                      n_time_bins=None, t_edges=None,
                      n_spatial_bins=None, spatial_edges=None):
     """Ballistically push each macroparticle and emit one sample per particle.
+
+    params: a ``xigma_i.config.CollisionParams`` (see ``build_params``).
+    macrobunch: a ``compton_io.bunch.MacroBunch`` (SI) -- electron sampling
+        is the caller's job (``compton_io.bunch.sample_gaussian_bunch``),
+        not this pipeline's; converted to this pipeline's own CGS/
+        k0_las-normalised convention inline (see ``_normalise_bunch``).
 
     backend: 'numpy' (default) -- the original vectorised (n_particles,
         n_steps) broadcast, single-threaded. 'numba' -- CPU multithreading:
@@ -235,17 +205,17 @@ def push_and_sample(compton, bunch, n_steps=200, backend='numpy', *,
 
         ahat(zeta) = (TrXi/2) * integral[a^2(t)]^2 dt / integral a^2(t) dt
 
-    with a^2(t;zeta) = compton.a0**2 * ratio(t;zeta) (ratio = local/peak
+    with a^2(t;zeta) = params.a0**2 * ratio(t;zeta) (ratio = local/peak
     photon density, what this function computes internally), factorises
-    *exactly* as ahat(zeta) = compton.a0**2 * a0_shape(zeta), because
+    *exactly* as ahat(zeta) = params.a0**2 * a0_shape(zeta), because
     ratio(t;zeta) depends only on the particle's (ballistic, a0-independent)
-    trajectory through the pulse envelope, never on compton.a0 itself:
+    trajectory through the pulse envelope, never on params.a0 itself:
 
         a0_shape(zeta) = (TrXi/2) * integral[ratio(t)]^2 dt / integral ratio(t) dt
 
-    So a0_shape is computed here *without reference to compton.a0 at all*
+    So a0_shape is computed here *without reference to params.a0 at all*
     (TrXi/2 = (1 + ellipticity**2)/2, eq. "Xi", generalised from linear
-    polarisation to Compton.ellipticity -- ellipticity is a laser-polarisation
+    polarisation to params.ellipticity -- ellipticity is a laser-polarisation
     property, not an intensity/a0 one, so it stays baked in). This means one
     push_and_sample run's output can be re-targeted to *any* actual a0 (any
     pulse energy) after the fact, without rerunning Stage 0/1 -- see
@@ -295,11 +265,11 @@ def push_and_sample(compton, bunch, n_steps=200, backend='numpy', *,
     implement this.
     """
     if backend == 'numpy':
-        return _push_and_sample_vectorized(compton, bunch, n_steps, np,
+        return _push_and_sample_vectorized(params, macrobunch, n_steps, np,
                                             n_time_bins, t_edges, n_spatial_bins, spatial_edges)
     if backend == 'cupy':
         import cupy as cp
-        return _push_and_sample_vectorized(compton, bunch, n_steps, cp,
+        return _push_and_sample_vectorized(params, macrobunch, n_steps, cp,
                                             n_time_bins, t_edges, n_spatial_bins, spatial_edges)
     if backend == 'numba':
         if n_time_bins is not None or t_edges is not None or n_spatial_bins is not None or spatial_edges is not None:
@@ -309,19 +279,19 @@ def push_and_sample(compton, bunch, n_steps=200, backend='numpy', *,
                 "caller needs backend='numba' (the GUI/TabulatedEngine use 'numpy'/'cupy'), "
                 "so this was scoped out rather than adding a second compiled kernel variant "
                 "for an unused path. Use backend='numpy' or 'cupy' if you need these.")
-        return _push_and_sample_numba(compton, bunch, n_steps)
+        return _push_and_sample_numba(params, macrobunch, n_steps)
     raise ValueError(f"backend must be 'numpy', 'numba', or 'cupy', got {backend!r}")
 
 
-def _push_and_sample_vectorized(compton, bunch, n_steps, xp,
+def _push_and_sample_vectorized(params, macrobunch, n_steps, xp,
                                  n_time_bins=None, t_edges=None,
                                  n_spatial_bins=None, spatial_edges=None):
     """The (n_particles, n_steps) broadcast form of push_and_sample, shared
     by the 'numpy' and 'cupy' backends -- array-module-agnostic like
     deposition.py's deposit_nearest/deposit_cic, since every operation here
     is elementwise or a reduction along the n_steps axis (nothing that needs
-    a hand-written kernel). For xp=cp, bunch's (host numpy) fields are
-    transferred once at the top and results stay on-device.
+    a hand-written kernel). For xp=cp, the bunch's (host numpy/SI) fields
+    are converted once at the top and results stay on-device.
 
     n_time_bins/t_edges/n_spatial_bins/spatial_edges: see push_and_sample's
     docstring -- binned here, after `contribution` (the same (n, n_steps)
@@ -330,46 +300,41 @@ def _push_and_sample_vectorized(compton, bunch, n_steps, xp,
     """
     from .config import sigma_T
 
-    k0 = compton.k0_las
-    beta_ff = compton.beta_ff
-    w0 = k0 * compton.sigma_lr0
-    zT = k0 * compton.sigma_lz
+    k0 = params.k0_las
+    beta_ff = params.beta_ff
+    w0 = k0 * params.sigma_lr0
+    zT = k0 * params.sigma_lz
     z_rayleigh = 2 * w0 * w0 * (1.0 + beta_ff)
 
-    x0, y0, z0, gamma, theta_x, theta_y = (
-        xp.asarray(a) for a in
-        (bunch.x0, bunch.y0, bunch.z0, bunch.gamma, bunch.theta_x, bunch.theta_y))
+    x0, y0, z0, gamma, theta_x, theta_y, weight = _normalise_bunch(params, macrobunch, xp)
 
-    vx, vy = theta_x, theta_y
-    vz = xp.sqrt(xp.maximum(0.0, 1.0 - vx**2 - vy**2))
-    dt0 = z0 / vz
-
-    t0_local, t1_local = _time_window(compton, z0, xp)
+    t0_local, t1_local = laser_overlap_time_window(
+        z0, k0_las=k0, sigma_lz=params.sigma_lz, sigma_lr0=params.sigma_lr0,
+        beta_ff=beta_ff, gauss_width=GAUSS_WIDTH, lorentz_width=LORENTZ_WIDTH, xp=xp)
     span = xp.maximum(0.0, t1_local - t0_local)
     dt = span / n_steps
 
     step = (xp.arange(n_steps) + 0.5) / n_steps  # midpoint rule, shape (n_steps,)
     t = t0_local[:, None] + step[None, :] * span[:, None]  # (n, n_steps)
 
-    x = x0[:, None] + vx[:, None] * (t + dt0[:, None])
-    y = y0[:, None] + vy[:, None] * (t + dt0[:, None])
-    z = z0[:, None] + vz[:, None] * t
+    x, y, z = ballistic_position_z0_reference(
+        x0[:, None], y0[:, None], z0[:, None], theta_x[:, None], theta_y[:, None], t)
 
     sigma_l_sq = w0 * w0 * (1.0 + (z - beta_ff * t)**2 / z_rayleigh**2)
     env = xp.exp(-((z + t) / zT)**2 / 2) / xp.sqrt(2 * np.pi) / zT
     n_ph_shape = xp.exp(-(x**2 + y**2) / sigma_l_sq / 2) / (2 * np.pi) / sigma_l_sq * env
 
     peak_shape = 1.0 / (2 * np.pi * w0 * w0) / (np.sqrt(2 * np.pi) * zT)
-    # ratio = (a0_local/compton.a0)**2 -- deliberately built without compton.a0
-    # at all, see "a0_shape decouples from compton.a0" below.
+    # ratio = (a0_local/params.a0)**2 -- deliberately built without params.a0
+    # at all, see "a0_shape decouples from params.a0" below.
     ratio = xp.clip(n_ph_shape / peak_shape, 0.0, None)
 
-    contribution = V_REL * n_ph_shape * dt[:, None] * bunch.weight * sigma_T * k0**2 * compton.N_l
+    contribution = V_REL * n_ph_shape * dt[:, None] * weight * sigma_T * k0**2 * params.N_l
 
     L = contribution.sum(axis=1)  # eq. "lumfun", per-particle deposited weight
 
     denom = ratio.sum(axis=1)
-    F_pol = (1.0 + compton.ellipticity**2) / 2.0  # TrXi/2, eq. "Xi"
+    F_pol = (1.0 + params.ellipticity**2) / 2.0  # TrXi/2, eq. "Xi"
     # xp.where instead of np.divide(..., where=) -- cupy's ufunc `where=`
     # kwarg support is version-dependent; xp.where is safe on both.
     a0_shape = xp.where(denom > 0, F_pol * (ratio**2).sum(axis=1) / xp.maximum(denom, 1e-300), 0.0)
@@ -382,11 +347,11 @@ def _push_and_sample_vectorized(compton, bunch, n_steps, xp,
     diagnostics = PushDiagnostics()
     if want_time:
         diagnostics.t_edges, diagnostics.time_envelope = _bin_temporal(
-            contribution, t, t0_local, t1_local, t_edges, n_time_bins, compton.omega_las, xp)
+            contribution, t, t0_local, t1_local, t_edges, n_time_bins, params.omega_las, xp)
     if want_spatial:
         (diagnostics.spatial_x_edges, diagnostics.spatial_y_edges,
          diagnostics.spatial_envelope) = _bin_spatial(
-            contribution, x, y, spatial_edges, n_spatial_bins, k0, compton, xp)
+            contribution, x, y, spatial_edges, n_spatial_bins, k0, params, xp)
     return gamma, theta_x, theta_y, a0_shape, L, diagnostics
 
 
@@ -439,9 +404,9 @@ def _get_numba_kernel():
                 env = np.exp(-((z + t) / zT) ** 2 / 2.0) / sqrt_two_pi / zT
                 n_ph_shape = np.exp(-(x * x + y * y) / sigma_l_sq / 2.0) / two_pi / sigma_l_sq * env
 
-                # ratio = (a0_local/compton.a0)**2 -- built without compton.a0,
+                # ratio = (a0_local/params.a0)**2 -- built without params.a0,
                 # see _push_and_sample_vectorized / "a0_shape decouples from
-                # compton.a0" in push_and_sample's docstring.
+                # params.a0" in push_and_sample's docstring.
                 ratio = n_ph_shape / peak_shape
                 if ratio < 0.0:
                     ratio = 0.0
@@ -460,7 +425,7 @@ def _get_numba_kernel():
     return kernel
 
 
-def _push_and_sample_numba(compton, bunch, n_steps):
+def _push_and_sample_numba(params, macrobunch, n_steps):
     """Per-particle @numba.njit(parallel=True) form of push_and_sample: same
     physics as _push_and_sample_vectorized, but integrated with an explicit
     inner loop over n_steps instead of a materialised (n_particles, n_steps)
@@ -471,22 +436,26 @@ def _push_and_sample_numba(compton, bunch, n_steps):
     """
     from .config import sigma_T
 
-    k0 = compton.k0_las
-    beta_ff = compton.beta_ff
-    w0 = k0 * compton.sigma_lr0
-    zT = k0 * compton.sigma_lz
+    k0 = params.k0_las
+    beta_ff = params.beta_ff
+    w0 = k0 * params.sigma_lr0
+    zT = k0 * params.sigma_lz
     z_rayleigh = 2 * w0 * w0 * (1.0 + beta_ff)
 
-    vz = np.sqrt(np.maximum(0.0, 1.0 - bunch.theta_x**2 - bunch.theta_y**2))
-    t0_local, t1_local = _time_window(compton, bunch.z0, np)
+    x0, y0, z0, gamma, theta_x, theta_y, weight = _normalise_bunch(params, macrobunch, np)
+
+    vz = np.sqrt(np.maximum(0.0, 1.0 - theta_x**2 - theta_y**2))
+    t0_local, t1_local = laser_overlap_time_window(
+        z0, k0_las=k0, sigma_lz=params.sigma_lz, sigma_lr0=params.sigma_lr0,
+        beta_ff=beta_ff, gauss_width=GAUSS_WIDTH, lorentz_width=LORENTZ_WIDTH, xp=np)
 
     kernel = _get_numba_kernel()
     L, a0_shape = kernel(
-        np.ascontiguousarray(bunch.x0), np.ascontiguousarray(bunch.y0),
-        np.ascontiguousarray(bunch.z0), np.ascontiguousarray(bunch.theta_x),
-        np.ascontiguousarray(bunch.theta_y), vz, t0_local, t1_local, n_steps,
-        beta_ff, w0, zT, z_rayleigh, bunch.weight, V_REL, sigma_T, k0**2,
-        compton.N_l, (1.0 + compton.ellipticity**2) / 2.0,
+        np.ascontiguousarray(x0), np.ascontiguousarray(y0),
+        np.ascontiguousarray(z0), np.ascontiguousarray(theta_x),
+        np.ascontiguousarray(theta_y), vz, t0_local, t1_local, n_steps,
+        beta_ff, w0, zT, z_rayleigh, weight, V_REL, sigma_T, k0**2,
+        params.N_l, (1.0 + params.ellipticity**2) / 2.0,
     )
 
-    return bunch.gamma, bunch.theta_x, bunch.theta_y, a0_shape, L
+    return gamma, theta_x, theta_y, a0_shape, L

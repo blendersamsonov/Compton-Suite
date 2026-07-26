@@ -6,14 +6,14 @@ sanity check.
 
 ``estimate_yield``/``estimate_spectrum_width`` are promoted (re-
 parametrized off ``compton_io.bunch.GaussianElectronBeam``/
-``compton_io.laser.GaussianParaxialLaser`` instead of a CGS ``Compton``
-instance -- SI throughout, otherwise unchanged) from
-``xigma_i.config.Compton.estimate_yield``/``estimate_spectrum_width``,
+``compton_io.laser.GaussianParaxialLaser`` instead of a CGS
+``CollisionParams`` instance -- SI throughout, otherwise unchanged) from
+``xigma_i.config.CollisionParams.estimate_yield``/``estimate_spectrum_width``,
 already documented there as "cheap analytic estimate, for sanity-checking
 ... not used by the real computation" -- i.e. already exactly this role.
 ``angle_integrated_spectrum`` is promoted verbatim (needs only per-particle
-``gamma``/``weight`` arrays and an ``s`` grid, no table, no ``Compton``)
-from ``xigma_i.reference.angle_integrated_spectrum``, numpy-only here
+``gamma``/``weight`` arrays and an ``s`` grid, no table, no collision
+config) from ``xigma_i.reference.angle_integrated_spectrum``, numpy-only here
 (the cupy dispatch that module supports isn't needed for a fast preview
 model). ``xigma_i.config``/``reference.py`` keep thin re-export wrappers
 delegating here, so xigma_i's own validation scripts keep working

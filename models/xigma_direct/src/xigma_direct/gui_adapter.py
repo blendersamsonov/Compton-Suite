@@ -1,8 +1,8 @@
 """ModelAdapter for the brute-force particle-binning model.
 
 Extracted from ``xigma_i.reference``: reuses ``xigma_i.particles.
-bunch_from_macrobunch``/``push_and_sample`` (Stage 0 -- the same ballistic
-trajectory-through-laser-pulse push the tabulated ``xigma-i`` model uses)
+push_and_sample`` (Stage 0 -- the same ballistic trajectory-through-
+laser-pulse push the tabulated ``xigma-i`` model uses)
 and ``xigma_i.reference.direct_binning_spectrum``/``angle_integrated_
 spectrum`` directly, with NO Stage 1 deposition and NO Stage 2 kernel --
 "no table, no importance sampling -- assumption-free on both the
@@ -275,48 +275,51 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
         raise ValueError(
             f"xigma-i-direct: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
-    from xigma_i.config import Compton, _detect_device
+    from compton_io.bunch import beam_from_shared_fields
+    from compton_io.interaction import InteractionGeometry
+    from compton_io.laser import laser_from_shared_fields
+    from xigma_i.config import build_params, _detect_device
     from xigma_i import particles, reference
 
     device = _detect_device()
-    compton = Compton(device=device)
 
     # ``seed`` is unused here: electron sampling is the caller's job (see
     # this function's docstring), so there's no RNG left for this function
     # to own. Kept in the signature for ModelAdapter interface compatibility.
-    compton.set_electron_parameters(
-        chargeNC=cfg.N_e * _ELEMENTARY_CHARGE_C * 1e9,
-        emit_x=cfg.emit_x * _M_TO_CM, emit_y=cfg.emit_y * _M_TO_CM,
-        sigma_ex=cfg.sigma0_x * _M_TO_CM, sigma_ey=cfg.sigma0_y * _M_TO_CM,
-        sigma_ez=cfg.sigma_par_e * _M_TO_CM)
-    compton.set_laser_parameters(
-        WL=cfg.pulse_energy_J, lambda_l=cfg.lambda_L * _M_TO_CM,
-        sigma_lr0=cfg.sigma0_l * _M_TO_CM, sigma_lz=cfg.sigma_par_L * _M_TO_CM,
-        beta_ff=cfg.beta_ff)
-    compton.set_foci_displacement(
-        cfg.delta_x * _M_TO_CM, cfg.delta_y * _M_TO_CM, cfg.delta_z * _M_TO_CM)
+    beam = beam_from_shared_fields(
+        eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
+        emit_x=cfg.emit_x, emit_y=cfg.emit_y,
+        sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
+        sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
+    )
+    laser = laser_from_shared_fields(
+        lambda_L=cfg.lambda_L, sigma0_l=cfg.sigma0_l,
+        sigma_par_L=cfg.sigma_par_L, pulse_energy_J=cfg.pulse_energy_J,
+    )
+    geometry = InteractionGeometry(delta_x_m=cfg.delta_x, delta_y_m=cfg.delta_y,
+                                    delta_z_m=cfg.delta_z)
+    params = build_params(beam, laser, geometry, beta_ff=cfg.beta_ff, device=device)
 
     gamma_0, sigma_gamma_0 = cfg.eps0, cfg.sigma_eps
 
-    bunch = particles.bunch_from_macrobunch(electrons, compton)
-    n_particles_new = bunch.n_particles
+    n_particles_new = electrons.n_particles
 
     push_backend = 'cupy' if device == 'gpu' else 'numpy'
     n_time_bins, n_spatial_bins = 128, (64, 64)
     gamma, tx, ty, a0_shape, w, diagnostics = particles.push_and_sample(
-        compton, bunch, n_steps=int(cfg.n_steps_0), backend=push_backend,
+        params, electrons, n_steps=int(cfg.n_steps_0), backend=push_backend,
         n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins)
-    a0 = a0_shape * compton.a0 ** 2   # exact per-particle retarget (no table/binning needed)
+    a0 = a0_shape * params.a0 ** 2   # exact per-particle retarget (no table/binning needed)
 
-    total_yield = float(compton.asnumpy(w).sum() if hasattr(w, "get") else np.sum(w))
+    total_yield = float(params.asnumpy(w).sum() if hasattr(w, "get") else np.sum(w))
 
     # Total angle-integrated spectrum: reference.angle_integrated_spectrum,
     # no known normalization issue (unlike direct_binning_spectrum's own
     # angle-integrated total, see _TRUST_NOTE) -- needs only gamma/weight.
-    s_scale_MeV = 4.0 * compton.Wph
+    s_scale_MeV = 4.0 * params.Wph
     s_grid = np.linspace(0.0, 1.1, 512) * gamma_0 ** 2
-    gamma_h = compton.asnumpy(gamma) if hasattr(gamma, "get") else np.asarray(gamma)
-    w_h = compton.asnumpy(w) if hasattr(w, "get") else np.asarray(w)
+    gamma_h = params.asnumpy(gamma) if hasattr(gamma, "get") else np.asarray(gamma)
+    w_h = params.asnumpy(w) if hasattr(w, "get") else np.asarray(w)
     dNds_tot = reference.angle_integrated_spectrum(gamma_h, w_h, s_grid)
     E_eV = s_grid * s_scale_MeV * 1e6
     dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6
@@ -324,9 +327,9 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     # Angular spectrum: the genuinely "brute-force particle binning" part
     # -- direct_binning_spectrum evaluated at each (theta_x, theta_y) grid
     # point, no table, no importance sampling.
-    tx_h = compton.asnumpy(tx) if hasattr(tx, "get") else np.asarray(tx)
-    ty_h = compton.asnumpy(ty) if hasattr(ty, "get") else np.asarray(ty)
-    a0_h = compton.asnumpy(a0) if hasattr(a0, "get") else np.asarray(a0)
+    tx_h = params.asnumpy(tx) if hasattr(tx, "get") else np.asarray(tx)
+    ty_h = params.asnumpy(ty) if hasattr(ty, "get") else np.asarray(ty)
+    a0_h = params.asnumpy(a0) if hasattr(a0, "get") else np.asarray(a0)
     n_grid = int(cfg.n_theta_grid)
     theta_x_grid = _theta_grid(cfg, n_grid)
     theta_y_grid = _theta_grid(cfg, n_grid)
@@ -361,20 +364,20 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     # diagnostics arrays stay on-device (cupy) when push_backend='cupy' --
     # particles.py's _bin_temporal/_bin_spatial never convert to host, so
     # this adapter must, before these reach matplotlib (which cannot
-    # implicitly convert a cupy array). compton.asnumpy() is a no-op on CPU.
+    # implicitly convert a cupy array). params.asnumpy() is a no-op on CPU.
     t_seconds, rate = None, None
     temporal_envelope = None
     if diagnostics is not None and diagnostics.time_envelope is not None:
-        edges = compton.asnumpy(diagnostics.t_edges)
+        edges = params.asnumpy(diagnostics.t_edges)
         t_seconds = 0.5 * (edges[:-1] + edges[1:])
-        rate = compton.asnumpy(diagnostics.time_envelope)
+        rate = params.asnumpy(diagnostics.time_envelope)
         temporal_envelope = BinnedTemporalEnvelope(t_seconds=t_seconds, rate=rate)
 
     spatial_distribution = None
     if diagnostics is not None and diagnostics.spatial_envelope is not None:
-        x_edges = compton.asnumpy(diagnostics.spatial_x_edges)
-        y_edges = compton.asnumpy(diagnostics.spatial_y_edges)
-        density = compton.asnumpy(diagnostics.spatial_envelope)
+        x_edges = params.asnumpy(diagnostics.spatial_x_edges)
+        y_edges = params.asnumpy(diagnostics.spatial_y_edges)
+        density = params.asnumpy(diagnostics.spatial_envelope)
         spatial_distribution = BinnedSpatialDistribution(
             x_centers=0.5 * (x_edges[:-1] + x_edges[1:]) / _M_TO_CM,
             y_centers=0.5 * (y_edges[:-1] + y_edges[1:]) / _M_TO_CM,
@@ -384,7 +387,7 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
         total_yield=total_yield,
         crossing_angle_rad=cfg.crossing_angle,
         quantum=float(bool(cfg.quantum)),
-        a0=float(compton.a0),
+        a0=float(params.a0),
         # FLAGGED: see the "QUICK FIX" comment above -- != 1.0 until the
         # underlying direct_binning_spectrum normalisation is root-caused.
         angular_spectrum_rescale_applied=angular_rescale,

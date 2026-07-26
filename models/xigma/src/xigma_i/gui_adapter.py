@@ -9,7 +9,7 @@ Design notes:
     that ``import xigma_i.gui_adapter`` degrades gracefully -- the
     consuming GUI wraps that import in a broad ``try/except Exception`` and
     shows the model disabled rather than crashing when cupy/CUDA isn't
-    available. ``cupy``/``config.Compton``/``tabulated_engine`` are only
+    available. ``cupy``/``config.build_params``/``tabulated_engine`` are only
     imported inside ``available()`` and ``run_simulation()``.
   * ``Config`` mirrors ``dfe5_compton_mc.Config``'s field names and SI units
     wherever a physical mapping exists, so the GUI's model-agnostic
@@ -131,22 +131,22 @@ class Config:
         return self.sigma_eps_rel * self.eps0
 
 
-def _attach_private_cache(res: CommonResults, *, compton, gamma_0, sigma_gamma_0,
+def _attach_private_cache(res: CommonResults, *, params, gamma_0, sigma_gamma_0,
                            engine, device, angular_rescale) -> CommonResults:
     """Stash this adapter's own private recompute cache on a
     ``compton_io.results.CommonResults`` instance (a plain, non-frozen
     dataclass -- arbitrary extra attributes work fine set after
     construction, without needing to be declared as part of the shared
-    class). ``_compton`` is ``TabulatedEngine``'s config source (never anything
-    else -- it runs no compute itself); ``_engine``/``_device`` are cached
-    the same way, all so ``spectrum_in_angular_range()`` can recompute an
-    on-demand angular-range query without rerunning the whole simulation.
-    ``_angular_rescale`` is the QUICK-FIX rescale factor (see
+    class). ``_params`` is ``TabulatedEngine``'s config source (never
+    anything else -- it runs no compute itself); ``_engine``/``_device``
+    are cached the same way, all so ``spectrum_in_angular_range()`` can
+    recompute an on-demand angular-range query without rerunning the whole
+    simulation. ``_angular_rescale`` is the QUICK-FIX rescale factor (see
     ``run_simulation``'s "QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION"
     comment), reapplied identically in ``spectrum_in_angular_range`` so an
     on-demand query stays consistent with the main run's ``total_yield``.
     """
-    res._compton = compton
+    res._params = params
     res._gamma_0 = gamma_0
     res._sigma_gamma_0 = sigma_gamma_0
     res._engine = engine
@@ -420,46 +420,49 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     ``electrons`` is required: electron sampling is the caller's job, not
     this adapter's, or this package's at all -- there's exactly one place
     electrons get drawn from a beam description
-    (``compton_io.bunch.sample_gaussian_bunch``), not one per model. Every
-    caller (this adapter, ``TabulatedEngine.run()``) samples via
-    ``compton_io.bunch`` and converts with
-    ``particles.bunch_from_macrobunch`` instead."""
+    (``compton_io.bunch.sample_gaussian_bunch``), not one per model.
+    ``electrons`` is passed straight through to ``TabulatedEngine.run()``,
+    which converts it to this pipeline's own CGS convention inline (see
+    ``particles.push_and_sample``)."""
     if cfg.crossing_angle != 0.0:
         raise ValueError(
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
-    from .config import Compton, _detect_device
+    from compton_io.bunch import beam_from_shared_fields
+    from compton_io.interaction import InteractionGeometry
+    from compton_io.laser import laser_from_shared_fields
+    from .config import build_params, _detect_device
     from .tabulated_engine import TabulatedEngine
 
     device = _detect_device()
-    compton = Compton(device=device)
-    xp = compton.xp
 
-    compton.set_electron_parameters(
-        chargeNC=cfg.N_e * _ELEMENTARY_CHARGE_C * 1e9,
-        emit_x=cfg.emit_x * _M_TO_CM, emit_y=cfg.emit_y * _M_TO_CM,
-        sigma_ex=cfg.sigma0_x * _M_TO_CM, sigma_ey=cfg.sigma0_y * _M_TO_CM,
-        sigma_ez=cfg.sigma_par_e * _M_TO_CM)
-    compton.set_laser_parameters(
-        WL=cfg.pulse_energy_J, lambda_l=cfg.lambda_L * _M_TO_CM,
-        sigma_lr0=cfg.sigma0_l * _M_TO_CM, sigma_lz=cfg.sigma_par_L * _M_TO_CM,
-        beta_ff=cfg.beta_ff)
-    compton.set_foci_displacement(
-        cfg.delta_x * _M_TO_CM, cfg.delta_y * _M_TO_CM, cfg.delta_z * _M_TO_CM)
+    beam = beam_from_shared_fields(
+        eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
+        emit_x=cfg.emit_x, emit_y=cfg.emit_y,
+        sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
+        sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
+    )
+    laser = laser_from_shared_fields(
+        lambda_L=cfg.lambda_L, sigma0_l=cfg.sigma0_l,
+        sigma_par_L=cfg.sigma_par_L, pulse_energy_J=cfg.pulse_energy_J,
+    )
+    geometry = InteractionGeometry(delta_x_m=cfg.delta_x, delta_y_m=cfg.delta_y,
+                                    delta_z_m=cfg.delta_z)
+    params = build_params(beam, laser, geometry, beta_ff=cfg.beta_ff, device=device)
+    xp = params.xp
 
     gamma_0 = cfg.eps0
     sigma_gamma_0 = cfg.sigma_eps
 
     # Total yield, angle-integrated spectrum, angular spectrum, temporal
     # envelope, and spatial distribution all come from TabulatedEngine --
-    # `compton` is used only as its config-bag (set_electron_parameters/
-    # set_laser_parameters/set_foci_displacement above); it runs no compute
-    # of its own.
+    # `params` is used only as its plain-data bundle (build_params above);
+    # it runs no compute of its own.
     # cfg.emulate_nonlinearity has no effect here: a0 is a real table axis
     # in this pipeline, not a phenomenological correction (see
     # spectrum4d.py's module docstring). Still read into summary below and
     # still validated/parsed by params_to_config, for interface stability.
-    engine = TabulatedEngine(compton)
+    engine = TabulatedEngine(params)
     push_backend = 'cupy' if device == 'gpu' else 'numpy'
     # ``n_mc`` (the shared "Number of macroelectrons" field/arg) is ignored
     # here -- xigma-i's own 'Stage 0/1 particles' field (cfg.n_particles_01)
@@ -470,16 +473,14 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # here since that guard now belongs at sampling time (the caller's
     # side), not at this adapter's -- this adapter no longer decides how
     # many particles to draw, only what to do with whatever it's handed.
-    from .particles import bunch_from_macrobunch
-    pushed_bunch = bunch_from_macrobunch(electrons, compton)
-    n_particles_new = pushed_bunch.n_particles
+    n_particles_new = electrons.n_particles
     n_bins = (int(cfg.n_bins_gamma), int(cfg.n_bins_theta_x),
               int(cfg.n_bins_theta_y), int(cfg.n_bins_a0))
     n_spatial_bins = (int(cfg.n_spatial_bins_x), int(cfg.n_spatial_bins_y))
     engine.run(n_steps=int(cfg.n_steps_0),
                n_bins=n_bins, backend=push_backend, a0_max=cfg.a0_max,
                n_time_bins=int(cfg.n_time_bins), n_spatial_bins=n_spatial_bins,
-               bunch=pushed_bunch)
+               bunch=electrons)
     total_yield = engine.total_yield
 
     # engine.temporal_envelope/.spatial_distribution: rate vs seconds /
@@ -492,22 +493,22 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # by headless_test.py, which only checks array .size, not actual
     # rendering).
     t_seconds_raw, rate_raw = engine.temporal_envelope
-    t_seconds = compton.asnumpy(t_seconds_raw)
-    rate = compton.asnumpy(rate_raw)
+    t_seconds = params.asnumpy(t_seconds_raw)
+    rate = params.asnumpy(rate_raw)
     temporal_envelope = BinnedTemporalEnvelope(t_seconds=t_seconds, rate=rate)
 
     x_centers_cm, y_centers_cm, density_per_cm2 = engine.spatial_distribution
     spatial_distribution = BinnedSpatialDistribution(
-        x_centers=compton.asnumpy(x_centers_cm) / _M_TO_CM,
-        y_centers=compton.asnumpy(y_centers_cm) / _M_TO_CM,
-        density=compton.asnumpy(density_per_cm2) * (_M_TO_CM ** 2))
+        x_centers=params.asnumpy(x_centers_cm) / _M_TO_CM,
+        y_centers=params.asnumpy(y_centers_cm) / _M_TO_CM,
+        density=params.asnumpy(density_per_cm2) * (_M_TO_CM ** 2))
 
     # Angle-integrated spectrum, s in [0, 1.1*gamma0^2] (covers up to just
     # past the classical Compton edge), 512 points.
     s_tot = (xp.linspace(0.0, 1.1, 512, dtype=xp.float32) * gamma_0 ** 2)
-    dNds_tot = compton.asnumpy(engine.spectrum(s_tot))
-    s_scale_MeV = 4.0 * compton.Wph
-    E_eV = (compton.asnumpy(s_tot) * s_scale_MeV) * 1e6
+    dNds_tot = params.asnumpy(engine.spectrum(s_tot))
+    s_scale_MeV = 4.0 * params.Wph
+    E_eV = (params.asnumpy(s_tot) * s_scale_MeV) * 1e6
     dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6  # dN/ds -> dN/dE(MeV) -> dN/dE(eV)
 
     # Angular spectrum, precomputed over a generous fixed theta window and a
@@ -520,7 +521,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
         s_ang, xp.asarray(theta_x), xp.asarray(theta_y), cfg.phi_pol,
         samples_per_point=int(cfg.samples_per_point_2), device=device)
-    E_ang_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
+    E_ang_eV = (params.asnumpy(s_ang) * s_scale_MeV) * 1e6
     d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6  # -> eV^-1 sr^-1
 
     # QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION: spectrum_kernel_4d's
@@ -552,7 +553,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         quantum=float(bool(cfg.quantum)),
         E_gamma_eV_mean=float(np.average(E_eV, weights=dNdE_per_eV)) if dNdE_per_eV.sum() else 0.0,
         emulate_nonlinearity=float(bool(cfg.emulate_nonlinearity)),
-        a0=float(compton.a0),
+        a0=float(params.a0),
         # FLAGGED: see the "QUICK FIX" comment above angular_rescale's
         # computation -- 1.0 would mean the kernel's own normalisation
         # already agreed with total_yield; it currently doesn't (~2*pi-ish),
@@ -578,7 +579,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         final_distribution_path=None,
     )
     return _attach_private_cache(
-        res, compton=compton, gamma_0=gamma_0, sigma_gamma_0=sigma_gamma_0,
+        res, params=params, gamma_0=gamma_0, sigma_gamma_0=sigma_gamma_0,
         engine=engine, device=device, angular_rescale=angular_rescale)
 
 
@@ -600,8 +601,8 @@ def spectrum_in_angular_range(
     if engine is None or engine.table is None:
         raise RuntimeError("spectrum_in_angular_range: no cached "
                             "TabulatedEngine/table -- run() must be called first")
-    compton = res._compton
-    xp = compton.xp
+    params = res._params
+    xp = params.xp
 
     cfg = res.cfg
     theta_x = _theta_grid(cfg, n_points=n_points, theta_range=theta_x_range)
@@ -611,8 +612,8 @@ def spectrum_in_angular_range(
     d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
         s_ang, xp.asarray(theta_x), xp.asarray(theta_y), cfg.phi_pol,
         samples_per_point=int(cfg.samples_per_point_2), device=res._device)
-    s_scale_MeV = 4.0 * compton.Wph
-    E_eV = (compton.asnumpy(s_ang) * s_scale_MeV) * 1e6
+    s_scale_MeV = 4.0 * params.Wph
+    E_eV = (params.asnumpy(s_ang) * s_scale_MeV) * 1e6
     d2NdEdOmega = d2Nds_dOmega / s_scale_MeV / 1e6
     # Same QUICK-FIX rescale run_simulation applied, cached on res so an
     # on-demand angular-range query stays numerically consistent with the

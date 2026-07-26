@@ -1,10 +1,10 @@
 """``ModelSpec`` for this package's own GUI-facing ``Config``
-(``gui_adapter.Config``), whose fields ``config.Compton.set_electron_parameters``/
-``set_laser_parameters`` consume directly after only a ``units.py``-style
-CGS conversion (metre->centimetre) -- no convention change happens between
-``Config`` and the CUDA/CPU kernels (verified against ``config.py``:
-``set_laser_parameters``'s ``sigma_lr0`` comment explicitly says "this is
-the RMS radius of the *photon density* distribution").
+(``gui_adapter.Config``), whose fields ``config.build_params`` consumes
+directly after only a ``units.py``-style CGS conversion (metre->centimetre)
+-- no convention change happens between ``Config`` and the CUDA/CPU kernels
+(verified against ``config.py``: ``build_params``'s ``sigma_lr0`` comment
+explicitly says "this is the RMS radius of the *photon density*
+distribution").
 
 ``Config`` itself is populated from raw GUI fields (picoseconds, a
 Rayleigh length in metres, ...) by ``gui_adapter.params_to_config`` today,
@@ -62,7 +62,7 @@ XIGMA_SPEC: dict[str, ParameterSpec] = {
         unit="meter",
         description=(
             "Laser transverse RMS size of the *photon density* profile at "
-            "focus (config.Compton.set_laser_parameters's own comment for "
+            "focus (config.build_params's own comment for "
             "sigma_lr0): I(r) ~ exp(-r^2 / (2 sigma0_l^2))."
         ),
     ),
@@ -87,10 +87,10 @@ XIGMA_DIAGNOSTIC_SPEC: dict[str, ParameterSpec] = {
         unit="dimensionless",
         description=(
             "Peak normalised vector potential, derived from pulse energy + "
-            "geometry inside config.Compton.set_laser_parameters -- not a "
+            "geometry inside config.build_params -- not a "
             "direct GUI input, so not part of XIGMA_SPEC. Confirmed peak "
             "(not RMS) by CLAUDE.md's 'a0 is a trajectory average' section: "
-            "'a0_local(t) = compton.a0 * sqrt(local intensity / peak "
+            "'a0_local(t) = params.a0 * sqrt(local intensity / peak "
             "intensity)'."
         ),
     ),

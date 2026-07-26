@@ -98,9 +98,9 @@ H[γ, θx, θy, a0], которая строится прямой депозиц
 ```text
 Stage 0 (particles.py). Электронный сгусток сэмплируется вызывающей
 стороной через compton_io.bunch.sample_gaussian_bunch (единственное место
-сэмплирования сгустка на весь проект) и конвертируется в формат этого
-пакета функцией bunch_from_macrobunch, которая даёт реальные per-particle
-(x0, y0, z0, γ, θx, θy). push_and_sample баллистически проталкивает каждую частицу через импульс и для каждой
+сэмплирования сгустка на весь проект) и передаётся напрямую в
+push_and_sample, который конвертирует его в формат этого пакета внутри
+себя, получая реальные per-particle (x0, y0, z0, γ, θx, θy). push_and_sample баллистически проталкивает каждую частицу через импульс и для каждой
 частицы (не на каждом шаге!) выдаёт одну строку (γ, θx, θy, a0, weight): γ/θx/θy
 постоянны вдоль прямолинейной траектории, weight — интеграл люминесцентности
 L(ζ) = Σ v_rel * n_ph * dt * weight_макро по траектории, a0 — траекторно-усреднённый
@@ -315,7 +315,7 @@ conda run -n core --no-capture-output python3 GUIde/scripts/headless_test.py
 ### 10.1. Что уже работает
 
 ```text
-1. Stage 0 (compton_io.bunch.sample_gaussian_bunch + particles.bunch_from_macrobunch/push_and_sample) — сэмплирование сгустка и баллистический
+1. Stage 0 (compton_io.bunch.sample_gaussian_bunch + particles.push_and_sample) — сэмплирование сгустка и баллистический
    толкатель, с траекторно-усреднённым a0 (ahat) и a0-независимым "shape"-профилем
    (retarget_a0 для дешёвой смены энергии импульса без пересчёта частиц).
 2. Stage 1 (deposition.py) — депозиция nearest/CIC в 4D-таблицу H, CPU и GPU,

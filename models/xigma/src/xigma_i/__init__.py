@@ -1,3 +1,3 @@
-from .config import Compton
+from .config import CollisionParams, build_params
 
-__all__ = ['Compton']
+__all__ = ['CollisionParams', 'build_params']

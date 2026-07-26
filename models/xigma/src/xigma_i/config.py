@@ -1,30 +1,48 @@
-"""Shared physics constants, GPU kernel sizing constants, and the `Compton`
-collision-configuration class -- used by every stage of the pipeline
+"""Shared physics constants, GPU kernel sizing constants, and
+`CollisionParams` -- the CGS scalars every stage of the pipeline
 (particles.py, deposition.py, spectrum4d.py/spectrum4d_cpu.py, reference.py,
-tabulated_engine.py, gui_adapter.py).
+tabulated_engine.py, gui_adapter.py) needs for one laser-electron collision.
 
-`Compton` holds a laser-electron collision's physical parameters
-(`set_electron_parameters`/`set_laser_parameters`/`set_foci_displacement`)
-and the quantities derived from them (`k0_las`, `Wph`, `a0`, `N_e`, `N_l`,
-...); `particles.push_and_sample` takes an instance of it as its parameter
-source. It is a plain config object -- it does not compute
-a spectrum itself; `TabulatedEngine` (tabulated_engine.py) and the
-functions in `reference.py`/`spectrum4d.py` do that.
+This model owns no persistent representation of "the interaction" --
+`CollisionParams` is a plain, immutable dataclass built in one call by
+`build_params()` from `compton_io`'s own beam/laser/geometry description
+(`compton_io.bunch.GaussianElectronBeam`, `compton_io.laser.
+GaussianParaxialLaser`, `compton_io.interaction.InteractionGeometry`), not
+a stateful object accumulated via `set_*` calls. `particles.push_and_sample`
+takes a `CollisionParams` instance as its parameter source; `CollisionParams`
+itself computes nothing beyond what `build_params` derives once, and runs
+no GPU kernels -- `TabulatedEngine` (tabulated_engine.py) and the functions
+in `reference.py`/`spectrum4d.py` do that.
+
+FUTURE: `build_params`'s electron-side derivation (`beta_x`/`beta_y`/
+`sigma_thx`/`sigma_thy`) is arithmetically identical to
+`GaussianElectronBeam.beta_star_x_m`/`beta_star_y_m`/`divergence_x_rad`/
+`divergence_y_rad` (already CGS-convertible, just needs `*100`) -- and the
+whole function's *shape* (SI beam/laser -> a pipeline's own unit-converted
+scalar bundle) has no xigma-specific reasoning beyond the CGS/`k0_las`
+convention and the `a0` formula (which has a known, separately-flagged
+~49% discrepancy against `GaussianParaxialLaser.a0_focus`, see
+`validation/tier0_wiring.py` -- not something to silently reconcile here).
+This whole function belongs in `compton_io` as a model-agnostic helper
+once that's sorted out, so other models can reuse it too -- noted, not
+done in this pass.
 
 Units are CGS throughout; lengths and times inside `spectrum_kernel_4d`
 (spectrum4d.py) are normalised to the laser wavenumber `k0_las`: positions
-are `k0_las * x`, times are `k0_las * c * t`. `Compton.device`/`.xp`/
+are `k0_las * x`, times are `k0_las * c * t`. `CollisionParams.device`/`.xp`/
 `.asnumpy` are a thin `numpy`/`cupy`-selection convenience for host
 orchestration code (gui_adapter.py) that builds `theta_x`/`theta_y`/`s`
 arrays on the chosen device and needs to bring results back to host
-afterwards -- `Compton` itself runs no GPU kernels, so `cupy` is only
-needed here for `.xp`/`.asnumpy` to work when `device='gpu'`, and is
+afterwards -- `CollisionParams` runs no GPU kernels itself, so `cupy` is
+only needed here for `.xp`/`.asnumpy` to work when `device='gpu'`, and is
 therefore imported lazily/optionally like everywhere else in this package.
 
 `hbar`/`me`/`c`/`el`/`elC` below come from `compton_io.constants` rather
 than local literals -- the single shared source of truth also used by
 `compton_guide`/`kascade`, see `compton_io`'s own CLAUDE.md.
 """
+from dataclasses import dataclass, field
+
 import numpy as np
 from scipy.special import erfcx
 
@@ -36,6 +54,9 @@ except Exception:
     _HAS_CUPY = False
 
 from compton_io import constants as _io_constants
+from compton_io.bunch import GaussianElectronBeam
+from compton_io.interaction import InteractionGeometry
+from compton_io.laser import GaussianParaxialLaser
 
 hbar = _io_constants.HBAR_ERG_S      # Planck's constant, erg*s
 me = _io_constants.ME_G              # electron mass, g
@@ -46,6 +67,8 @@ rel = el ** 2 / (me * c ** 2)        # classical electron radius
 sigma_T = 8.0 * np.pi / 3.0 * rel**2 # Thomson cross section
 alpha = el ** 2 / (hbar * c)         # fine structure constant
 PHI = 1.618033988749894848           # golden ratio
+
+_M_TO_CM = 100.0
 
 SINGLE_PRECISION = True
 
@@ -90,9 +113,10 @@ THREAD_STRIDE = 3 * SAMPLES_REPEAT + 1
 
 R_MAX_NUDGE = 128
 
-# particles.py's _time_window: how many pulse-duration Gaussian widths /
+# particles.py's push_and_sample: how many pulse-duration Gaussian widths /
 # Rayleigh-range Lorentzian widths out a particle's trajectory is
-# considered "possibly inside the pulse".
+# considered "possibly inside the pulse" (compton_io.propagation.
+# laser_overlap_time_window's gauss_width/lorentz_width).
 GAUSS_WIDTH   = CP_FLOAT(3)
 LORENTZ_WIDTH = CP_FLOAT(8)
 
@@ -120,39 +144,42 @@ def _detect_device():
         "a working cupy+CUDA setup for GPU use.")
 
 
-class Compton:
+@dataclass(frozen=True)
+class CollisionParams:
+    """CGS scalars for one laser-electron collision -- immutable, built
+    once by :func:`build_params`. Not a stateful object; runs no compute
+    of its own beyond the two cheap analytic estimates below."""
+
     # Electron parameters
-    chargeNC = None
-    emit_x = None
-    emit_y = None
-    sigma_ex = None
-    sigma_ey = None
-    sigma_ez = None
-    N_e = None
+    N_e: float
+    emit_x: float
+    emit_y: float
+    sigma_ex: float
+    sigma_ey: float
+    sigma_ez: float
+    beta_x: float
+    beta_y: float
+    sigma_thx: float
+    sigma_thy: float
 
     # Laser parameters
-    WL = None
-    lambda_l = None
-    sigma_lr0 = None
-    sigma_lz = None
-    omega_las = None
-    Wph = None
+    lambda_l: float
+    sigma_lr0: float
+    sigma_lz: float
+    omega_las: float
+    k0_las: float
+    Wph: float
+    N_l: float
+    a0: float
+    beta_ff: float
+    ellipticity: float
 
     # Foci displacement
-    delta_x = 0.0
-    delta_y = 0.0
-    delta_z = 0.0
+    delta_x: float = 0.0
+    delta_y: float = 0.0
+    delta_z: float = 0.0
 
-    device = None
-
-    def __init__(self, device=None):
-        """device: 'gpu' or 'cpu', or None to auto-detect (real CUDA GPU
-        via cupy if available, else CPU/numba -- see _detect_device)."""
-        self.device = device or _detect_device()
-        if self.device == 'gpu' and not _HAS_CUPY:
-            raise RuntimeError("Compton(device='gpu') requested but cupy is not importable")
-        if self.device not in ('gpu', 'cpu'):
-            raise ValueError(f"device must be 'gpu', 'cpu', or None, got {device!r}")
+    device: str = 'cpu'
 
     @property
     def xp(self):
@@ -175,35 +202,57 @@ class Compton:
         emit_width = np.sqrt(self.sigma_thx*self.sigma_thy)
         return 0.5*2.355*np.sqrt((gamma0 * theta_col)**4 + (gamma0 * emit_width)**4 + (sigma_gamma / gamma0)**2 + (0.5*self.a0**2)**2)
 
-    def set_electron_parameters(self, chargeNC, emit_x, emit_y, sigma_ex, sigma_ey, sigma_ez):
-        self.chargeNC = chargeNC
-        self.emit_x = emit_x
-        self.emit_y = emit_y
-        self.sigma_ex = sigma_ex
-        self.sigma_ey = sigma_ey
-        self.sigma_ez = sigma_ez
-        self.N_e = self.chargeNC * 1e-9 / elC
 
-        self.beta_x = self.sigma_ex**2 / self.emit_x
-        self.beta_y = self.sigma_ey**2 / self.emit_y
-        self.sigma_thx = self.emit_x / self.sigma_ex
-        self.sigma_thy = self.emit_y / self.sigma_ey
+def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
+                  geometry: InteractionGeometry | None = None, *,
+                  beta_ff: float = 0.0, ellipticity: float = 0.0,
+                  device: str | None = None) -> CollisionParams:
+    """Derive this pipeline's CGS :class:`CollisionParams` from
+    ``compton_io``'s SI beam/laser/geometry description -- the model's only
+    "interaction" step: one pure function call, not three ``set_*``
+    mutations on a persistent object. ``beta_ff``/``ellipticity`` are
+    xigma_i-only laser extras with no shared-representation analogue (see
+    ``compton_io.laser``'s module docstring), passed as plain scalars.
+    """
+    device = device or _detect_device()
+    if device == 'gpu' and not _HAS_CUPY:
+        raise RuntimeError("build_params(device='gpu') requested but cupy is not importable")
+    if device not in ('gpu', 'cpu'):
+        raise ValueError(f"device must be 'gpu', 'cpu', or None, got {device!r}")
+    geometry = geometry if geometry is not None else InteractionGeometry()
 
-    def set_laser_parameters(self, WL, lambda_l, sigma_lr0, sigma_lz, beta_ff = 0.0, ellipticity = 0.0):
-        self.WL = WL * 1e7  # pulse energy, erg
-        self.lambda_l = lambda_l
-        self.beta_ff = beta_ff
-        self.ellipticity = ellipticity  # laser polarisation ellipticity; 0 = linear, +-1 = circular. Used by particles.push_and_sample's TrXi/2 = (1+ellipticity**2)/2 (see CLAUDE.md).
-        self.sigma_lr0 = sigma_lr0  # NOTE: this is the RMS radius of the *photon density* distribution. The corresponding Rayleigh range is 2 * sigma_lr0**2 * omega (compare to sigma**2 * omega / 2 for sigma at which the field amplitude is e times smaller than at the maximum)
-        self.sigma_lz = sigma_lz
-        self.omega_las = 2 * np.pi*c / self.lambda_l
-        self.k0_las = self.omega_las / c
-        Wph = hbar * self.omega_las  # photon energy, erg
-        self.Wph = Wph * 1e-6 / ( elC * 1e7 )  # photon energy, MeV
-        self.N_l = self.WL / Wph
-        self.a0 = 4 * rel**2 * lambda_l / alpha * self.N_l / (np.power(np.pi, 3/2) * sigma_lr0**2 * sigma_lz)
+    emit_x = beam.emit_geom_x_m * _M_TO_CM
+    emit_y = beam.emit_geom_y_m * _M_TO_CM
+    sigma_ex = beam.sigma_x_m * _M_TO_CM
+    sigma_ey = beam.sigma_y_m * _M_TO_CM
+    sigma_ez = beam.sigma_z_m * _M_TO_CM
+    beta_x = sigma_ex**2 / emit_x
+    beta_y = sigma_ey**2 / emit_y
+    sigma_thx = emit_x / sigma_ex
+    sigma_thy = emit_y / sigma_ey
 
-    def set_foci_displacement(self, delta_x, delta_y, delta_z):
-        self.delta_x = delta_x
-        self.delta_y = delta_y
-        self.delta_z = delta_z
+    lambda_l = laser.wavelength_m * _M_TO_CM
+    # sigma_lr0: RMS radius of the *photon density* distribution (round-
+    # beam approximation -- waist_rms_y_m is not separately modelled here,
+    # matching every current consumer's own round-beam convention).
+    sigma_lr0 = laser.waist_rms_x_m * _M_TO_CM
+    sigma_lz = laser.duration_rms_s * _io_constants.C_LIGHT * _M_TO_CM
+    WL = laser.pulse_energy_J * 1e7  # pulse energy, erg
+    omega_las = 2 * np.pi * c / lambda_l
+    k0_las = omega_las / c
+    Wph_erg = hbar * omega_las  # photon energy, erg
+    Wph = Wph_erg * 1e-6 / (elC * 1e7)  # photon energy, MeV
+    N_l = WL / Wph_erg
+    a0 = 4 * rel**2 * lambda_l / alpha * N_l / (np.power(np.pi, 3 / 2) * sigma_lr0**2 * sigma_lz)
+
+    return CollisionParams(
+        N_e=beam.N_e, emit_x=emit_x, emit_y=emit_y,
+        sigma_ex=sigma_ex, sigma_ey=sigma_ey, sigma_ez=sigma_ez,
+        beta_x=beta_x, beta_y=beta_y, sigma_thx=sigma_thx, sigma_thy=sigma_thy,
+        lambda_l=lambda_l, sigma_lr0=sigma_lr0, sigma_lz=sigma_lz,
+        omega_las=omega_las, k0_las=k0_las, Wph=Wph, N_l=N_l, a0=a0,
+        beta_ff=beta_ff, ellipticity=ellipticity,
+        delta_x=geometry.delta_x_m * _M_TO_CM, delta_y=geometry.delta_y_m * _M_TO_CM,
+        delta_z=geometry.delta_z_m * _M_TO_CM,
+        device=device,
+    )

@@ -72,17 +72,18 @@ Four stages, plus shared config and validation/GUI layers.
 
 ### Stage 0 -- `particles.py`
 
-This package no longer samples its own electrons: there is exactly one
-place electron bunches get drawn from a beam description
-(`compton_io.bunch.sample_gaussian_bunch`), not one per model.
-`bunch_from_macrobunch(macrobunch, compton)` converts the resulting
-`compton_io.bunch.MacroBunch` (SI, engine-agnostic) into this module's own
-`Bunch` (CGS, `k0_las`-normalised positions) -- `gamma`/`theta_x`/`theta_y`
-pass through unchanged, only positions get the `k0_las` scaling, and
-`weight` is recomputed as `compton.N_e / macrobunch.n_particles` rather
-than taken from the macrobunch (so the GUI's charge/`N_e` field stays
-authoritative). `push_and_sample(compton, bunch, n_steps=,
-backend=)` ballistically pushes each particle through the pulse and emits
+This package no longer samples its own electrons, and holds no separate
+"Bunch" class either: there is exactly one place electron bunches get
+drawn from a beam description (`compton_io.bunch.sample_gaussian_bunch`),
+not one per model, and `push_and_sample(params, macrobunch, n_steps=,
+backend=)` takes a `compton_io.bunch.MacroBunch` (SI, engine-agnostic)
+directly, converting it to this pipeline's own CGS/`k0_las`-normalised
+positions inline (see `_normalise_bunch`) rather than via a separate,
+persistent class -- `gamma`/`theta_x`/`theta_y` pass through unchanged,
+only positions get the `k0_las` scaling, and `weight` is recomputed as
+`params.N_e / macrobunch.n_particles` rather than taken from the
+macrobunch (so the GUI's charge/`N_e` field stays authoritative).
+`push_and_sample` ballistically pushes each particle through the pulse and emits
 **one** `(gamma, theta_x, theta_y, a0, weight)` sample **per particle**
 (not per timestep -- see "a0 is a trajectory average" below).
 `gamma`/`theta_x`/`theta_y` are constant per particle (straight-line, no
@@ -103,11 +104,11 @@ round-trip).
 **a0 is a trajectory average, not an instantaneous sample.** `a0` (`H`'s
 4th axis) is `ahat(zeta) = (TrXi/2) * integral[a0_local(t)^2]^2 dt /
 integral[a0_local(t)^2] dt` (Paper/xigma.tex eq. "ahattraj"), where
-`a0_local(t) = compton.a0 * sqrt(local intensity / peak intensity)` is the
+`a0_local(t) = params.a0 * sqrt(local intensity / peak intensity)` is the
 *instantaneous* local field amplitude computed internally at each
-timestep, and `TrXi/2 = (1 + compton.ellipticity**2) / 2` (eq. "Xi";
-`ellipticity=0` linear, `+-1` circular -- `Compton.ellipticity`, set via
-`set_laser_parameters`). This is a genuine, previously-made mistake, not a
+timestep, and `TrXi/2 = (1 + params.ellipticity**2) / 2` (eq. "Xi";
+`ellipticity=0` linear, `+-1` circular -- `CollisionParams.ellipticity`,
+set via `config.build_params`). This is a genuine, previously-made mistake, not a
 hypothetical one: an earlier version of this code deposited `a0_local(t)`
 itself into `H` once per timestep, i.e. treated `a0` the same way as
 `gamma`/`theta_x`/`theta_y` -- one distribution smeared over each
@@ -274,31 +275,38 @@ unrelated to physics) stays local. The GPU kernel sizing constants
 `spectrum_kernel_4d` needs
 (`X_THREADS`, `MAX_RINGS`, `MAX_ARCS`, `PHI_EDGES`, `CDF_PHI_RESOLUTION`,
 ...; see "Sizing constants" in Conventions), `_detect_device()`, and the
-`Compton` collision-configuration class.
+`CollisionParams` dataclass + `build_params()` builder.
 
-`Compton` holds a laser-electron collision's physical parameters
-(`set_electron_parameters`/`set_laser_parameters`/`set_foci_displacement`)
-and the quantities derived from them (`k0_las`, `Wph`, `a0`, `N_e`, `N_l`,
-`sigma_thx`/`sigma_thy`, ...); it runs no computation itself --
-`particles.bunch_from_macrobunch`/`push_and_sample` take an instance of it
-purely as their parameter source. `Compton(device=None)` auto-detects a backend
-via `_detect_device()`: a real CUDA GPU via cupy if
-`cp.cuda.runtime.getDeviceCount() > 0`, else CPU (requires `numba`), else
-raises -- there is no third backend. `.xp` (`cp` or `np`) and
-`.asnumpy(x)` (`.get()` on GPU, no-op on CPU) are a thin convenience for
-host orchestration code (`gui_adapter.py`) that builds arrays on the
-chosen device and needs to bring results back to host afterwards.
-`estimate_yield`/`estimate_spectrum_width` are cheap analytic sanity-check
-estimates, not used by the real computation.
+This package holds no persistent, stateful "interaction" object.
+`CollisionParams` is a plain, immutable (frozen) dataclass holding a
+laser-electron collision's physical parameters (`k0_las`, `Wph`, `a0`,
+`N_e`, `N_l`, `sigma_thx`/`sigma_thy`, ...); it runs no computation itself
+beyond two cheap sanity-check estimates -- `particles.push_and_sample`
+takes an instance of it purely as its parameter source.
+`build_params(beam, laser, geometry=None, *, beta_ff=0.0, ellipticity=0.0,
+device=None)` is the *only* way to construct one: a pure function taking
+`compton_io.bunch.GaussianElectronBeam`/`compton_io.laser.
+GaussianParaxialLaser`/`compton_io.interaction.InteractionGeometry`
+directly (SI) and deriving this pipeline's CGS scalars in one call --
+there is no `set_*`-mutated builder object to accumulate state across
+several calls. `device=None` auto-detects a backend via `_detect_device()`:
+a real CUDA GPU via cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else
+CPU (requires `numba`), else raises -- there is no third backend. `.xp`
+(`cp` or `np`) and `.asnumpy(x)` (`.get()` on GPU, no-op on CPU) are a thin
+convenience for host orchestration code (`gui_adapter.py`) that builds
+arrays on the chosen device and needs to bring results back to host
+afterwards. `estimate_yield`/`estimate_spectrum_width` are cheap analytic
+sanity-check estimates, not used by the real computation.
 
 ### GUI-facing engine -- `tabulated_engine.py`
 
-`TabulatedEngine` wraps a `config.Compton` instance purely for its
-config-bag properties and drives Stages 0/1/2 for one collision config:
-`.run(n_particles, gamma_0, sigma_gamma0, n_steps=, n_bins=, scheme=,
-backend=, a0_max=0.5, n_time_bins=, n_spatial_bins=, ...)` samples a
-bunch, pushes and samples it (`a0_shape` output), builds an
-`a0_kind='shape'` table, and retargets it to this run's `compton.a0` in
+`TabulatedEngine` wraps a `config.CollisionParams` instance purely for its
+plain-data properties and drives Stages 0/1/2 for one collision config:
+`.run(n_steps=, n_bins=, scheme=, backend=, a0_max=0.5, n_time_bins=,
+n_spatial_bins=, bunch=)` (`bunch`, a `compton_io.bunch.MacroBunch`, is
+required and keyword-only -- electron sampling is the caller's job, not
+this engine's) pushes and samples it (`a0_shape` output), builds an
+`a0_kind='shape'` table, and retargets it to this run's `params.a0` in
 one call, producing a physical, spectrum-ready table.
 `.total_yield`/`.spectrum(s)`/`.angular_spectrum(s, theta_x, theta_y,
 phi_pol, device=)`/`.temporal_envelope`/`.spatial_distribution` wrap
@@ -364,10 +372,11 @@ and recorded yet. Pattern:
     import numpy as np
     from compton_io.bunch import sample_gaussian_bunch
     from xigma_i import particles, deposition, spectrum4d
+    from xigma_i.config import build_params
 
-    macrobunch = sample_gaussian_bunch(beam, n_particles)  # beam: GaussianElectronBeam
-    bunch = particles.bunch_from_macrobunch(macrobunch, compton)
-    gamma, tx, ty, a0_shape, w = particles.push_and_sample(compton, bunch, n_steps=200)
+    params = build_params(beam, laser)  # beam: GaussianElectronBeam, laser: GaussianParaxialLaser
+    macrobunch = sample_gaussian_bunch(beam, n_particles)
+    gamma, tx, ty, a0_shape, w = particles.push_and_sample(params, macrobunch, n_steps=200)
 
     results = {}
     for n_bins in [(32, 32, 32, 8), (64, 64, 64, 16), (128, 128, 128, 32)]:
@@ -543,15 +552,17 @@ through its `capabilities()`.
   otherwise floored at 1 in `params_to_config`, not re-validated later.
   `emulate_nonlinearity` is still accepted/parsed (interface stability)
   but is inert (see Traps).
-- `XigmaAdapter` caches `self._last_results` (which itself carries private
-  `_compton`/`_gamma_0`/`_sigma_gamma_0`/`_engine`/`_device`, set by
-  `run_simulation`) so `spectrum_in_angular_range()` can reuse the cached
-  `TabulatedEngine`'s table for a fresh on-demand
-  `calculate_angular_spectrum_4d` call over a user-picked window, without
-  re-running the whole simulation or rebuilding the table. `_compton` is
-  `TabulatedEngine`'s config source (see "Shared config" above).
-- `run_simulation` builds one `Compton` config, wraps it in a
-  `TabulatedEngine`, and calls `.run(..., n_time_bins=, n_spatial_bins=)`
+- `XigmaAdapter` caches `self._last_results` (a `compton_io.results.
+  CommonResults` which itself carries private `_params`/`_gamma_0`/
+  `_sigma_gamma_0`/`_engine`/`_device`, stashed as plain post-construction
+  attributes by `run_simulation`'s `_attach_private_cache` helper) so
+  `spectrum_in_angular_range()` can reuse the cached `TabulatedEngine`'s
+  table for a fresh on-demand `calculate_angular_spectrum_4d` call over a
+  user-picked window, without re-running the whole simulation or
+  rebuilding the table. `_params` is `TabulatedEngine`'s config source
+  (see "Shared config" above).
+- `run_simulation` builds one `CollisionParams` via `build_params`, wraps
+  it in a `TabulatedEngine`, and calls `.run(..., n_time_bins=, n_spatial_bins=)`
   once to get every observable the GUI needs (total yield, angle-integrated
   spectrum, angular spectrum, temporal envelope, spatial distribution) in
   a single Stage 0/1/2 pass. `n_particles`/`n_steps`/`n_bins`/`a0_max`/
@@ -601,8 +612,7 @@ interpreter`).
 - `models/kaskade/` -- `kascade`, the other event-generator-style physics
   engine plugged into the same GUI. No dependency either direction.
 - `models/xigma_direct/` -- reuses this package's Stage 0 physics
-  (`particles.bunch_from_macrobunch`/`push_and_sample`) directly as a
-  library dependency.
+  (`particles.push_and_sample`) directly as a library dependency.
 - `GUIde/` -- the shared Tkinter GUI. Depends on this package only through
   `gui_adapter.py`'s contract (never touches `deposition.py`/etc. directly).
 - `IO/` (package `compton_io`) -- shared physical constants, pint registry,
