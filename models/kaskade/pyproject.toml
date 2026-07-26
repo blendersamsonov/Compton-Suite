@@ -13,4 +13,4 @@ dependencies = [
 requires-python = ">=3.10"
 
 [tool.setuptools]
-py-modules = ["kascade"]
+py-modules = ["kascade", "kascade_adapter"]

@@ -14,8 +14,12 @@ def discover_models() -> dict:
     registered as an UnavailableAdapter so it still shows up, disabled, in
     the GUI's Model menu instead of silently vanishing. Returns the
     registry snapshot (see ``model_api.registered_models``)."""
-    from compton_guide.adapters.kascade_adapter import KascadeAdapter
-    register("kascade", KascadeAdapter())
+    try:
+        import kascade_adapter
+        register("kascade", kascade_adapter.KascadeAdapter())
+    except Exception as e:
+        register("kascade", UnavailableAdapter(
+            _name="kascade", _reason=str(e), _display_name="KASCADE (Monte Carlo)"))
 
     try:
         from xigma_i import gui_adapter as _xigma_gui
