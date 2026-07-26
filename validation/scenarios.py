@@ -182,7 +182,7 @@ def build_xigma_direct_config(scenario: Scenario):
 
 
 def build_analytical_config(scenario: Scenario):
-    from compton_suite.analytical_adapter import AnalyticalConfig
+    from analytical_adapter import AnalyticalConfig
     return AnalyticalConfig(
         beam=scenario.beam, pulse=scenario.pulse,
         theta_col_rad=scenario.theta_col_rad,

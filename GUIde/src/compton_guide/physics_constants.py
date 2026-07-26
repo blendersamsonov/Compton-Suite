@@ -3,19 +3,10 @@
 
 Re-exported from ``compton_io.constants`` (the shared, pint-derived
 source of truth also used by ``xigma_i``/``kascade``) rather than defined
-here -- this module used to duplicate its own literal copy, on the same
-precedent ``xigma_i.gui_adapter`` set of hand-duplicating a couple of
-constants to avoid a cross-repo import; that precedent is gone now that
-``compton_io`` exists specifically to be cross-imported instead of
-copied. Calls ``bootstrap.setup_paths()`` itself since ``app.py`` imports
-this module before ``models.discover_models()`` runs.
+here.
 """
 
-from . import bootstrap
-
-bootstrap.setup_paths()
-
-from compton_io import constants as _io_constants  # noqa: E402
+from compton_io import constants as _io_constants
 
 C_LIGHT = _io_constants.C_LIGHT           # [m/s]
 E_CHARGE = _io_constants.E_CHARGE         # [C]

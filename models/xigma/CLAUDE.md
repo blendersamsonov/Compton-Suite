@@ -261,9 +261,8 @@ Three independent, non-GPU-kernel ways to compute a spectrum from Stage
 
 Physical constants (`hbar`, `me`, `c`, `el`, `elC`, `rel`, `sigma_T`,
 `alpha`, `PHI`) -- `hbar`/`me`/`c`/`el`/`elC` come from
-`compton_suite.constants` (found via `_bootstrap.setup_paths()`, raises
-`ImportError` if not found -- see "Parameter semantics & units" below),
-not local literals; `rel`/`sigma_T`/`alpha` are still derived locally from
+`compton_io.constants` (see "Parameter semantics & units" below), not
+local literals; `rel`/`sigma_T`/`alpha` are still derived locally from
 those via this module's own CGS formulas, and `PHI` (golden ratio,
 unrelated to physics) stays local. The GPU kernel sizing constants
 `spectrum_kernel_4d` needs
@@ -487,10 +486,10 @@ path.
 ## GUI integration (`gui_adapter.py`)
 
 `src/xigma_i/gui_adapter.py` is the bridge that plugs this package into
-the sibling `compton-gui` project's Tkinter desktop GUI as one of two
-pluggable `ModelAdapter`s (the other being `dfe5_compton_mc`, checked out
-at `../MC-Kost`). See `passport.md` for the full physics "passport" this
-adapter reports through its `capabilities()`.
+`GUIde`'s Tkinter desktop GUI as one of several pluggable `ModelAdapter`s
+(the others being `kascade`, `xigma_direct`, and `analytical`). See
+`passport.md` for the full physics "passport" this adapter reports
+through its `capabilities()`.
 
 - Never imports `cupy`/`config`/`tabulated_engine` at module scope -- only
   inside `available()`/`run_simulation()`/`spectrum_in_angular_range()` --
@@ -560,11 +559,11 @@ adapter reports through its `capabilities()`.
 
 ### GUI-side testing
 
-No unit tests in this repo. Validated via the sibling `compton-gui` repo's
+No unit tests in this directory. Validated via `GUIde`'s
 `scripts/headless_test.py` (calls `params_to_config -> run ->
 validate_results` plus the temporal/spatial/angular fields through
-`XigmaAdapter`), and via standalone smoke scripts (no `compton-gui`
-checkout needed) exercising `XigmaAdapter.available`/`params_to_config`/
+`XigmaAdapter`), and via standalone smoke scripts exercising
+`XigmaAdapter.available`/`params_to_config`/
 `run`/`spectrum_in_angular_range` end-to-end on three configurations: the
 real GPU backend, a forced-CPU backend (numba, cupy still importable), and
 a forced-CPU backend with cupy import actually blocked -- all three
@@ -577,7 +576,7 @@ On this dev machine: system Python has no pip/cupy/matplotlib. Use the
 tkinter, all working against the local GTX 1660 Ti):
 
 ```bash
-conda run -n core --no-capture-output python3 /path/to/compton-gui/scripts/headless_test.py
+conda run -n core --no-capture-output python3 GUIde/scripts/headless_test.py
 ```
 
 `conda run` silently swallows stdout unless you pass `--no-capture-output`.
@@ -587,22 +586,19 @@ to an actual `.py` file and run that; it can't compile a kernel defined via
 source code ... cannot be retrieved within the Python interactive
 interpreter`).
 
-### Relationship to sibling repos
+### Relationship to other components
 
-- `../MC-Kost` (or wherever it's checked out) -- `dfe5_compton_mc`, the
-  other physics engine plugged into the same GUI. No dependency either
-  direction.
-- `../compton-gui` -- the shared Tkinter GUI. Depends on this repo only
-  through `gui_adapter.py`'s contract (never touches `deposition.py`/etc.
-  directly). `bootstrap.py` there assumes this repo's `src/` sits at a
-  sibling path unless overridden via `COMPTON_GUI_XIGMA_SRC`.
-- `../compton-suite` -- shared physical constants, pint registry, and
-  parameter-convention framework (`compton_suite`), depended on by *this*
-  repo now (`config.py`, `params/`), the reverse direction from the other
-  two sibling relationships above. Found the same way `compton-gui` finds
-  this repo -- content-based sibling autodiscovery, see `_bootstrap.py` and
-  "Parameter semantics & units" above. Local-only (no GitHub remote) as of
-  this writing.
+- `models/kaskade/` -- `kascade`, the other event-generator-style physics
+  engine plugged into the same GUI. No dependency either direction.
+- `models/xigma_direct/` -- reuses this package's Stage 0 physics
+  (`particles.sample_bunch`/`push_and_sample`) directly as a library
+  dependency.
+- `GUIde/` -- the shared Tkinter GUI. Depends on this package only through
+  `gui_adapter.py`'s contract (never touches `deposition.py`/etc. directly).
+- `IO/` (package `compton_io`) -- shared physical constants, pint registry,
+  and parameter-convention framework, depended on by this package
+  (`config.py`, `params/`), the reverse direction from the `GUIde`
+  relationship above.
 
 ### pyproject.toml note
 
@@ -612,10 +608,10 @@ cupy-cudaXXx` doesn't find a matching wheel, a conda/mamba env
 (conda-forge) is the more reliable install path -- confirmed working on
 this machine via the `core` env above.
 
-## Parameter semantics & units (`params/`), and `compton_suite`
+## Parameter semantics & units (`params/`), and `compton_io`
 
 `src/xigma_i/params/` is this model's own declaration of parameter
-semantics and units for values crossing the `compton-gui` boundary --
+semantics and units for values crossing the `compton_guide` boundary --
 `spec.py`'s `XIGMA_SPEC` (the convention/unit contract for
 `gui_adapter.Config`'s own fields) and `XIGMA_DIAGNOSTIC_SPEC` (derived/
 read-only quantities, e.g. `a0`, that aren't GUI inputs). The framework
@@ -624,45 +620,30 @@ those specs are built on -- `PhysicalQuantity` (value + unit +
 `TimeConvention`/`AmplitudeConvention`), canonical conversion
 (`to_canonical`/`from_canonical`), `ParameterSpec`/`ModelSpec`,
 `adapt_to_model` -- is **not defined here**; it's re-exported unchanged
-from the sibling `compton_suite` package (a separate repo, see next
-paragraph), so `xigma_i.params.PhysicalQuantity` and (say)
+from `compton_io` (`IO/`), so `xigma_i.params.PhysicalQuantity` and (say)
 `compton_guide.physics_params.PhysicalQuantity` are the literal same
-Python class, not two independently-defined look-alikes (an earlier
-version of this move gave each repo its own copy, which broke exactly
-that -- see this repo's git history if curious). `compton_suite` also
-provides the shared `pint` unit registry (including a custom
+Python class, not two independently-defined look-alikes. `compton_io`
+also provides the shared `pint` unit registry (including a custom
 `"light_time"` context so a length can stand in for `c * duration` --
 `Config` stores pulse/bunch length that way).
 
-**`compton_suite` is load-bearing, not optional.** `src/xigma_i/
-_bootstrap.py` (mirroring `compton-gui`'s own `bootstrap.py` -- same
-content-based sibling-directory autodiscovery, physically duplicated here
-because the discovery code has to run before the thing it discovers is
-importable) is called eagerly both by `params/__init__.py` **and by
-`config.py` itself** (see "Shared config" above -- `hbar`/`me`/`c`/`el`/
-`elC` come from `compton_suite.constants`). `setup_paths()` raises
-`ImportError` with a clear message if `compton_suite` isn't discoverable
-and `XIGMA_COMPTON_SUITE_SRC` isn't set, rather than degrading silently --
-unlike `cupy`, there's no graceful-fallback story for missing physical
-constants. In practice this is low-risk: every caller that imports
-`xigma_i` today (`gui_adapter.available()`, `compton-gui`'s model
-discovery) already wraps the import in a broad `try/except Exception`, so
-a missing `compton_suite` surfaces as "model unavailable: <error>" exactly
-like a missing cupy/numba does, never a crash. The real cost is that
-`xigma_i` is no longer usable as a fully standalone pip install outside
-this multi-repo dev checkout without also having `compton_suite`
-discoverable (env var or sibling checkout) -- a conscious tradeoff, not an
-oversight, made so constants/conventions are genuinely shared rather than
-hand-kept-in-sync.
+**`compton_io` is load-bearing, not optional.** `config.py` (see "Shared
+config" above -- `hbar`/`me`/`c`/`el`/`elC` come from
+`compton_io.constants`) and `params/__init__.py` both import it directly.
+Every caller that imports `xigma_i` (`gui_adapter.available()`,
+`compton_guide`'s model discovery) wraps the import in a broad
+`try/except Exception`, so a missing `compton_io` install surfaces as
+"model unavailable: <error>" exactly like a missing cupy/numba does,
+never a crash.
 
 **Not yet wired into `gui_adapter.params_to_config`** -- that still does
 the FWHM/waist/duration arithmetic by hand (see `spec.py`'s module
-docstring). `compton-gui/scripts/physics_params_demo.py` exercises
-`xigma_i.params` end to end, alongside `compton-gui`'s own
+docstring). `GUIde/scripts/physics_params_demo.py` exercises
+`xigma_i.params` end to end, alongside `compton_guide`'s own
 `physics_params.schemas.kascade.KASCADE_SPEC`.
 
 Needs `pint` (a hard dependency in `pyproject.toml`, transitively required
-by `compton_suite` -- pure Python, no GPU/cupy involvement, so neither
-`compton_suite` nor `xigma_i.params`/`config.py`'s use of it ever requires
+by `compton_io` -- pure Python, no GPU/cupy involvement, so neither
+`compton_io` nor `xigma_i.params`/`config.py`'s use of it ever requires
 cupy, even though `gui_adapter.py` itself stays cupy-optional throughout,
 see "GUI integration" above).

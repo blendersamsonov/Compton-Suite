@@ -20,27 +20,16 @@ assertion below is a permanent regression guard against that silently
 re-diverging into two independent copies again.
 
 No cupy/GPU/tkinter needed -- pure compton_io/physics_params/
-xigma_i.params + pint. Needs both xigma_i's and compton_io's src/ on
-sys.path (bootstrap.setup_paths() below finds both by content, same
-autodiscovery run_gui.py uses).
+xigma_i.params + pint.
 
     python3 scripts/physics_params_demo.py
 """
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
-from compton_guide import bootstrap  # noqa: E402
-
-bootstrap.setup_paths()
-
-import compton_guide.physics_params as gui_physics_params  # noqa: E402
-import xigma_i.params as xigma_params  # noqa: E402
-from compton_guide.physics_params import (  # noqa: E402
+import compton_guide.physics_params as gui_physics_params
+import xigma_i.params as xigma_params
+from compton_guide.physics_params import (
     PhysicalMeaning,
     PhysicalQuantity,
     TimeConvention,
@@ -48,8 +37,8 @@ from compton_guide.physics_params import (  # noqa: E402
     adapt_to_model,
     params_to_floats,
 )
-from compton_guide.physics_params.schemas.kascade import KASCADE_SPEC  # noqa: E402
-from xigma_i.params import XIGMA_SPEC  # noqa: E402
+from compton_guide.physics_params.schemas.kascade import KASCADE_SPEC
+from xigma_i.params import XIGMA_SPEC
 
 # Regression guard: compton_guide.physics_params and xigma_i.params must
 # both be re-exporting the *same* compton_io classes, not independently

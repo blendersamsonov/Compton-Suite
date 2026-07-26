@@ -21,15 +21,9 @@ afterwards -- `Compton` itself runs no GPU kernels, so `cupy` is only
 needed here for `.xp`/`.asnumpy` to work when `device='gpu'`, and is
 therefore imported lazily/optionally like everywhere else in this package.
 
-`hbar`/`me`/`c`/`el`/`elC` below come from `compton_io.constants`
-(found via `_bootstrap.setup_paths()`) rather than local literals -- the
-single shared source of truth also used by `compton_guide`/`kascade`, see
-`compton_io`'s own CLAUDE.md. This is a deliberate, real physics change
-from this module's previous hand-typed `hbar`/`me` (an older, ~1.6e-8
-relative CODATA vintage that only this module used -- `compton_guide` and
-`kascade` already agreed with `compton_io`'s value). Unlike `cupy`,
-`compton_io` is load-bearing here, not optional: `_bootstrap.setup_paths()`
-raises `ImportError` (not a silent fallback) if it can't be found.
+`hbar`/`me`/`c`/`el`/`elC` below come from `compton_io.constants` rather
+than local literals -- the single shared source of truth also used by
+`compton_guide`/`kascade`, see `compton_io`'s own CLAUDE.md.
 """
 import numpy as np
 from scipy.special import erfcx
@@ -41,10 +35,7 @@ except Exception:
     cp = None
     _HAS_CUPY = False
 
-from . import _bootstrap
-
-_bootstrap.setup_paths()
-from compton_io import constants as _io_constants  # noqa: E402
+from compton_io import constants as _io_constants
 
 hbar = _io_constants.HBAR_ERG_S      # Planck's constant, erg*s
 me = _io_constants.ME_G              # electron mass, g

@@ -18,17 +18,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import _bootstrap
+from compton_io.bunch import GaussianElectronBeam, MacroBunch, fit_gaussian
+from compton_io.constants import C_LIGHT, E_CHARGE, HBAR
+from compton_io.io_formats.sdds import load_elegant_ele
+from compton_io.laser import GaussianParaxialLaser
+from compton_io.photons import BinnedSpectrum
 
-_bootstrap.setup_paths()
-
-from compton_io.bunch import GaussianElectronBeam, MacroBunch, fit_gaussian  # noqa: E402
-from compton_io.constants import C_LIGHT, E_CHARGE, HBAR  # noqa: E402
-from compton_io.io_formats.sdds import load_elegant_ele  # noqa: E402
-from compton_io.laser import GaussianParaxialLaser  # noqa: E402
-from compton_io.photons import BinnedSpectrum  # noqa: E402
-
-from . import analytical  # noqa: E402
+import analytical
 
 
 class ParamError(Exception):

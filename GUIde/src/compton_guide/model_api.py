@@ -38,16 +38,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from . import bootstrap
-
-# compton_io.photons is needed below at module scope, so wire sys.path up
-# eagerly here rather than relying on some other module having already
-# called this first (same self-contained precedent physics_constants.py
-# establishes).
-bootstrap.setup_paths()
-
-from compton_io.bunch import MacroBunch  # noqa: E402
-from compton_io.photons import (  # noqa: E402
+from compton_io.bunch import MacroBunch
+from compton_io.photons import (
     AngularRangeSpectrumResult,
     BinnedAngularSpectrum,
     BinnedSpatialDistribution,

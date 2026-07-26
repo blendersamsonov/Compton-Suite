@@ -1,24 +1,18 @@
 """Cross-checks for analytical.py's estimate_yield/estimate_spectrum_width/
 angle_integrated_spectrum.
 
-Needs compton_io and numpy/scipy on sys.path -- either via
-`pip install -e .` (and -e ../IO) or the usual sibling-directory
-autodiscovery (compton_suite._bootstrap). Run with `python3 -m pytest
-tests/` or `python3 tests/test_analytical.py` directly (plain asserts).
+Needs the dev-install (see this repo's top-level CLAUDE.md) so compton_io
+and analytical are importable. Run with `python3 -m pytest tests/` or
+`python3 tests/test_analytical.py` directly (plain asserts).
 """
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-
 import numpy as np
 
-from compton_suite import analytical  # noqa: E402
-from compton_io.bunch import GaussianElectronBeam  # noqa: E402
-from compton_io.laser import GaussianParaxialLaser  # noqa: E402
+import analytical
+from compton_io.bunch import GaussianElectronBeam
+from compton_io.laser import GaussianParaxialLaser
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
     bunch_charge_C=100.0e-12,

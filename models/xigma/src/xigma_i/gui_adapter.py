@@ -30,17 +30,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-# compton_io is load-bearing (not cupy-optional) for this whole package
-# already -- config.py itself calls this same bootstrap at module scope
-# (see that module's docstring) -- so importing compton_io.photons here
-# doesn't weaken this module's "no cupy at module scope" promise, which is
-# specifically about cupy/config/tabulated_engine, not compton_io.
-from . import _bootstrap
-
-_bootstrap.setup_paths()
-
-from compton_io.bunch import MacroBunch  # noqa: E402
-from compton_io.photons import (  # noqa: E402
+from compton_io.bunch import MacroBunch
+from compton_io.photons import (
     AngularRangeSpectrumResult,
     BinnedAngularSpectrum,
     BinnedSpatialDistribution,

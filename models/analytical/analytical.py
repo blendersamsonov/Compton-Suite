@@ -30,13 +30,9 @@ from __future__ import annotations
 import numpy as np
 from scipy.special import erfcx
 
-from . import _bootstrap
-
-_bootstrap.setup_paths()
-
-from compton_io.bunch import GaussianElectronBeam  # noqa: E402
-from compton_io.constants import C_LIGHT, SIGMA_T_M2  # noqa: E402
-from compton_io.laser import GaussianParaxialLaser  # noqa: E402
+from compton_io.bunch import GaussianElectronBeam
+from compton_io.constants import C_LIGHT, SIGMA_T_M2
+from compton_io.laser import GaussianParaxialLaser
 
 __all__ = ["estimate_yield", "estimate_spectrum_width", "angle_integrated_spectrum"]
 

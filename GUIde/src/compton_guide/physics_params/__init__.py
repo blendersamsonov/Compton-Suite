@@ -3,8 +3,7 @@ normalisation framework, per ``Conventions-and-units.md``.
 
 The framework itself (``PhysicalQuantity``, the enums, canonical
 conversion, ``ParameterSpec``/``ModelSpec``, ``adapt_to_model``) lives in
-the sibling ``compton_io`` repo now, found via
-``compton_guide.bootstrap.setup_paths()`` -- **not defined here**, so
+``compton_io`` -- **not defined here**, so
 ``compton_guide.physics_params.PhysicalQuantity`` is the literal same
 class as e.g. ``xigma_i.params.PhysicalQuantity``, not an independently-
 defined look-alike (an earlier version of this move gave each repo its own
@@ -25,9 +24,6 @@ Typical use (see `schemas/kascade.py` for a concrete local spec,
 `xigma_i.params` for xigma-i's, and `scripts/physics_params_demo.py` for a
 full cross-repo example):
 
-    from compton_guide import bootstrap
-    bootstrap.setup_paths()
-
     from compton_guide.physics_params import (
         PhysicalQuantity, PhysicalMeaning, WidthConvention, adapt_to_model,
     )
@@ -42,11 +38,7 @@ full cross-repo example):
     # adapted["sigma0_l"] is now in XIGMA_SPEC's own convention/unit
 """
 
-from .. import bootstrap
-
-bootstrap.setup_paths()
-
-from compton_io import (  # noqa: E402
+from compton_io import (
     CANONICAL_CONVENTIONS,
     CANONICAL_UNIT,
     AmplitudeConvention,

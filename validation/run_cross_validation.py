@@ -17,13 +17,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import compton_suite  # noqa: E402
-from compton_guide import bootstrap as _guide_bootstrap  # noqa: E402
-
-_guide_bootstrap.setup_paths()
 
 import tier0_wiring  # noqa: E402
 import tier1_yield  # noqa: E402

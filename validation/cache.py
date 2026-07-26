@@ -1,74 +1,41 @@
 """Commit-hash-keyed result cache for the cross-model validation suite.
 
-Motivation: once you have several independently-versioned model repos
-being cross-validated against each other, re-running every model on every
-scenario every time you touch ANY one of them is wasteful -- if only
-kascade's repo changed, xigma-i/xigma-i-direct/analytical's results are
-still exactly what they were. This module lets ``validation/runners.py``
-(wiring TODO, see bottom of this docstring) skip recomputing a model's
-result for a scenario when nothing that result could possibly depend on
-has changed since it was last computed, and transparently recompute (and
-re-cache) it otherwise.
+Motivation: re-running every model on every scenario every time you touch
+any file is wasteful -- if nothing has changed since a (model, scenario)
+pair was last computed, its cached result is still correct. This module
+lets ``validation/runners.py`` skip recomputing a model's result for a
+scenario when the repo's commit state hasn't changed since it was last
+computed, and transparently recompute (and re-cache) it otherwise.
 
 Cache key = (model name, a content fingerprint of the scenario's actual
-beam/pulse parameter VALUES, and the current HEAD commit hash of every
-repo that model's computation depends on). Two things worth being
-explicit about:
+beam/pulse parameter VALUES, and the current HEAD commit hash of this
+repo). The scenario fingerprint hashes the ``Scenario`` dataclass's
+actual field values (via ``dataclasses.asdict`` -> stable JSON -> sha256),
+not its ``.name``. Editing ``BASELINE``'s numbers in place without
+renaming it must not silently reuse a stale cache entry for the old
+numbers.
 
-* The scenario fingerprint hashes the ``Scenario`` dataclass's actual
-  field values (via ``dataclasses.asdict`` -> stable JSON -> sha256), not
-  its ``.name``. Editing ``BASELINE``'s numbers in place without renaming
-  it must not silently reuse a stale cache entry for the old numbers.
-
-* Dependencies are NOT just "this model's own repo". Every model imports
-  ``compton_io`` (electron/laser representation, sampling) and is invoked
-  through this repo's own ``validation/scenarios.py``/``runners.py``
-  orchestration (root ``compton_suite`` repo) -- both of those actually
-  affect every model's result, so both are dependencies of ALL FOUR
-  models, not just whichever one's own engine repo happens to live
-  alongside them. ``xigma-i-direct`` additionally imports ``xigma_i``'s
-  own code directly (shares its Stage 0/1 particle push), so it depends
-  on the ``Xigma`` repo too, not just ``XigmaDirect``. See
-  ``MODEL_DEPENDENCIES`` below -- this is the mapping that makes "change
-  kascade's repo -> only kascade's cache entry invalidates, xigma-i/
-  xigma-i-direct/analytical's cached results are reused as-is, and the
-  freshly-recomputed kascade result gets cross-validated against those
-  still-cached ones" actually true, instead of accidentally too coarse
-  (invalidating everything on any change) or too fine (missing a real
-  dependency and serving a stale result).
-
-Repo roots are found from already-imported modules' own ``__file__``
-(``Path(kascade.__file__).resolve().parent``, etc.) rather than by
-guessing directory names -- consistent with this project's own
-bootstrap.py autodiscovery philosophy (on-disk directory names are not
-assumed stable), and simpler here since ``compton_guide.bootstrap``/
-``compton_suite`` have already done the discovery and import by the time
-this module is used.
-
-Dirty working trees: if ANY dependency repo has uncommitted changes
+Dirty working tree: if this repo has uncommitted changes
 (``git status --porcelain`` non-empty), the cache is neither read from
-nor written to for entries depending on it -- a commit hash is only a
-meaningful fingerprint of *committed* code; silently caching against (or
-serving a stale hit that ignores) uncommitted changes would make cache
-hits actively misleading rather than just occasionally wasteful.
+nor written to -- a commit hash is only a meaningful fingerprint of
+*committed* code; silently caching against (or serving a stale hit that
+ignores) uncommitted changes would make cache hits actively misleading
+rather than just occasionally wasteful.
 
 Storage: ``validation/.cache/<key>.pkl`` (the full result object, via
 pickle) + a ``validation/.cache/<key>.json`` sidecar (model name,
-scenario name, per-repo commit hashes, timestamp -- human-inspectable
-without unpickling, and what ``list_cache_entries()`` reads). The whole
-directory is gitignored -- regenerate, don't commit. Pickling the result
-object as-is means any GPU-resident (cupy) arrays a result still carries
-(e.g. xigma-i/xigma-i-direct's private on-demand-recompute caches when
-run with ``device='gpu'``) need the same cupy+CUDA environment to unpickle
-as to pickle -- fine for this single-machine dev cache, not intended to
-be portable across machines.
+scenario name, commit hash, timestamp -- human-inspectable without
+unpickling, and what ``list_cache_entries()`` reads). The whole directory
+is gitignored -- regenerate, don't commit. Pickling the result object
+as-is means any GPU-resident (cupy) arrays a result still carries (e.g.
+xigma-i/xigma-i-direct's private on-demand-recompute caches when run with
+``device='gpu'``) need the same cupy+CUDA environment to unpickle as to
+pickle -- fine for this single-machine dev cache, not intended to be
+portable across machines.
 
 Not yet wired into ``runners.py``'s ``run_kascade``/``run_xigma``/
-``run_xigma_direct``/``run_analytical`` -- that file is mid-edit by
-another in-flight change (moving electron sampling out of the models
-themselves) at the time this module was written; wiring lands as a
-follow-up once that settles, via the ``get_or_compute`` entry point
-below.
+``run_xigma_direct``/``run_analytical`` -- wiring lands as a follow-up,
+via the ``get_or_compute`` entry point below.
 """
 
 from __future__ import annotations
@@ -77,44 +44,13 @@ import hashlib
 import json
 import pickle
 import subprocess
-import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import compton_suite  # noqa: E402
-from compton_guide import bootstrap as _guide_bootstrap  # noqa: E402
-
-_guide_bootstrap.setup_paths()
-
-import kascade as _kascade  # noqa: E402
-import xigma_i as _xigma_i  # noqa: E402
-import xigma_direct as _xigma_direct  # noqa: E402
-import compton_io as _compton_io  # noqa: E402
-
 CACHE_DIR = Path(__file__).resolve().parent / ".cache"
-
-REPO_ROOTS: dict[str, Path] = {
-    "kascade": Path(_kascade.__file__).resolve().parent,
-    "xigma_i": Path(_xigma_i.__file__).resolve().parents[2],
-    "xigma_direct": Path(_xigma_direct.__file__).resolve().parents[2],
-    "compton_io": Path(_compton_io.__file__).resolve().parents[2],
-    "compton_suite": Path(compton_suite.__file__).resolve().parents[2],
-}
-
-# Which repos actually affect a given model's computed result -- see
-# module docstring for why compton_io/compton_suite apply to all four,
-# and xigma_i applies to xigma_direct too.
-MODEL_DEPENDENCIES: dict[str, tuple[str, ...]] = {
-    "kascade": ("compton_io", "compton_suite", "kascade"),
-    "xigma_i": ("compton_io", "compton_suite", "xigma_i"),
-    "xigma_direct": ("compton_io", "compton_suite", "xigma_i", "xigma_direct"),
-    "analytical": ("compton_io", "compton_suite"),
-}
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _git_head_hash(repo_root: Path) -> str | None:
@@ -144,33 +80,25 @@ def _scenario_fingerprint(scenario: Any) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
-def dependency_hashes(model_name: str) -> dict[str, str] | None:
-    """{repo_name: commit_hash} for every repo `model_name` depends on, or
-    None if any of them is dirty/unhashable (see module docstring)."""
-    hashes: dict[str, str] = {}
-    for dep in MODEL_DEPENDENCIES[model_name]:
-        root = REPO_ROOTS[dep]
-        if _git_is_dirty(root):
-            return None
-        h = _git_head_hash(root)
-        if h is None:
-            return None
-        hashes[dep] = h
-    return hashes
+def repo_hash() -> str | None:
+    """Current HEAD commit hash of this repo, or None if it's dirty/
+    unhashable (see module docstring)."""
+    if _git_is_dirty(REPO_ROOT):
+        return None
+    return _git_head_hash(REPO_ROOT)
 
 
 def cache_key(model_name: str, scenario: Any) -> str | None:
     """Stable cache key for (model_name, scenario) under the CURRENT
-    commit state of every repo model_name depends on, or None if that
-    state can't be trusted right now (a dirty dependency -- see
-    dependency_hashes)."""
-    hashes = dependency_hashes(model_name)
-    if hashes is None:
+    commit state of this repo, or None if that state can't be trusted
+    right now (a dirty tree -- see repo_hash)."""
+    h = repo_hash()
+    if h is None:
         return None
     payload = {
         "model": model_name,
         "scenario_fp": _scenario_fingerprint(scenario),
-        "repo_hashes": hashes,
+        "repo_hash": h,
     }
     blob = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()
@@ -202,7 +130,7 @@ def save(key: str, model_name: str, scenario: Any, result: Any) -> None:
     sidecar = {
         "model": model_name,
         "scenario": getattr(scenario, "name", repr(scenario)),
-        "repo_hashes": dependency_hashes(model_name),
+        "repo_hash": repo_hash(),
         "cached_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
     with json_path.open("w") as f:
@@ -262,12 +190,10 @@ def clear_cache() -> int:
 
 if __name__ == "__main__":
     print(f"cache dir: {CACHE_DIR}")
-    print("repo roots:")
-    for name, root in REPO_ROOTS.items():
-        dirty = _git_is_dirty(root)
-        h = _git_head_hash(root)
-        status = "DIRTY" if dirty else "clean"
-        print(f"  {name:16s} {root}  HEAD={h}  [{status}]")
+    dirty = _git_is_dirty(REPO_ROOT)
+    h = _git_head_hash(REPO_ROOT)
+    status = "DIRTY" if dirty else "clean"
+    print(f"repo root: {REPO_ROOT}  HEAD={h}  [{status}]")
     print()
     entries = list_cache_entries()
     print(f"{len(entries)} cached entries:")

@@ -89,7 +89,7 @@ def run_xigma_direct(scenario: Scenario = BASELINE, seed: int = DEFAULT_SEED):
 
 
 def run_analytical(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
-    from compton_suite.analytical_adapter import AnalyticalAdapter
+    from analytical_adapter import AnalyticalAdapter
     cfg = build_analytical_config(scenario)
     bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc, rng=np.random.default_rng(seed))
     return AnalyticalAdapter().run(cfg, n_mc=n_mc, seed=seed, electrons=bunch)

@@ -65,9 +65,6 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
-import _bootstrap
-
-_bootstrap.setup_paths()
 from compton_io import constants as _io_constants
 from compton_io.bunch import MacroBunch as _MacroBunch
 from compton_io.io_formats.sdds import save_elegant_ele as _save_elegant_ele

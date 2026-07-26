@@ -13,10 +13,6 @@ from ``xigma_i`` itself, where it remains a legitimate standalone Stage 0
 entry point.
 """
 
-from . import _bootstrap
-
-_bootstrap.setup_paths()
-
-from .gui_adapter import DirectConfig, DirectResults, XigmaDirectAdapter  # noqa: E402
+from .gui_adapter import DirectConfig, DirectResults, XigmaDirectAdapter
 
 __all__ = ["DirectConfig", "DirectResults", "XigmaDirectAdapter"]

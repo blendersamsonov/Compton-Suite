@@ -7,9 +7,11 @@ and the physics packages it drives don't depend on each other's
 internals — only on the adapter shape. Python package name: `compton_guide`
 (repo/brand name stylized `Compton-GUIde` — "GUI" capitalized on purpose).
 
-Two engines are currently registered (`compton_guide/models.py`):
-- `kascade` → `../MC-Kost` (`kascade.py`), an event-generator MC, always available (CPU only).
-- `xigma-i` → the `xigma_i` package (GPU/cupy-only `Compton` class), shown greyed-out in the Model menu if cupy/CUDA isn't usable.
+Four models are currently registered (`compton_guide/models.py`):
+- `kascade` (`models/kaskade/kascade.py`), an event-generator MC, always available (CPU only).
+- `xigma-i` (the `xigma_i` package, GPU/cupy-only `Compton` class), shown greyed-out in the Model menu if cupy/CUDA isn't usable.
+- `xigma-i-direct` (the `xigma_direct` package), brute-force per-particle binning, same GPU/cupy availability story as `xigma-i`.
+- `analytical` (`models/analytical/`), a fast closed-form estimate, always available; also runs automatically as a preview alongside whichever other model is active.
 
 ## Layout
 
@@ -23,11 +25,8 @@ src/compton_guide/
                        # ModelAdapter protocol, SampledSpectrum/BinnedSpectrum
                        # and their temporal/spatial/angular-range counterparts,
                        # validate_results(), MODEL_REGISTRY.
-  bootstrap.py          # sys.path wiring for the two physics repos (see below).
-  physics_constants.py  # Local CODATA constants (C_LIGHT, HBAR, MEC2_EV, ...) —
-                         # duplicated here rather than imported from kascade, on
-                         # purpose (mirrors xigma_i/gui_adapter.py's own
-                         # precedent of local constant duplication).
+  physics_constants.py  # Re-export of compton_io.constants (C_LIGHT, HBAR,
+                         # MEC2_EV, ...) for the GUI's local formula helpers.
   adapters/kascade_adapter.py  # KascadeAdapter — wraps kascade.py with zero
                                 # changes to that package's own code.
 scripts/
@@ -78,42 +77,38 @@ resulting values into the same flat `fields` dict passed to
 declares `beta_ff`/`phi_pol` (its own extras with no `kascade` analogue).
 Return `[]` if a model has nothing extra to add.
 
-## Parameter semantics & units (`physics_params/`), and `compton_suite`
+## Parameter semantics & units (`physics_params/`), and `compton_io`
 
 `src/compton_guide/physics_params/` implements `Conventions-and-units.md`'s
-design, but **the framework itself now lives in the shared `compton_suite`
-sibling repo, not here** — this package is a thin re-export
-(`physics_params/__init__.py` imports `compton_suite`'s `PhysicalQuantity`,
+design, but **the framework itself lives in `IO/` (package `compton_io`),
+not here** — this package is a thin re-export
+(`physics_params/__init__.py` imports `compton_io`'s `PhysicalQuantity`,
 the `PhysicalMeaning`/`WidthConvention`/`TimeConvention`/
 `AmplitudeConvention` enums, `canonical.py`'s conversion machinery,
 `ParameterSpec`/`ModelSpec`, `adapt_to_model`, verbatim, so
 `compton_guide.physics_params.PhysicalQuantity` is the literal same class
 as `xigma_i.params.PhysicalQuantity`, not an independently-defined
-look-alike). An earlier version of this move gave each repo its own copy
+look-alike). An earlier version of this gave each consumer its own copy
 of the framework — structurally identical, not the same Python classes, so
 a `PhysicalQuantity` built with one copy's enums failed
 `validate_against_spec`'s `meaning` check against the other's `ModelSpec`.
-`compton_suite` exists specifically to eliminate that; see its own
+`compton_io` exists specifically to eliminate that; see its own
 `CLAUDE.md`.
 
-Physical constants also moved: `physics_constants.py` is now a thin
-re-export of `compton_suite.constants` too (was its own hand-typed literal
-block before, on the same "duplicate rather than cross-import" precedent
-`xigma_i.gui_adapter` originally set — that precedent no longer applies
-now that `compton_suite` exists to be cross-imported instead of copied).
+Physical constants also moved: `physics_constants.py` is a thin re-export
+of `compton_io.constants` (was its own hand-typed literal block before).
 `adapters/kascade_adapter.py`'s `params_to_config` reads
-`compton_suite.constants.MEC2_EV`/`E_CHARGE`/`C_LIGHT` directly now too,
-rather than the live `kascade` module's own copies — one less independent
-representation of `c` floating around this repo.
+`compton_io.constants.MEC2_EV`/`E_CHARGE`/`C_LIGHT` directly too, rather
+than the live `kascade` module's own copies — one less independent
+representation of `c` floating around this codebase.
 
-**xigma-i's schema moved out of this repo.** `schemas/xigma.py`'s
-`XIGMA_SPEC`/`XIGMA_DIAGNOSTIC_SPEC` now live in that model's own repo as
-`xigma_i.params` (see that repo's `CLAUDE.md`, "Parameter semantics &
-units") — the model declares its own parameter contract instead of the
-GUI declaring it on the model's behalf. `kascade` hasn't had the same
-move yet, so `schemas/kascade.py`'s `KASCADE_SPEC` still lives here,
-importing its framework types from `compton_suite` directly (same as
-`physics_params/__init__.py` does).
+**xigma-i's schema lives in its own package.** `xigma_i/params/spec.py`'s
+`XIGMA_SPEC`/`XIGMA_DIAGNOSTIC_SPEC` (see `models/xigma/CLAUDE.md`,
+"Parameter semantics & units") — the model declares its own parameter
+contract instead of the GUI declaring it on the model's behalf. `kascade`
+hasn't had the same move yet, so `schemas/kascade.py`'s `KASCADE_SPEC`
+still lives here, importing its framework types from `compton_io` directly
+(same as `physics_params/__init__.py` does).
 
 Both schemas were written by reading each engine's actual source
 (`kascade.py`'s `laser_density`/`Config` field comments for `KASCADE_SPEC`;
@@ -128,10 +123,8 @@ and enforced instead of implicit and silently breakable.
 
 **Not yet wired into `params_to_config`** in either adapter — those still
 do the FWHM/waist/duration arithmetic by hand. `scripts/physics_params_demo.py`
-is a GPU-free, tkinter-free demo/self-check: calls
-`compton_guide.bootstrap.setup_paths()` to put `xigma_i`'s and
-`compton_suite`'s `src/` on `sys.path`, builds **one** raw-input dict in
-mixed conventions (a FWHM in µm, a duration in ps), adapts it to both
+is a GPU-free, tkinter-free demo/self-check: builds **one** raw-input dict
+in mixed conventions (a FWHM in µm, a duration in ps), adapts it to both
 `XIGMA_SPEC` and `KASCADE_SPEC`, asserts the two models' outputs agree and
 that the FWHM→sigma and duration→length conversions actually ran, and
 asserts `compton_guide.physics_params.PhysicalQuantity is
@@ -143,10 +136,8 @@ again.
 python3 scripts/physics_params_demo.py
 ```
 
-Needs discoverable `xigma_i` and `compton_suite` checkouts (same
-autodiscovery `run_gui.py` uses — see "Running it" below) even though it
-needs neither cupy nor a GPU; only `xigma_i.params` and `compton_suite`
-get imported, and both need `pint`, not `cupy`.
+Needs the dev-install (see root `CLAUDE.md`) so `xigma_i` and `compton_io`
+are importable; needs neither cupy nor a GPU.
 
 ## Running it
 
@@ -155,19 +146,8 @@ python3 scripts/run_gui.py
 ```
 
 Needs `numpy`, `matplotlib`, system Tk (`tkinter`), `pint` (for
-`compton_suite`), and — only if you want `xigma-i` enabled rather than
-greyed-out — `cupy` + a working CUDA setup. `bootstrap.py` puts
-`kascade`/`xigma_i`/`compton_suite` onto `sys.path` automatically by
-scanning this project's sibling directories for one containing
-`kascade.py` (for the kascade engine), `src/xigma_i/gui_adapter.py` (for
-xigma_i), or `src/compton_suite/constants.py` (for compton_suite) —
-content-based, not a hardcoded default path, so it survives sibling
-directories being named differently on different machines. Override with
-`COMPTON_GUIDE_KASCADE_PATH` / `COMPTON_GUIDE_XIGMA_SRC` /
-`COMPTON_GUIDE_COMPTON_SUITE_SRC` env vars if a checkout lives outside
-this project's sibling directories entirely, or if autodiscovery finds
-more than one candidate and picks the wrong one (it warns to stderr when
-that happens).
+`compton_io`), and — only if you want `xigma-i`/`xigma-i-direct` enabled
+rather than greyed-out — `cupy` + a working CUDA setup.
 
 On this dev machine specifically: system Python has no pip/cupy/matplotlib.
 There's a conda env (`miniforge3`, env name `core`) that already has
@@ -223,11 +203,11 @@ distribution, angular distribution, angular-range spectrum):
 - No automated test for `app.py`'s actual Tkinter rendering (only the
   adapter/model layer is covered by `headless_test.py`) — testing the real
   widget tree needs a display (or Xvfb), which hasn't been set up.
-- `Conventions-and-units.md` at the repo root is now implemented as the
-  shared `compton_suite` sibling repo (framework + constants), re-exported
-  here as `physics_params/`/`physics_constants.py`, plus, for xigma-i
+- `Conventions-and-units.md` in this directory is implemented as `IO/`
+  (framework + constants), re-exported here as
+  `physics_params/`/`physics_constants.py`, plus, for xigma-i
   specifically, `xigma_i.params` (its own `XIGMA_SPEC`, built on
-  `compton_suite`) in that model's own repo — but not yet wired into
+  `compton_io`) in that model's own package — but not yet wired into
   either adapter's `params_to_config`, so it doesn't change any current
   behavior yet. `kascade`'s own schema (`KASCADE_SPEC`) hasn't had the
-  same schema-ownership move as xigma-i's, and still lives in this repo.
+  same schema-ownership move as xigma-i's, and still lives here.

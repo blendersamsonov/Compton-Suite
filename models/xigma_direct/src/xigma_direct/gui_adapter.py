@@ -26,14 +26,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import _bootstrap
-
-_bootstrap.setup_paths()
-
-from compton_io.bunch import MacroBunch  # noqa: E402
-from compton_io.io_formats.sdds import load_elegant_ele  # noqa: E402
-from compton_io.bunch import fit_gaussian  # noqa: E402
-from compton_io.photons import (  # noqa: E402
+from compton_io.bunch import MacroBunch, fit_gaussian
+from compton_io.io_formats.sdds import load_elegant_ele
+from compton_io.photons import (
     AngularRangeSpectrumResult,
     BinnedAngularSpectrum,
     BinnedSpatialDistribution,

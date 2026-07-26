@@ -14,9 +14,6 @@ def discover_models() -> dict:
     registered as an UnavailableAdapter so it still shows up, disabled, in
     the GUI's Model menu instead of silently vanishing. Returns the
     registry snapshot (see ``model_api.registered_models``)."""
-    from compton_guide import bootstrap
-    bootstrap.setup_paths()
-
     from compton_guide.adapters.kascade_adapter import KascadeAdapter
     register("kascade", KascadeAdapter())
 
@@ -36,7 +33,7 @@ def discover_models() -> dict:
             _display_name="XIGMA-I Direct (brute-force binning, experimental)"))
 
     try:
-        from compton_suite import analytical_adapter as _analytical
+        import analytical_adapter as _analytical
         register("analytical", _analytical.AnalyticalAdapter())
     except Exception as e:
         register("analytical", UnavailableAdapter(

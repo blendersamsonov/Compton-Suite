@@ -60,13 +60,6 @@ Typical use:
     adapted = adapt_to_model({"sigma0_l": laser_width, ...}, XIGMA_SPEC)
     # adapted["sigma0_l"] is now in XIGMA_SPEC's own convention/unit
 
-Not pip-installed standalone by every consumer -- found at runtime either
-via the root ``compton_suite`` meta-package's editable install, or (for
-zero-install development) via each consumer's own content-based sys.path
-bootstrap (mirroring ``compton_guide.bootstrap``'s marker-file
-autodiscovery for ``kascade``/``xigma_i``), because sibling checkout
-directory names aren't stable across machines. See each consumer's own
-``CLAUDE.md`` for its bootstrap entry point.
 """
 
 from . import bunch, constants, io_formats, laser, photons

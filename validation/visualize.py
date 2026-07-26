@@ -20,7 +20,6 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import matplotlib  # noqa: E402
@@ -28,11 +27,6 @@ import matplotlib  # noqa: E402
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
-
-import compton_suite  # noqa: E402
-from compton_guide import bootstrap as _guide_bootstrap  # noqa: E402
-
-_guide_bootstrap.setup_paths()
 
 from scenarios import BASELINE, LOW_A0, NEAR_A0_MAX, Scenario  # noqa: E402
 from runners import run_analytical, run_kascade, run_xigma, run_xigma_direct  # noqa: E402

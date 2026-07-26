@@ -9,10 +9,6 @@ import, same as ``compton_guide.models`` itself (which this re-exports).
 
 from __future__ import annotations
 
-from . import _bootstrap
-
-_bootstrap.setup_paths()
-
-from compton_guide.models import discover_models  # noqa: E402
+from compton_guide.models import discover_models
 
 __all__ = ["discover_models"]
