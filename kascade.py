@@ -358,23 +358,6 @@ def sample_emission_angle(eps: np.ndarray, rng: np.random.Generator, X=None):
 
 
 # ---------------------------------------------------------------------------
-# Initial bunch sampling
-# ---------------------------------------------------------------------------
-def sample_initial_electrons(cfg: Config, n_mc: int, rng: np.random.Generator):
-    z0 = rng.normal(0.0, cfg.sigma_par_e, n_mc)
-    eps = cfg.eps0 + rng.normal(0.0, cfg.sigma_eps, n_mc)
-    eps = np.clip(eps, 1e-3, None)
-
-    sig_thx = np.sqrt(cfg.emit_x / cfg.beta_x)
-    sig_thy = np.sqrt(cfg.emit_y / cfg.beta_y)
-    thx = rng.normal(0.0, sig_thx, n_mc)
-    thy = rng.normal(0.0, sig_thy, n_mc)
-    x_w = rng.normal(0.0, cfg.sigma0_x, n_mc)
-    y_w = rng.normal(0.0, cfg.sigma0_y, n_mc)
-    return dict(z0=z0, eps=eps, thx=thx, thy=thy, x_w=x_w, y_w=y_w)
-
-
-# ---------------------------------------------------------------------------
 # Cumulative optical depth along the electron trajectory (general geometry)
 # ---------------------------------------------------------------------------
 def build_lambda_grid(x_w, thx, y_w, thy, z0, cfg: Config):
@@ -594,49 +577,55 @@ class Results:
 # Main Monte-Carlo driver
 # ---------------------------------------------------------------------------
 def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
-                  electrons: Dict[str, np.ndarray] | None = None) -> Results:
+                  *, electrons: Dict[str, np.ndarray]) -> Results:
     """Run the multi-photon inverse-Compton Monte-Carlo.
 
     Parameters
     ----------
     cfg : Config
-        Laser, geometry, quantum and bunch-magnitude parameters.  When
-        ``electrons`` is provided the per-particle spread/divergence/position
-        values are *overridden* by the loaded bunch; the remaining
-        magnitude-style fields (e.g. ``N_e``) are still used for
-        weight/yield normalisations.
+        Laser, geometry, quantum and bunch-magnitude parameters.  The
+        per-particle spread/divergence/position values come entirely from
+        ``electrons``; the remaining magnitude-style fields (e.g. ``N_e``)
+        are still used for weight/yield normalisations.
     n_mc : int
-        Number of macro-electrons to simulate.  If ``electrons`` is supplied
-        the length of its arrays overrides this value.
+        Nominal macro-electron count -- overridden by the length of
+        ``electrons``'s arrays if they differ (see below).
     seed : int
-        Seed for the random number generator.
-    electrons : dict, optional
+        Seed for the random number generator (used for the emission chain
+        itself -- photon sampling, not electron sampling).
+    electrons : dict
         Pre-sampled initial bunch with keys ``eps``, ``z0``, ``x_w``,
         ``y_w``, ``thx``, ``thy`` (per-particle arrays, all in SI units
-        apart from ``eps`` which is Lorentz gamma).  If supplied, the
-        ``sample_initial_electrons`` step is skipped.
+        apart from ``eps`` which is Lorentz gamma). Required: electron
+        sampling is the caller's job, not this engine's -- build a
+        ``compton_io.bunch.GaussianElectronBeam`` and draw one via
+        ``compton_io.bunch.sample_gaussian_bunch`` (see ``main()`` below
+        for the standalone-CLI pattern, or ``compton_guide.app.py``'s
+        ``on_start()`` for the GUI pattern). Passing ``electrons=None``
+        raises a plain ``TypeError`` below (indexing ``None``), not a
+        silent internal resample -- this engine used to have its own
+        ``sample_initial_electrons`` fallback for a missing bunch; it was
+        removed so there's exactly one place electrons get drawn from a
+        beam description, not one per model.
     """
     rng = np.random.default_rng(seed)
     weight = cfg.N_e / n_mc
 
-    if electrons is not None:
-        # Honour the size of the loaded bunch; clamp n_mc to its length.
-        n_loaded = int(np.asarray(electrons["eps"]).shape[0])
-        if n_loaded <= 0:
-            raise ValueError("run_simulation: 'electrons' must be non-empty")
-        if n_loaded != n_mc:
-            n_mc = n_loaded
-            weight = cfg.N_e / n_mc
-        el = dict(
-            z0=np.asarray(electrons["z0"], dtype=float),
-            eps=np.asarray(electrons["eps"], dtype=float),
-            thx=np.asarray(electrons["thx"], dtype=float),
-            thy=np.asarray(electrons["thy"], dtype=float),
-            x_w=np.asarray(electrons["x_w"], dtype=float),
-            y_w=np.asarray(electrons["y_w"], dtype=float),
-        )
-    else:
-        el = sample_initial_electrons(cfg, n_mc, rng)
+    # Honour the size of the supplied bunch; clamp n_mc to its length.
+    n_loaded = int(np.asarray(electrons["eps"]).shape[0])
+    if n_loaded <= 0:
+        raise ValueError("run_simulation: 'electrons' must be non-empty")
+    if n_loaded != n_mc:
+        n_mc = n_loaded
+        weight = cfg.N_e / n_mc
+    el = dict(
+        z0=np.asarray(electrons["z0"], dtype=float),
+        eps=np.asarray(electrons["eps"], dtype=float),
+        thx=np.asarray(electrons["thx"], dtype=float),
+        thy=np.asarray(electrons["thy"], dtype=float),
+        x_w=np.asarray(electrons["x_w"], dtype=float),
+        y_w=np.asarray(electrons["y_w"], dtype=float),
+    )
 
     eps_f = np.empty(n_mc)
     thx_f = np.empty(n_mc)
@@ -776,7 +765,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     #      in the Electrons panel.
     eps_i_mean = float(np.mean(el["eps"])) if el["eps"].size else float(cfg.eps0)
     ref_gamma = eps_i_mean
-    if electrons is not None and electrons.get("params"):
+    if electrons.get("params"):
         params = electrons["params"]
         if params.get("Energy"):
             ref_gamma = float(params["Energy"]) * 1000.0 * 1e6 / MEC2_EV
@@ -790,7 +779,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # ``_load_ele`` wants a per-input-file path) or by an environment
     # variable for headless runs.
     final_ele_path = "final_distribution.ele"
-    if electrons is not None and electrons.get("final_ele_path"):
+    if electrons.get("final_ele_path"):
         final_ele_path = electrons["final_ele_path"]
     elif os.environ.get("KASCADE_FINAL_ELE_PATH"):
         final_ele_path = os.environ["KASCADE_FINAL_ELE_PATH"]
@@ -1088,7 +1077,27 @@ def main() -> None:
     seed = int(run_opts.get("seed", 1))
     outdir = run_opts.get("outdir") or os.path.dirname(os.path.abspath(__file__))
 
-    res = run_simulation(cfg, n_mc=n_mc, seed=seed)
+    # Electron sampling is compton_io's job, not this engine's (see
+    # run_simulation's docstring) -- build a GaussianElectronBeam straight
+    # from cfg's own flat SI field set (eps0/sigma_eps_rel/emit_x/y/
+    # sigma0_x/y/sigma_par_e/N_e already agree field-for-field with
+    # beam_from_shared_fields's signature -- this Config is one of the
+    # three that helper was written against), draw one MacroBunch, and
+    # convert it into the plain dict run_simulation expects. Mirrors
+    # compton_guide.app.py's on_start() (the GUI path) and
+    # ComptonSuite/validation/runners.py (the cross-validation path) --
+    # three independent callers, one sampling mechanism.
+    from compton_io.bunch import beam_from_shared_fields, sample_gaussian_bunch
+    beam = beam_from_shared_fields(
+        eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
+        emit_x=cfg.emit_x, emit_y=cfg.emit_y,
+        sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
+        sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
+    )
+    mb = sample_gaussian_bunch(beam, n_particles=n_mc, rng=np.random.default_rng(seed))
+    electrons = dict(eps=mb.gamma, z0=mb.z, thx=mb.thx, thy=mb.thy, x_w=mb.x, y_w=mb.y)
+
+    res = run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=electrons)
     print_summary(res)
     run_checks(res)
     make_plots(res, outdir)
