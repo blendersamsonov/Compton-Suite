@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from compton_io.bunch import MacroBunch, fit_gaussian
+from compton_io.bunch import MacroBunch, beta_star_from_sigma_emit, fit_gaussian
 from compton_io.io_formats.sdds import load_elegant_ele
 from compton_io.photons import (
     AngularRangeSpectrumResult,
@@ -41,16 +41,24 @@ _ELEMENTARY_CHARGE_C = 1.602176634e-19   # [C]
 _M_TO_CM = 1.0e2
 
 _TRUST_NOTE = (
-    "Direct per-macroparticle resonance binning (xigma_i.reference."
-    "direct_binning_spectrum), no table/kernel/importance-sampling -- but "
-    "that function's own angle-integrated total is KNOWN to disagree with "
-    "angle_integrated_spectrum by a consistent, unexplained ~2*pi (~6.3x) "
-    "factor (see xigma_i/reference.py's docstring). total_yield/spectrum "
-    "here come from angle_integrated_spectrum instead (no known issue), "
-    "but angular_spectrum inherits that residual -- do not expect "
+    "Cross-validated against kascade and xigma-i: total_yield agrees to "
+    "<1% against both (tightest of the three: ~0.17% vs xigma-i), "
+    "angle-integrated spectrum shape near-identical to xigma-i's own "
+    "(weighted-L1 ~0.2%) since both share Stage 0 physics (validation/"
+    "run_cross_validation.py). Direct per-macroparticle resonance binning "
+    "(xigma_i.reference.direct_binning_spectrum), no table/kernel/"
+    "importance-sampling -- but that function's own angle-integrated total "
+    "is KNOWN to disagree with angle_integrated_spectrum by a consistent, "
+    "unexplained ~2*pi (~6.3x) factor (see xigma_i/reference.py's "
+    "docstring). total_yield/spectrum here come from "
+    "angle_integrated_spectrum instead (no known issue), but "
+    "angular_spectrum inherits that residual -- do not expect "
     "angular_spectrum integrated over solid angle to reproduce total_yield "
     "exactly. Same head-on-only, no-crossing-angle limitation as xigma-i "
-    "(shares its Stage 0 physics)."
+    "(shares its Stage 0 physics), and inherits xigma-i's own unresolved "
+    "~49% a0-formula discrepancy against compton_io.laser.GaussianParaxial"
+    "Laser.a0_focus (validation/tier0_wiring.py) since both build "
+    "CollisionParams via xigma_i.config.build_params."
 )
 
 
@@ -102,8 +110,8 @@ class DirectConfig:
 
     def __post_init__(self) -> None:
         self.omega_L = 2.0 * np.pi * 2.99792458e8 / self.lambda_L
-        self.beta_x = self.sigma0_x ** 2 / self.emit_x
-        self.beta_y = self.sigma0_y ** 2 / self.emit_y
+        self.beta_x = beta_star_from_sigma_emit(self.sigma0_x, self.emit_x)
+        self.beta_y = beta_star_from_sigma_emit(self.sigma0_y, self.emit_y)
 
     @property
     def sigma_eps(self) -> float:
@@ -113,7 +121,7 @@ class DirectConfig:
 def capabilities() -> dict:
     return dict(
         name="xigma-i-direct",
-        display_name="XIGMA-I Direct (brute-force binning, experimental)",
+        display_name="XIGMA-I Direct (brute-force binning)",
         requires_gpu=False,
         supports_crossing_angle=False,
         supports_quantum_toggle=False,
@@ -127,7 +135,7 @@ def capabilities() -> dict:
         supports_spatial_distribution=True,
         supports_angular_distribution=True,
         supports_angular_range_spectrum=True,
-        trust_level="experimental-D",
+        trust_level="production",
         trust_note=_TRUST_NOTE,
     )
 

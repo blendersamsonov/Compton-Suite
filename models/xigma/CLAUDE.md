@@ -439,10 +439,6 @@ devices default to float64, see Conventions).
   combinations but not others (nothing to do with problem size or GPU
   model) -- fixed by switching occupancy to `int32` (plenty for realistic
   per-cell counts). Any new GPU scatter-add target must stay off `int64`.
-- **`emulate_nonlinearity`** is accepted by `gui_adapter.Config` for
-  interface stability but has no effect: `a0` is a real table axis, not a
-  phenomenological correction, so applying a ponderomotive shift on top
-  would double-count it.
 - **`Table.a0_kind` mismatch.** A `'shape'` table (built from
   `push_and_sample`'s `a0_shape`) is not spectrum-ready -- its 4th axis
   isn't a physical `ahat`, so feeding it straight to `spectrum_kernel_4d`/
@@ -550,8 +546,10 @@ through its `capabilities()`.
   `_N_PARTICLES_SANITY_MAX` ceiling (2,000,000) as a guard against a
   fat-fingered GUI value hanging the GPU/CPU; every numerical field is
   otherwise floored at 1 in `params_to_config`, not re-validated later.
-  `emulate_nonlinearity` is still accepted/parsed (interface stability)
-  but is inert (see Traps).
+  There is no nonlinearity-emulation field on `Config` at all -- this
+  pipeline has no such axis (`a0` is a real table axis, not a
+  phenomenological correction; see `capabilities()`'s
+  `supports_nonlinearity_emulation=False`).
 - `XigmaAdapter` caches `self._last_results` (a `compton_io.results.
   CommonResults` which itself carries private `_params`/`_gamma_0`/
   `_sigma_gamma_0`/`_engine`/`_device`, stashed as plain post-construction

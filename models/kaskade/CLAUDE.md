@@ -52,7 +52,7 @@ narrative about earlier code generations, left as-is; only this engine's
 ## Units and conventions
 
 - Everything in `Config`/`Results` is **SI** (m, s, J, rad) — this is different from `xigma_i`'s CGS-like (cm, erg) convention. `compton_guide`'s `model_api.py`/adapters were designed around this engine's SI convention; `xigma_i/gui_adapter.py` converts to/from CGS at its own boundary.
-- `cfg.quantum` toggles Thomson (classical) vs Klein-Nishina (quantum recoil) cross section — this is a genuine physics toggle, unrelated to `xigma_i`'s "emulate_nonlinearity" axis (that's an a0-downshift emulation, a different thing entirely).
+- `cfg.quantum` toggles Thomson (classical) vs Klein-Nishina (quantum recoil) cross section — this is a genuine physics toggle; `xigma_i` accepts the same field for interface symmetry but its differential cross section has no classical/quantum switch, so it's a no-op there.
 - Supports arbitrary `crossing_angle` (unlike `xigma_i`, which is head-on only).
 
 ## Physical constants (`compton_io`)

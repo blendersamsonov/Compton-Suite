@@ -27,7 +27,21 @@ import numpy as np
 from .constants import C_LIGHT, E_CHARGE, MEC2_EV
 
 __all__ = ["MacroBunch", "GaussianElectronBeam", "validate", "sample_gaussian_bunch", "fit_gaussian",
-           "beam_from_shared_fields"]
+           "beam_from_shared_fields", "beta_star_from_sigma_emit", "divergence_from_sigma_emit"]
+
+
+def beta_star_from_sigma_emit(sigma_m: float, emit_geom_m: float) -> float:
+    """Beta function at the waist, ``sigma**2 / emit_geom`` -- same units in
+    as out squared over rad (SI in/out here; callers in other unit systems,
+    e.g. xigma_i's CGS, convert at their own boundary)."""
+    return sigma_m**2 / emit_geom_m
+
+
+def divergence_from_sigma_emit(sigma_m: float, emit_geom_m: float) -> float:
+    """RMS divergence at the waist, ``emit_geom / sigma`` -- a dimensionless
+    angle, unit-system-invariant (no conversion needed between SI and CGS
+    callers)."""
+    return emit_geom_m / sigma_m
 
 
 @dataclass
@@ -115,19 +129,19 @@ class GaussianElectronBeam:
 
     @property
     def divergence_x_rad(self) -> float:
-        return self.emit_geom_x_m / self.sigma_x_m
+        return divergence_from_sigma_emit(self.sigma_x_m, self.emit_geom_x_m)
 
     @property
     def divergence_y_rad(self) -> float:
-        return self.emit_geom_y_m / self.sigma_y_m
+        return divergence_from_sigma_emit(self.sigma_y_m, self.emit_geom_y_m)
 
     @property
     def beta_star_x_m(self) -> float:
-        return self.sigma_x_m**2 / self.emit_geom_x_m
+        return beta_star_from_sigma_emit(self.sigma_x_m, self.emit_geom_x_m)
 
     @property
     def beta_star_y_m(self) -> float:
-        return self.sigma_y_m**2 / self.emit_geom_y_m
+        return beta_star_from_sigma_emit(self.sigma_y_m, self.emit_geom_y_m)
 
     @property
     def emit_norm_x_m(self) -> float:

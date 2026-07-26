@@ -14,18 +14,26 @@ itself computes nothing beyond what `build_params` derives once, and runs
 no GPU kernels -- `TabulatedEngine` (tabulated_engine.py) and the functions
 in `reference.py`/`spectrum4d.py` do that.
 
-FUTURE: `build_params`'s electron-side derivation (`beta_x`/`beta_y`/
-`sigma_thx`/`sigma_thy`) is arithmetically identical to
-`GaussianElectronBeam.beta_star_x_m`/`beta_star_y_m`/`divergence_x_rad`/
-`divergence_y_rad` (already CGS-convertible, just needs `*100`) -- and the
-whole function's *shape* (SI beam/laser -> a pipeline's own unit-converted
-scalar bundle) has no xigma-specific reasoning beyond the CGS/`k0_las`
-convention and the `a0` formula (which has a known, separately-flagged
-~49% discrepancy against `GaussianParaxialLaser.a0_focus`, see
-`validation/tier0_wiring.py` -- not something to silently reconcile here).
-This whole function belongs in `compton_io` as a model-agnostic helper
-once that's sorted out, so other models can reuse it too -- noted, not
-done in this pass.
+`build_params`'s electron-side derivation (`beta_x`/`beta_y`/`sigma_thx`/
+`sigma_thy`) now calls `GaussianElectronBeam.beta_star_x_m`/
+`beta_star_y_m`/`divergence_x_rad`/`divergence_y_rad` directly (`*100` for
+the two length-based `beta_x`/`beta_y` fields only -- `sigma_thx`/
+`sigma_thy` are dimensionless angles, unit-system-invariant) instead of
+re-deriving the same formula locally; `kascade.py`'s own
+`Config.__post_init__` and this module's own `gui_adapter.Config.
+__post_init__` SI pre-step now call the same `compton_io.bunch` functions
+too, so there's one formula, not three independently-maintained copies.
+
+FUTURE: the rest of `build_params`'s *shape* (SI beam/laser -> a pipeline's
+own unit-converted scalar bundle) still has no xigma-specific reasoning
+beyond the CGS/`k0_las` convention and the `a0` formula, which has a known,
+separately-flagged ~49% discrepancy against `GaussianParaxialLaser.
+a0_focus` (see `validation/tier0_wiring.py`) -- deliberately left
+unreconciled here, not something to silently pick a side on via a refactor.
+`beta_ff`/`ellipticity` also stay xigma-only (no shared-representation
+analogue, see `compton_io.laser`'s module docstring). Moving the rest of
+`build_params` into `compton_io` is still open, gated on resolving that a0
+discrepancy first.
 
 Units are CGS throughout; lengths and times inside `spectrum_kernel_4d`
 (spectrum4d.py) are normalised to the laser wavenumber `k0_las`: positions
@@ -226,10 +234,15 @@ def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
     sigma_ex = beam.sigma_x_m * _M_TO_CM
     sigma_ey = beam.sigma_y_m * _M_TO_CM
     sigma_ez = beam.sigma_z_m * _M_TO_CM
-    beta_x = sigma_ex**2 / emit_x
-    beta_y = sigma_ey**2 / emit_y
-    sigma_thx = emit_x / sigma_ex
-    sigma_thy = emit_y / sigma_ey
+    # beta_x/beta_y are length^2/length (CGS: cm), so *_M_TO_CM (SI m -> CGS
+    # cm) applies; sigma_thx/sigma_thy are dimensionless angles, unit-system-
+    # invariant -- no conversion. See compton_io.bunch's beta_star_*_m/
+    # divergence_*_rad, the same formulas this pipeline used to re-derive
+    # locally in SI before converting.
+    beta_x = beam.beta_star_x_m * _M_TO_CM
+    beta_y = beam.beta_star_y_m * _M_TO_CM
+    sigma_thx = beam.divergence_x_rad
+    sigma_thy = beam.divergence_y_rad
 
     lambda_l = laser.wavelength_m * _M_TO_CM
     # sigma_lr0: RMS radius of the *photon density* distribution (round-

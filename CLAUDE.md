@@ -174,62 +174,74 @@ Each has enough pointers to start without re-deriving context.
 ### 1. Dead-code / unused-config sweep
 
 Run a fresh sweep (grep for unused imports/fields, or a tool like
-`vulture`) across `models/*/` and `IO/` — the last one was done manually
-during the 2026-07-26 repo-merge session and wasn't exhaustive. Known
-candidates already flagged but not removed (verify each is still true
-before touching):
+`vulture`) across `models/*/` and `IO/` — the last full manual pass was
+during the 2026-07-26 repo-merge session and wasn't exhaustive; a
+follow-up pass (2026-07-26, same day) resolved the two items below.
+Resolved:
 - `models/xigma/src/xigma_i/gui_adapter.py`'s `Config.emulate_nonlinearity`
-  and `Config.quantum` fields are accepted for interface-symmetry-with-
-  kascade reasons but have zero effect (documented in `models/xigma/CLAUDE.md`'s
-  "Traps"). Worth a real decision: keep as permanent no-ops, or drop them
-  and let `params_to_config` reject/ignore those GUI fields instead.
+  field has been removed (confirmed zero computational effect anywhere in
+  `xigma_i`, never set from any caller, only echoed into diagnostics).
+  `Config.quantum` is kept as a documented no-op: it's part of the shared
+  `ModelAdapter.params_to_config(fields, quantum)` contract that `kascade`
+  actually uses, so dropping it would mean changing the shared protocol
+  across all four models -- a decision left for item 5 below, not a
+  dead-code deletion.
 - `models/xigma/src/xigma_i/params/spec.py`'s `XIGMA_SPEC`/
-  `XIGMA_DIAGNOSTIC_SPEC` are still not wired into `params_to_config` (see
-  item 5 below) -- either finish that wiring or reconsider whether the
-  spec module pays for itself while unused.
+  `XIGMA_DIAGNOSTIC_SPEC` are still not wired into `params_to_config` --
+  left as-is (still exercised by `GUIde/scripts/physics_params_demo.py`).
+  Finishing that wiring is real design work tied to item 5, still open.
 
 ### 2. Move `CollisionParams`/`build_params` into `compton_io`
 
 Flagged in `models/xigma/src/xigma_i/config.py`'s own module docstring.
-`build_params`'s electron-side derivation (`beta_x`/`beta_y`/`sigma_thx`/
-`sigma_thy`) is arithmetically identical to `compton_io.bunch.
-GaussianElectronBeam.beta_star_x_m`/`beta_star_y_m`/`divergence_x_rad`/
-`divergence_y_rad` (just needs `* 100` for CGS) -- and the function's
-overall shape (SI beam/laser/geometry -> a CGS scalar bundle a GPU/CPU
-kernel needs) has nothing xigma-specific about it except:
-- the `a0` formula, which has its own already-flagged, unresolved ~49%
-  discrepancy against `GaussianParaxialLaser.a0_focus` (`validation/
-  tier0_wiring.py`'s `check_a0_formula_agreement`, `FORMULA_TOL`). Don't
-  silently pick a side when moving this -- either resolve the physics
-  discrepancy first (a real investigation, not a refactor), or move the
-  function with the discrepancy intact and clearly documented as "xigma's
-  own convention, not yet reconciled with compton_io.laser's".
-- `beta_ff`/`ellipticity`, xigma-only laser extras with no shared-
-  representation analogue (`compton_io.laser`'s own module docstring
-  explains why they're excluded from `GaussianParaxialLaser`).
+**Partially done (2026-07-26):** the electron-side derivation (`beta_x`/
+`beta_y`/`sigma_thx`/`sigma_thy`) was arithmetically identical to
+`compton_io.bunch.GaussianElectronBeam.beta_star_x_m`/`beta_star_y_m`/
+`divergence_x_rad`/`divergence_y_rad` (just needed `* 100` for the two
+length-based `beta_x`/`beta_y` fields; `sigma_thx`/`sigma_thy` are
+dimensionless angles needing no conversion). Two new module-level
+functions, `compton_io.bunch.beta_star_from_sigma_emit`/
+`divergence_from_sigma_emit`, now back both `GaussianElectronBeam`'s
+properties and every place that used to re-derive the same formula
+independently: `xigma_i/config.py::build_params` (now calls
+`beam.beta_star_x_m`/`divergence_x_rad` directly instead of recomputing),
+`xigma_i/gui_adapter.py`'s own `Config.__post_init__` SI pre-step,
+`xigma_direct/gui_adapter.py`'s `DirectConfig.__post_init__`, and
+`models/kaskade/kascade.py`'s `Config.__post_init__` -- one formula
+instead of four independent copies.
 
-Once moved, `models/kaskade/kascade.py`'s own `Config.__post_init__`
-(which derives `beta_x`/`beta_y` with the exact same formula, independently)
-becomes a second consumer worth pointing at the shared helper too --
-that's the actual payoff, not just tidiness in one model.
+Still open, deliberately untouched: the `a0` formula, which has its own
+already-flagged, unresolved ~49% discrepancy against `GaussianParaxialLaser.
+a0_focus` (`validation/tier0_wiring.py`'s `check_a0_formula_agreement`,
+`FORMULA_TOL`) -- moving *this* piece needs either resolving the physics
+discrepancy first (a real investigation, not a refactor) or moving it with
+the discrepancy intact and clearly documented as "xigma's own convention,
+not yet reconciled with compton_io.laser's" (this is what `config.py`'s
+module docstring now says). `beta_ff`/`ellipticity` also stay xigma-only,
+no shared-representation analogue (`compton_io.laser`'s own module
+docstring explains why they're excluded from `GaussianParaxialLaser`).
 
 ### 3. GUI: reconsider "experimental" trust levels/warnings
 
-`GUIde/src/compton_guide/app.py` (~line 347) renders
-`ModelCapabilities.trust_level`/`trust_note` as a status line, colored
-red unless `trust_level == "production"`. `xigma-i`
-(`display_name="XIGMA-I (experimental)"`) and `xigma-i-direct`
-(`"XIGMA-I Direct (brute-force binning, experimental)"`) are both still
-marked experimental in their `capabilities()` (`models/xigma/src/xigma_i/
-gui_adapter.py`, `models/xigma_direct/src/xigma_direct/gui_adapter.py`).
-Given the cross-validation suite now shows kascade/xigma-i/xigma-i-direct
-agreeing to <1% on total_yield and comparable agreement on spectrum shape
-(see `validation/run_cross_validation.py`'s output), it may be time to
-graduate one or both to a less scary `trust_level`/`trust_note` -- or, if
-not, tighten the `trust_note` text to say specifically what's still
-unresolved (the `~2*pi` angular-spectrum residual and the a0-formula
-discrepancy above are the two concrete open items, not "experimental" in
-general).
+**Done (2026-07-26).** A fresh run of `validation/run_cross_validation.py`
+confirmed kascade/xigma-i/xigma-i-direct agree to <1% on `total_yield`
+and to a few percent (weighted-L1) on angle-integrated spectrum shape at
+baseline configs, with the a0-formula discrepancy above and the `~2*pi`
+angular-spectrum residual (`reference.py`'s module docstring) as the two
+remaining concrete open items rather than blanket "experimental" status.
+`xigma-i` and `xigma-i-direct` were graduated to
+`trust_level="production"` (`display_name` no longer says "experimental"),
+and `_TRUST_NOTE` in both `models/xigma/src/xigma_i/gui_adapter.py` and
+`models/xigma_direct/src/xigma_direct/gui_adapter.py` was rewritten to
+name those two open items explicitly, plus the observed spectrum-shape
+degradation (~24% weighted-L1) near `a0_max`. Note: `trust_note` only
+renders in the GUI when `trust_level != "production"` (`app.py` ~line 350),
+so this text is now dormant there but still worth keeping accurate for
+anyone reading the adapter source directly.
+`models/xigma/passport.md` (a separate, human-authored formal document)
+was deliberately left untouched -- it still self-rates trust level "C";
+reconciling it with the graduated GUI trust_level is a call for whoever
+owns that document, not something to auto-edit.
 
 ### 4. GUI: per-model sample count instead of a misleading global field
 

@@ -65,6 +65,7 @@ import numpy as np
 
 from compton_io import constants as _io_constants
 from compton_io.bunch import MacroBunch as _MacroBunch
+from compton_io.bunch import beta_star_from_sigma_emit as _beta_star_from_sigma_emit
 from compton_io.io_formats.sdds import save_elegant_ele as _save_elegant_ele
 from compton_io.laser import GaussianParaxialLaser as _GaussianParaxialLaser
 
@@ -164,8 +165,8 @@ class Config:
                 self.N_L = _laser.n_photons
             if self.R_sf <= 0.0:
                 self.R_sf = _laser.rayleigh_x_m
-        self.beta_x = self.sigma0_x ** 2 / self.emit_x
-        self.beta_y = self.sigma0_y ** 2 / self.emit_y
+        self.beta_x = _beta_star_from_sigma_emit(self.sigma0_x, self.emit_x)
+        self.beta_y = _beta_star_from_sigma_emit(self.sigma0_y, self.emit_y)
 
     @property
     def sigma_eps(self) -> float:

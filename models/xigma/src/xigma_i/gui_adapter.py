@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from compton_io.bunch import MacroBunch
+from compton_io.bunch import MacroBunch, beta_star_from_sigma_emit
 from compton_io.photons import (
     AngularRangeSpectrumResult,
     BinnedAngularSpectrum,
@@ -60,8 +60,10 @@ class Config:
     mapping exists physically. ``crossing_angle`` must be 0.0 (Compton has no
     crossing-angle support at all -- head-on only). ``quantum`` is accepted
     for interface symmetry but has no effect: xigma-i's differential cross
-    section has no classical/quantum switch. Use ``emulate_nonlinearity``
-    for xigma-i's actual (and unrelated) nonlinearity axis.
+    section has no classical/quantum switch. xigma-i has no nonlinearity-
+    emulation axis at all -- ``a0`` is a real table axis, not a
+    phenomenological correction (see ``capabilities()``'s
+    ``supports_nonlinearity_emulation=False``).
     """
 
     eps0: float = 1000.0
@@ -95,7 +97,6 @@ class Config:
     # xigma-i-only extras, no dfe5 analogue
     beta_ff: float = 0.0                # flying-focus factor: 0=static, 1=co-moving
     phi_pol: float = 0.0                # polarization angle [rad]
-    emulate_nonlinearity: bool = True   # phenomenological a0 downshift/broadening
 
     # xigma-i-only numerical/resolution controls -- no physical meaning, but
     # surfaced through extra_params() (see below) so the pipeline's
@@ -123,8 +124,8 @@ class Config:
 
     def __post_init__(self) -> None:
         self.omega_L = 2.0 * np.pi * _C_LIGHT_M / self.lambda_L
-        self.beta_x = self.sigma0_x ** 2 / self.emit_x
-        self.beta_y = self.sigma0_y ** 2 / self.emit_y
+        self.beta_x = beta_star_from_sigma_emit(self.sigma0_x, self.emit_x)
+        self.beta_y = beta_star_from_sigma_emit(self.sigma0_y, self.emit_y)
 
     @property
     def sigma_eps(self) -> float:
@@ -159,35 +160,38 @@ def _attach_private_cache(res: CommonResults, *, params, gamma_0, sigma_gamma_0,
 # Capabilities / availability
 # ---------------------------------------------------------------------------
 _TRUST_NOTE = (
-    "passport.md self-rates this engine trust level C: no unit tests, no "
-    "cross-code/external/experimental validation, no fixed reproducible "
-    "benchmark case, crossing-angle and astigmatic-laser geometries not "
-    "modeled. Valid only for a0 <~ a0_max (default 0.5, a weakly-nonlinear "
-    "model range, not a phenomenological correction -- a0 is a real "
-    "trajectory-averaged table axis). A known, flagged-but-unresolved "
-    "caveat: narrow-angle/sparse-table configs show large unstable "
-    "variance in the angular-spectrum kernel vs. its own independent "
-    "reference paths. All outputs -- total yield, angle-integrated "
-    "spectrum, angular spectrum, temporal envelope, spatial distribution "
-    "-- come from the tabulated-energy pipeline (particles.py/"
-    "deposition.py/spectrum4d.py/reference.py/tabulated_engine.py, see "
-    "CLAUDE.md). Runs on a CUDA GPU if one is available, else falls back "
-    "to a CPU/numba implementation of the same kernels -- numerically "
-    "validated against the GPU kernels but noticeably slower."
+    "Cross-validated against kascade and xigma-i-direct: total_yield agrees "
+    "to <1% across both, angle-integrated spectrum shape to within a few "
+    "percent (weighted-L1) at baseline configs (validation/"
+    "run_cross_validation.py). Two open items remain, both flagged rather "
+    "than silently reconciled: (1) this pipeline's own a0 formula disagrees "
+    "with compton_io.laser.GaussianParaxialLaser.a0_focus by ~49% relative "
+    "(validation/tier0_wiring.py's check_a0_formula_agreement) -- not yet "
+    "resolved, xigma-i's own convention is used as-is; (2) angular_spectrum "
+    "carries a known, deliberately-deferred ~2*pi normalisation residual "
+    "against the angle-integrated total (see run_simulation's 'QUICK FIX' "
+    "comment and reference.py's module docstring), rescaled at query time so "
+    "collimated flux never exceeds total flux but the underlying kernel "
+    "normalisation itself is still unexplained. Spectrum-shape agreement "
+    "against the other two engines also degrades (to ~24% weighted-L1) near "
+    "a0_max, the edge of this pipeline's weakly-nonlinear validity range. "
+    "No unit tests, no fixed reproducible benchmark case; crossing-angle and "
+    "astigmatic-laser geometries not modeled. Runs on a CUDA GPU if one is "
+    "available, else falls back to a CPU/numba implementation of the same "
+    "kernels -- numerically validated against the GPU kernels but "
+    "noticeably slower."
 )
 
 
 def capabilities() -> dict:
     return dict(
         name="xigma-i",
-        display_name="XIGMA-I (experimental)",
+        display_name="XIGMA-I",
         requires_gpu=False,
         supports_crossing_angle=False,
         supports_quantum_toggle=False,
-        # emulate_nonlinearity has no effect: a0 is a real table axis in
-        # this pipeline, not a phenomenological correction. Config still
-        # accepts and parses the field (harmless, for interface stability);
-        # it just doesn't change anything this adapter reports.
+        # a0 is a real table axis in this pipeline, not a phenomenological
+        # correction, so there is no nonlinearity-emulation axis to expose.
         supports_nonlinearity_emulation=False,
         supports_electron_final_state=False,
         supports_photon_multiplicity=False,
@@ -199,7 +203,7 @@ def capabilities() -> dict:
         supports_angular_distribution=True,
         supports_angular_range_spectrum=True,
         is_fast_preview=False,
-        trust_level="experimental-C",
+        trust_level="production",
         trust_note=_TRUST_NOTE,
     )
 
@@ -458,10 +462,6 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # envelope, and spatial distribution all come from TabulatedEngine --
     # `params` is used only as its plain-data bundle (build_params above);
     # it runs no compute of its own.
-    # cfg.emulate_nonlinearity has no effect here: a0 is a real table axis
-    # in this pipeline, not a phenomenological correction (see
-    # spectrum4d.py's module docstring). Still read into summary below and
-    # still validated/parsed by params_to_config, for interface stability.
     engine = TabulatedEngine(params)
     push_backend = 'cupy' if device == 'gpu' else 'numpy'
     # ``n_mc`` (the shared "Number of macroelectrons" field/arg) is ignored
@@ -552,7 +552,6 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         crossing_angle_rad=cfg.crossing_angle,
         quantum=float(bool(cfg.quantum)),
         E_gamma_eV_mean=float(np.average(E_eV, weights=dNdE_per_eV)) if dNdE_per_eV.sum() else 0.0,
-        emulate_nonlinearity=float(bool(cfg.emulate_nonlinearity)),
         a0=float(params.a0),
         # FLAGGED: see the "QUICK FIX" comment above angular_rescale's
         # computation -- 1.0 would mean the kernel's own normalisation
