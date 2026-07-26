@@ -43,6 +43,13 @@
   "41": "Compton-GUIde",
   "42": "New GUI observables: status per model",
   "43": "KASCADE",
+  "44": "kascade_adapter.py",
+  "45": "compton_io",
   "46": "opencode.json",
-  "50": "graphify.js"
+  "47": "beam_from_shared_fields",
+  "48": "capabilities",
+  "49": "capabilities",
+  "50": "graphify.js",
+  "51": "tasks.md",
+  "52": "GUIde/tasks.md"
 }
