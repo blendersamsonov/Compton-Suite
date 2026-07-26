@@ -276,7 +276,17 @@ class DirectResults:
 
 
 def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
-                   electrons: MacroBunch | None = None) -> DirectResults:
+                   *, electrons: MacroBunch) -> DirectResults:
+    """``electrons`` is required: electron sampling is the caller's job,
+    not this adapter's -- it used to fall back to its own internal
+    ``particles.sample_bunch(compton, cfg.n_particles_01, ...)`` draw when
+    ``electrons`` was ``None``; that fallback was removed so there's
+    exactly one place electrons get drawn from a beam description
+    (``compton_io.bunch.sample_gaussian_bunch``), not one per model. The
+    caller is expected to size its sample to ``cfg.n_particles_01``
+    particles, mirroring xigma-i's own convention (``compton_guide.
+    app.py``'s ``on_start()`` and ``ComptonSuite/validation/runners.py``
+    both already do this)."""
     if cfg.crossing_angle != 0.0:
         raise ValueError(
             f"xigma-i-direct: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
@@ -287,8 +297,12 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     device = _detect_device()
     compton = Compton(device=device)
 
-    rng = np.random.default_rng(seed)
-
+    # ``seed`` is no longer used here -- it used to feed the internal
+    # particles.sample_bunch(..., rng=...) draw this function made when
+    # ``electrons`` was optional; now that electron sampling is the
+    # caller's job (see this function's docstring), there's no RNG left
+    # for this function to own. Kept in the signature for ModelAdapter
+    # interface compatibility.
     compton.set_electron_parameters(
         chargeNC=cfg.N_e * _ELEMENTARY_CHARGE_C * 1e9,
         emit_x=cfg.emit_x * _M_TO_CM, emit_y=cfg.emit_y * _M_TO_CM,
@@ -303,12 +317,8 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
 
     gamma_0, sigma_gamma_0 = cfg.eps0, cfg.sigma_eps
 
-    if electrons is not None:
-        bunch = particles.bunch_from_macrobunch(electrons, compton)
-        n_particles_new = bunch.n_particles
-    else:
-        n_particles_new = int(cfg.n_particles_01)
-        bunch = particles.sample_bunch(compton, n_particles_new, gamma_0, sigma_gamma_0, rng=rng)
+    bunch = particles.bunch_from_macrobunch(electrons, compton)
+    n_particles_new = bunch.n_particles
 
     push_backend = 'cupy' if device == 'gpu' else 'numpy'
     n_time_bins, n_spatial_bins = 128, (64, 64)
@@ -487,7 +497,7 @@ class XigmaDirectAdapter:
     def params_to_config(self, fields: dict, quantum: bool = False):
         return params_to_config(fields, quantum)
 
-    def run(self, cfg: DirectConfig, n_mc: int, seed: int, electrons: MacroBunch | None = None):
+    def run(self, cfg: DirectConfig, n_mc: int, seed: int, *, electrons: MacroBunch):
         res = run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=electrons)
         self._last_results = res
         return res
