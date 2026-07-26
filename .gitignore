@@ -1,19 +1,16 @@
-# Sibling repos: each is its own independent git repository, not part of
-# this one. Excluded explicitly so a plain `git add -A` here can never
-# accidentally stage them as gitlinks or otherwise get tangled with their
-# own history.
-/GUIde/
-/IO/
-/Kaskade/
-/Xigma/
-/XigmaDirect/
-
 __pycache__/
 *.pyc
 *.egg-info/
 .venv/
 build/
 dist/
+.pytest_cache/
+.DS_Store
+
+# Claude Code session/tool state (settings, worktree admin, knowledge-graph
+# cache) -- not source, regenerate/reconfigure locally as needed.
+.claude/
+graphify-out/
 
 # kascade.run_simulation's internal "final distribution" write lands here
 # when run from this directory (e.g. via validation/*.py) -- a run
