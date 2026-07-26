@@ -333,6 +333,28 @@ instead of always auto-detecting. Same applies to `xigma_direct`'s
    `validation/scenarios.py`/`validation/runners.py` if it should
    participate in the cross-model validation suite.
 
+### 8. Extract model-agnostic simulation core to `compton_suite.core`
+
+**Planned** — see `docs/refactor/core-simulation-api.md` for full design.
+
+Move the `ModelAdapter` protocol and simulation entry point out of the GUI into a reusable `compton_suite.core` package:
+
+- New `core/protocol.py` — `ModelProtocol`, `ModelCapabilities`, `ModelParameter` (no GUI deps)
+- New `core/collision.py` — `CollisionParams` (SI pint quantities only; models convert to CGS internally)
+- New `core/simulation.py` — `run_simulation(SimulationConfig) → SimulationResult`
+- New `core/adapters/` — 4 adapters moved from `models/*/gui_adapter.py` (renamed `*_adapter.py`)
+- GUI (`gui/app.py`) becomes thin consumer using `core.*` only; `gui/model_api.py` and `gui/adapters/` deleted
+- Validation suite updated to use `core.run_simulation`
+- `xigma_i.config.build_params` removed (moved to `core.collision.build_collision_params`)
+
+This enables programmatic use without GUI:
+```python
+from compton_suite.core import run_simulation, SimulationConfig
+result = run_simulation(SimulationConfig(model_name="xigma", beam=beam, laser=laser, ...))
+```
+
+---
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
