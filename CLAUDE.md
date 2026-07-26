@@ -166,6 +166,162 @@ python3 validation/run_cross_validation.py
   trajectory-averaging, the `1/(1+a0)` Jacobian, shared-memory aliasing,
   etc.) -- read before touching `models/xigma/src/xigma_i`.
 
+## Roadmap: follow-up work
+
+Not urgent, not blocking anything — pick any one of these independently.
+Each has enough pointers to start without re-deriving context.
+
+### 1. Dead-code / unused-config sweep
+
+Run a fresh sweep (grep for unused imports/fields, or a tool like
+`vulture`) across `models/*/` and `IO/` — the last one was done manually
+during the 2026-07-26 repo-merge session and wasn't exhaustive. Known
+candidates already flagged but not removed (verify each is still true
+before touching):
+- `models/xigma/src/xigma_i/gui_adapter.py`'s `Config.emulate_nonlinearity`
+  and `Config.quantum` fields are accepted for interface-symmetry-with-
+  kascade reasons but have zero effect (documented in `models/xigma/CLAUDE.md`'s
+  "Traps"). Worth a real decision: keep as permanent no-ops, or drop them
+  and let `params_to_config` reject/ignore those GUI fields instead.
+- `models/xigma/src/xigma_i/params/spec.py`'s `XIGMA_SPEC`/
+  `XIGMA_DIAGNOSTIC_SPEC` are still not wired into `params_to_config` (see
+  item 5 below) -- either finish that wiring or reconsider whether the
+  spec module pays for itself while unused.
+
+### 2. Move `CollisionParams`/`build_params` into `compton_io`
+
+Flagged in `models/xigma/src/xigma_i/config.py`'s own module docstring.
+`build_params`'s electron-side derivation (`beta_x`/`beta_y`/`sigma_thx`/
+`sigma_thy`) is arithmetically identical to `compton_io.bunch.
+GaussianElectronBeam.beta_star_x_m`/`beta_star_y_m`/`divergence_x_rad`/
+`divergence_y_rad` (just needs `* 100` for CGS) -- and the function's
+overall shape (SI beam/laser/geometry -> a CGS scalar bundle a GPU/CPU
+kernel needs) has nothing xigma-specific about it except:
+- the `a0` formula, which has its own already-flagged, unresolved ~49%
+  discrepancy against `GaussianParaxialLaser.a0_focus` (`validation/
+  tier0_wiring.py`'s `check_a0_formula_agreement`, `FORMULA_TOL`). Don't
+  silently pick a side when moving this -- either resolve the physics
+  discrepancy first (a real investigation, not a refactor), or move the
+  function with the discrepancy intact and clearly documented as "xigma's
+  own convention, not yet reconciled with compton_io.laser's".
+- `beta_ff`/`ellipticity`, xigma-only laser extras with no shared-
+  representation analogue (`compton_io.laser`'s own module docstring
+  explains why they're excluded from `GaussianParaxialLaser`).
+
+Once moved, `models/kaskade/kascade.py`'s own `Config.__post_init__`
+(which derives `beta_x`/`beta_y` with the exact same formula, independently)
+becomes a second consumer worth pointing at the shared helper too --
+that's the actual payoff, not just tidiness in one model.
+
+### 3. GUI: reconsider "experimental" trust levels/warnings
+
+`GUIde/src/compton_guide/app.py` (~line 347) renders
+`ModelCapabilities.trust_level`/`trust_note` as a status line, colored
+red unless `trust_level == "production"`. `xigma-i`
+(`display_name="XIGMA-I (experimental)"`) and `xigma-i-direct`
+(`"XIGMA-I Direct (brute-force binning, experimental)"`) are both still
+marked experimental in their `capabilities()` (`models/xigma/src/xigma_i/
+gui_adapter.py`, `models/xigma_direct/src/xigma_direct/gui_adapter.py`).
+Given the cross-validation suite now shows kascade/xigma-i/xigma-i-direct
+agreeing to <1% on total_yield and comparable agreement on spectrum shape
+(see `validation/run_cross_validation.py`'s output), it may be time to
+graduate one or both to a less scary `trust_level`/`trust_note` -- or, if
+not, tighten the `trust_note` text to say specifically what's still
+unresolved (the `~2*pi` angular-spectrum residual and the a0-formula
+discrepancy above are the two concrete open items, not "experimental" in
+general).
+
+### 4. GUI: per-model sample count instead of a misleading global field
+
+`app.py`'s shared "Number of macroelectrons" field (`n_mc`, ~line 534) is
+silently ignored by xigma-i/xigma-i-direct, which size Stage 0/1 from
+their own `extra_params()` field (`n_particles_01`) instead --
+`params_to_config` already raises a warning about this (see `models/xigma/
+CLAUDE.md`'s "GUI integration"), but the GUI still shows the shared field
+as if it mattered for every model, which is exactly the kind of "annoying"
+inconsistency worth fixing properly: either grey out/hide "Number of
+macroelectrons" when the active model doesn't use it (`ModelCapabilities`
+would need a new flag, e.g. `uses_shared_sample_count`), or fold sample
+count into each model's own `extra_params()` uniformly and remove the
+shared field entirely, so there's one obvious place per model to control
+"how many particles", not a shared field that's a no-op half the time.
+
+### 5. Unify the `ModelAdapter` interface properly
+
+The protocol (`GUIde/src/compton_guide/model_api.py`) is already shared,
+but per-model wiring is still inconsistent in ways worth finishing, not
+just documenting as "not yet done":
+- `params_to_config` still does FWHM/waist/duration arithmetic by hand in
+  both `kascade_adapter.py` and `xigma_i/gui_adapter.py`, instead of going
+  through `compton_io`'s canonical-conversion framework
+  (`adapt_to_model`/`ModelSpec`) that `xigma_i.params.XIGMA_SPEC` already
+  declares but doesn't use (see item 1). `GUIde/scripts/
+  physics_params_demo.py` already demonstrates what the wired-up version
+  would look like end to end.
+- `kascade` has no `ModelSpec`/`ParameterSpec` schema at all (unlike
+  `xigma_i.params`) -- `GUIde/src/compton_guide/physics_params/schemas/
+  kascade.py`'s `KASCADE_SPEC` is GUI-owned, not model-owned, which is the
+  same asymmetry `compton_io.results`/`compton_io.photons` already fixed
+  for results -- move it into `models/kaskade/` for real model-contract
+  ownership.
+- `extra_params()` only supports numeric fields (`list[tuple[str, float,
+  str]]`) -- item 6 below needs a choice/enum-typed field, which doesn't
+  fit this shape yet and would need a small protocol extension (or a
+  separate `extra_choices()` method) rather than overloading a float.
+
+### 6. Manual CPU/GPU selection for xigma-i
+
+**As a library**: already possible -- `xigma_i.config.build_params(...,
+device="cpu"|"gpu")` and `TabulatedEngine` take an explicit device, no
+code changes needed; `_detect_device()` is only the *default* when
+`device=None`.
+
+**In the GUI**: not wired up at all. `models/xigma/src/xigma_i/
+gui_adapter.py`'s `run_simulation` always calls `_detect_device()`
+unconditionally (~line 437), ignoring any user preference, and there's no
+GUI control for it. To fix: add a device choice somewhere in `Config`
+(e.g. `device_preference: str = "auto"`), surface it via a GUI control
+(needs the `extra_params()` extension from item 5, since this is a
+string/enum choice, not a float), and pass it through to `build_params`
+instead of always auto-detecting. Same applies to `xigma_direct`'s
+`gui_adapter.py`, which has the identical `_detect_device()` call.
+
+### 7. How to add a new model
+
+1. Create `models/<name>/` with its own `pyproject.toml` (see
+   `models/kaskade/pyproject.toml` for a flat single-module package, or
+   `models/xigma/pyproject.toml` for a `src/` layout) and add it to the
+   dev-install command in this file's "Dev install" section.
+2. Implement the `ModelAdapter` protocol (`GUIde/src/compton_guide/
+   model_api.py`): `capabilities()`, `available()`, `extra_params()`,
+   `params_to_config(fields, quantum)`, `run(cfg, n_mc, seed, *,
+   electrons: MacroBunch) -> CommonResults`, `load_ele_file`,
+   `ele_file_summary`, `spectrum_in_angular_range`. Either as a module of
+   free functions (xigma_i's style: `gui_adapter.py` has module-level
+   functions plus a thin `XigmaAdapter` class delegating to them) or a
+   single class (kascade's `KascadeAdapter` style) -- both work, `models/
+   xigma_direct/` and `models/xigma/` use the module-functions style,
+   `GUIde/src/compton_guide/adapters/kascade_adapter.py` uses the class
+   style directly.
+3. **Follow this session's architecture rules** (see "No model-local
+   physics-parameter configs..." above): build electron/laser objects via
+   `compton_io.bunch.beam_from_shared_fields`/`compton_io.laser.
+   laser_from_shared_fields`, never sample particles yourself (require
+   `electrons: MacroBunch` in `run()`, no internal fallback), construct
+   `compton_io.results.CommonResults` directly (don't define a local
+   lookalike), and keep only genuinely model-specific numerics (grid
+   sizes, step counts, ...) on your own `Config`.
+4. Register in `GUIde/src/compton_guide/models.py`'s `discover_models()`:
+   `try: from <name>_pkg import gui_adapter as _x; register("<name>",
+   _x.SomeAdapter()) except Exception as e: register("<name>",
+   UnavailableAdapter(...))` -- wrap in try/except so a missing optional
+   dependency (e.g. no GPU) greys the model out instead of crashing GUI
+   startup, matching every existing model.
+5. Extend `GUIde/scripts/headless_test.py`'s model loop to exercise the
+   new adapter, and add a `build_<name>_config`/`run_<name>` pair to
+   `validation/scenarios.py`/`validation/runners.py` if it should
+   participate in the cross-model validation suite.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
