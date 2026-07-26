@@ -136,7 +136,7 @@ BASELINE = _baseline()
 # Same beam, scaled laser pulse energy -- a0 scales ~linearly with
 # pulse_energy_J (N_l), so this is the simplest lever to move the
 # scenario's regime while holding the electron bunch fixed. Calibrated
-# empirically against xigma_i.config.build_params's own a0 (the value the
+# empirically against compton_io.collision.build_params's own a0 (the value the
 # engines actually use, not compton_io's independent formula -- see
 # tier0_wiring.py's flagged a0-formula discrepancy): baseline itself sits
 # at a0~0.093; LOW_A0 at ~0.009 (deep in the classical linear regime,
@@ -204,18 +204,18 @@ def build_analytical_config(scenario: Scenario):
 
 
 def build_params_for_xigma(cfg, device: str | None = None):
-    """A xigma_i.config.CollisionParams instance from an xigma_i/
+    """A compton_io.collision.CollisionParams instance from an xigma_i/
     xigma_direct Config -- exactly the beam/laser/geometry ->
     build_params() call xigma_i.gui_adapter.run_simulation itself makes
     (SI -> CGS at this boundary), so Tier 0/1 can read params.a0/.N_l/.N_e
     the same way the real run does, not a reimplementation that could
     silently drift out of sync."""
-    from xigma_i.config import build_params, _detect_device
     from compton_io.bunch import beam_from_shared_fields
+    from compton_io.collision import build_params, detect_device
     from compton_io.interaction import InteractionGeometry
     from compton_io.laser import laser_from_shared_fields
 
-    device = device or _detect_device()
+    device = device or detect_device()
     beam = beam_from_shared_fields(
         eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
         emit_x=cfg.emit_x, emit_y=cfg.emit_y,

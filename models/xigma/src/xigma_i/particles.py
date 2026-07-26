@@ -175,7 +175,7 @@ def push_and_sample(params, macrobunch, n_steps=200, backend='numpy', *,
                      n_spatial_bins=None, spatial_edges=None):
     """Ballistically push each macroparticle and emit one sample per particle.
 
-    params: a ``xigma_i.config.CollisionParams`` (see ``build_params``).
+    params: a ``compton_io.collision.CollisionParams`` (see ``build_params``).
     macrobunch: a ``compton_io.bunch.MacroBunch`` (SI) -- electron sampling
         is the caller's job (``compton_io.bunch.sample_gaussian_bunch``),
         not this pipeline's; converted to this pipeline's own CGS/

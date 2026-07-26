@@ -9,14 +9,13 @@ description = "Compton radiation source simulation tools"
 authors = [{name = "Alexander Samsonov", email = "asams@ipfran.ru"}]
 dependencies = [
     "numpy>=2.3",
-    "scipy>=1.11",
     "pint>=0.24"
 ]
 requires-python = ">=3.14"
 
 # cupy (GPU backend) and numba (CPU fallback backend) are both optional at
 # the package level -- the pipeline auto-detects which is available and
-# usable at runtime (see xigma_i.config._detect_device), so a machine only
+# usable at runtime (see compton_io.collision.detect_device), so a machine only
 # needs one of the two installed, not both. Install with
 # `pip install xigma-i[gpu]` on a CUDA machine, `xigma-i[cpu]` otherwise,
 # or both to allow either.

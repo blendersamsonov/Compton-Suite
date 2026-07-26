@@ -4,21 +4,22 @@ Monte Carlo, no GPU. Feeds ``analytical_adapter.py``'s always-on GUI
 preview, and is directly importable by any other model for its own quick
 sanity check.
 
-``estimate_yield``/``estimate_spectrum_width`` are promoted (re-
-parametrized off ``compton_io.bunch.GaussianElectronBeam``/
+``estimate_yield``/``estimate_spectrum_width`` were originally ported
+(re-parametrized off ``compton_io.bunch.GaussianElectronBeam``/
 ``compton_io.laser.GaussianParaxialLaser`` instead of a CGS
 ``CollisionParams`` instance -- SI throughout, otherwise unchanged) from
 ``xigma_i.config.CollisionParams.estimate_yield``/``estimate_spectrum_width``,
 already documented there as "cheap analytic estimate, for sanity-checking
 ... not used by the real computation" -- i.e. already exactly this role.
-``angle_integrated_spectrum`` is promoted verbatim (needs only per-particle
-``gamma``/``weight`` arrays and an ``s`` grid, no table, no collision
-config) from ``xigma_i.reference.angle_integrated_spectrum``, numpy-only here
-(the cupy dispatch that module supports isn't needed for a fast preview
-model). ``xigma_i.config``/``reference.py`` keep thin re-export wrappers
-delegating here, so xigma_i's own validation scripts keep working
-unmodified (same "promote to a shared package, re-export from the
-original location" pattern already used for physical constants).
+That xigma_i pair has since been deleted outright (dead code, no other
+caller) rather than kept as a re-export wrapper -- this module is now the
+only implementation. ``angle_integrated_spectrum`` is an independent,
+numpy-only copy of the same formula as ``xigma_i.spectrum_from_particles.
+angle_integrated_spectrum`` (needs only per-particle ``gamma``/``weight``
+arrays and an ``s`` grid, no table, no collision config) -- kept
+independent rather than imported, since that xigma_i module is
+production code for a different model with its own (optional cupy)
+dispatch this fast-preview model doesn't need.
 
 LINEAR POLARIZATION ONLY, same caveat as ``compton_io.laser.GaussianParaxialLaser
 .a0_at()`` -- these formulas use ``pulse.a0_interaction``, so they inherit

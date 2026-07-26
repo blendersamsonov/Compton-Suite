@@ -1,6 +1,6 @@
 """xigma-i-direct: brute-force per-macroparticle resonance-binning model.
 
-Extracted from ``xigma_i.reference.direct_binning_spectrum`` -- no table,
+Extracted from ``xigma_i.spectrum_from_particles.direct_binning_spectrum`` -- no table,
 no importance sampling, "assumption-free on both the deposition and the
 lookup" (that function's own docstring). Reuses ``xigma_i``'s Stage 0
 physics (``particles.push_and_sample``) directly as a library dependency,

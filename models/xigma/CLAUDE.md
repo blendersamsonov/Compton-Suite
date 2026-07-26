@@ -21,28 +21,29 @@ analytically to a 4D overlap table (`H`) plus a 3D quadrature
 
 Stage 0 (particle source + ballistic pusher) and Stage 1 (nearest + CIC
 deposition, CPU and GPU) are done. Stage 2 (`spectrum_kernel_4d`) is done
-and its `coef` normalisation (see `reference.py` below) is validated: at a
-typical bunch config (validated via an ad hoc comparison run; see
-`reference.py`'s module docstring for the comparison method -- the
-standalone script this was originally run through has since been removed
-as part of making models pure libraries, so this is a historical result,
-not currently a one-command rerun), all
-three of `spectrum_from_table`/`direct_binning_spectrum`/
-`spectrum_kernel_4d` agree within ~15% (clustered around a still-open,
-deliberately-deferred `~2*pi` residual against `angle_integrated_spectrum`
--- see `reference.py`'s module docstring). `spectrum_kernel_4d` has a
-CPU/numba fallback (`spectrum4d_cpu.py`), validated against the real GPU
-kernel (see "Architecture" below). The GUI integration (`gui_adapter.py`)
-is fully wired onto this pipeline -- total yield, angle-integrated
-spectrum, angular spectrum, temporal envelope, and spatial distribution
-all come from it; nothing in this repo runs any other compute path.
+and its `coef` normalisation is validated: at a typical bunch config
+(validated via an ad hoc comparison run -- the standalone script this was
+originally run through has since been removed as part of making models
+pure libraries, so this is a historical result, not currently a
+one-command rerun), all three of `reference.spectrum_from_table`/
+`spectrum_from_particles.direct_binning_spectrum`/`spectrum_kernel_4d`
+agree within ~15% (clustered around a still-open, deliberately-deferred
+`~2*pi` residual against `spectrum_from_particles.angle_integrated_
+spectrum` -- see that module's `direct_binning_spectrum` docstring).
+`spectrum_kernel_4d` has a CPU/numba fallback (`spectrum4d_cpu.py`),
+validated against the real GPU kernel (see "Architecture" below). The GUI
+integration (`gui_adapter.py`) is fully wired onto this pipeline -- total
+yield, angle-integrated spectrum, angular spectrum, temporal envelope, and
+spatial distribution all come from it; nothing in this repo runs any other
+compute path.
 
 One open caveat: in narrow-angle/sparse-table configs, `spectrum_kernel_4d`
 alone shows large, unstable variance (overshoots the other two reference
 paths by anywhere from ~3x to >30x depending on particle count/table
 resolution, sometimes with huge run-to-run std), while
-`spectrum_from_table`/`direct_binning_spectrum` still agree tightly with
-each other in the same configs. Reads as heavy-tailed importance-sampling
+`reference.spectrum_from_table`/`spectrum_from_particles.direct_binning_
+spectrum` still agree tightly with each other in the same configs. Reads
+as heavy-tailed importance-sampling
 noise from sparse/zero `H` cells in the kernel's own quadrature (see
 "Table too sparse" trap), not a normalisation error -- flagged, not
 chased further.
@@ -108,7 +109,7 @@ integral[a0_local(t)^2] dt` (Paper/xigma.tex eq. "ahattraj"), where
 *instantaneous* local field amplitude computed internally at each
 timestep, and `TrXi/2 = (1 + params.ellipticity**2) / 2` (eq. "Xi";
 `ellipticity=0` linear, `+-1` circular -- `CollisionParams.ellipticity`,
-set via `config.build_params`). This is a genuine, previously-made mistake, not a
+set via `compton_io.collision.build_params`). This is a genuine, previously-made mistake, not a
 hypothetical one: an earlier version of this code deposited `a0_local(t)`
 itself into `H` once per timestep, i.e. treated `a0` the same way as
 `gamma`/`theta_x`/`theta_y` -- one distribution smeared over each
@@ -208,7 +209,9 @@ the module's own docstring for the full per-block algorithm. `coef = 1.5`,
 a pure numerical constant from eq. "main"/"Fmatrix" in the accompanying
 paper. `calculate_angular_spectrum_4d(table, s, theta_x, theta_y, phi_pol,
 samples_per_point=, device=None)` is the host driver; `device=None|'cpu'|
-'gpu'` auto-detects via `config._detect_device()`; callers pass
+'gpu'` auto-detects via `compton_io.collision.detect_device()` (re-exported
+as `config._detect_device` for this package's own internal callers);
+callers pass
 `theta_x`/`theta_y`/`s` as `cp`/`np` arrays matching the chosen device
 (caller converts via `xp.asarray`, not the function itself -- see
 `gui_adapter.py`'s calls for the pattern).
@@ -239,87 +242,110 @@ documented above for `spectrum_kernel_4d` vs `spectrum_from_table` (the
 GPU kernel's own known importance-sampling noise, not something the CPU
 port adds).
 
-### Validation tools -- `reference.py`
+### Production table-free spectrum paths -- `spectrum_from_particles.py`
 
-Three independent, non-GPU-kernel ways to compute a spectrum from Stage
-0/1 output, used to validate Stage 2 without trusting it:
+Two functions computed directly from Stage 0/1 macroparticles -- no `H`
+table, no GPU kernel, no importance sampling -- that are **load-bearing
+production code**, not validation tooling (moved out of `reference.py`,
+see that module's own docstring for why):
 
 - `angle_integrated_spectrum(gamma, particle_weight, s)`: dN/ds integrated
   over all emission solid angle, from the standard angle-independent
-  Compton edge shape alone (no table, no coef, no theta quadrature).
-- `spectrum_from_table(table, x0, y0, s, phi_pol)`: brute-force grid
-  quadrature over `H`, no importance sampling. `coef = 1.5`, the same
-  pure numerical constant as `spectrum_kernel_4d`'s. `compton` is not
-  part of this function's signature (it was only ever needed for
-  `compton.Wph`). **Validated** by grid-integrated cross-check against
-  `direct_binning_spectrum` (agrees to <5% for a typical bunch).
+  Compton edge shape alone (no table, no coef, no theta quadrature). This
+  is `TabulatedEngine.spectrum(s)`'s actual implementation for `xigma-i`.
 - `direct_binning_spectrum(gamma, theta_x, theta_y, particle_weight, a0,
   x0, y0, s_edges, phi_pol)`: per-real-macroparticle resonance binning, no
   table, no quadrature at all. Uses the single-electron prefactor from eq.
   "xsec" (`g**2`, not the ensemble-collapsed `g**5` of eq. "Fmatrix"),
   pure numerical coefficient `3` (no `Wph`/`pi**4`), no extra `1/s**2` --
-  see `reference.py`'s module docstring for the full derivation. Intended
-  as the assumption-free correctness test for correlated bunches and a
-  permanent debug tool. A small, deliberately-deferred `~2*pi` residual
-  remains against `angle_integrated_spectrum` in grid-integrated
-  comparisons.
+  see this function's own docstring for the full derivation. This is
+  `xigma-i-direct`'s actual total_yield/spectrum/angular_spectrum
+  implementation (`models/xigma_direct`). A small, deliberately-deferred
+  `~2*pi` residual remains against `angle_integrated_spectrum` in
+  grid-integrated comparisons.
+
+### Validation tool -- `reference.py`
+
+`spectrum_from_table(table, x0, y0, s, phi_pol)`: brute-force grid
+quadrature over `H`, no importance sampling. `coef = 1.5`, the same pure
+numerical constant as `spectrum_kernel_4d`'s. `compton` is not part of
+this function's signature (it was only ever needed for `compton.Wph`).
+**Validated** by grid-integrated cross-check against
+`spectrum_from_particles.direct_binning_spectrum` (agrees to <5% for a
+typical bunch). **Not production code and not imported by any production
+adapter** -- genuinely validation-only, kept for ad hoc Stage 2
+cross-checks. This module (along with `interp4d`/`_interp4d`, its
+supporting quadrilinear-interpolation helpers) is expected to eventually
+leave this repo entirely, folded into a standalone cross-validation
+project -- kept here for now, still needed.
 
 ### Shared config -- `config.py`
 
-Physical constants (`hbar`, `me`, `c`, `el`, `elC`, `rel`, `sigma_T`,
-`alpha`, `PHI`) -- `hbar`/`me`/`c`/`el`/`elC` come from
-`compton_io.constants` (see "Parameter semantics & units" below), not
-local literals; `rel`/`sigma_T`/`alpha` are still derived locally from
-those via this module's own CGS formulas, and `PHI` (golden ratio,
-unrelated to physics) stays local. The GPU kernel sizing constants
-`spectrum_kernel_4d` needs
-(`X_THREADS`, `MAX_RINGS`, `MAX_ARCS`, `PHI_EDGES`, `CDF_PHI_RESOLUTION`,
-...; see "Sizing constants" in Conventions), `_detect_device()`, and the
-`CollisionParams` dataclass + `build_params()` builder.
+Physical constants (`me`, `c`, `el`, `rel`, `sigma_T`, `PHI`) -- `me`/`c`/
+`el` come from `compton_io.constants` (see "Parameter semantics & units"
+below), not local literals; `rel`/`sigma_T` are still derived locally from
+those via this module's own CGS formula (`sigma_T`, the Thomson cross
+section, is the only thing left that still needs a local CGS derivation --
+everything else that used to live here moved out, see below), and `PHI`
+(golden ratio, unrelated to physics) stays local. The GPU kernel sizing
+constants `spectrum_kernel_4d` needs (`X_THREADS`, `MAX_RINGS`,
+`MAX_ARCS`, `PHI_EDGES`, `CDF_PHI_RESOLUTION`, ...; see "Sizing constants"
+in Conventions) also live here, plus `_detect_device` -- a thin re-export
+of `compton_io.collision.detect_device` kept so this package's own
+internal callers (`spectrum4d.py`, `gui_adapter.py`) don't need to change
+their import path.
 
-This package holds no persistent, stateful "interaction" object.
-`CollisionParams` is a plain, immutable (frozen) dataclass holding a
-laser-electron collision's physical parameters (`k0_las`, `Wph`, `a0`,
-`N_e`, `N_l`, `sigma_thx`/`sigma_thy`, ...); it runs no computation itself
-beyond two cheap sanity-check estimates -- `particles.push_and_sample`
-takes an instance of it purely as its parameter source.
-`build_params(beam, laser, geometry=None, *, beta_ff=0.0, ellipticity=0.0,
-device=None)` is the *only* way to construct one: a pure function taking
-`compton_io.bunch.GaussianElectronBeam`/`compton_io.laser.
-GaussianParaxialLaser`/`compton_io.interaction.InteractionGeometry`
-directly (SI) and deriving this pipeline's CGS scalars in one call --
-there is no `set_*`-mutated builder object to accumulate state across
-several calls. `device=None` auto-detects a backend via `_detect_device()`:
-a real CUDA GPU via cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else
-CPU (requires `numba`), else raises -- there is no third backend. `.xp`
-(`cp` or `np`) and `.asnumpy(x)` (`.get()` on GPU, no-op on CPU) are a thin
-convenience for host orchestration code (`gui_adapter.py`) that builds
-arrays on the chosen device and needs to bring results back to host
-afterwards. `estimate_yield`/`estimate_spectrum_width` are cheap analytic
-sanity-check estimates, not used by the real computation.
+**`CollisionParams`/`build_params` moved to `compton_io.collision`** (this
+package was their only consumer, but the pipeline's CGS/`k0_las`
+convention has nothing xigma-specific about it beyond the `a0` formula --
+see that module's own docstring). `CollisionParams` is a plain, immutable
+(frozen) dataclass holding a laser-electron collision's physical
+parameters (`k0_las`, `Wph`, `a0`, `N_e`, `N_l`, `sigma_thx`/`sigma_thy`,
+`beta_ff`/`ellipticity`, ...); it runs no computation of its own.
+`compton_io.collision.build_params(beam, laser, geometry=None, *,
+beta_ff=0.0, ellipticity=0.0, device=None)` is the *only* way to construct
+one: a pure function taking `compton_io.bunch.GaussianElectronBeam`/
+`compton_io.laser.GaussianParaxialLaser`/`compton_io.interaction.
+InteractionGeometry` directly (SI) and deriving this convention's CGS
+scalars in one call -- there is no `set_*`-mutated builder object to
+accumulate state across several calls. `device=None` auto-detects a
+backend via `compton_io.collision.detect_device()`: a real CUDA GPU via
+cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else CPU (requires
+`numba`), else raises -- there is no third backend. `.xp` (`cp` or `np`)
+and `.asnumpy(x)` (`.get()` on GPU, no-op on CPU) are a thin convenience
+for host orchestration code (`gui_adapter.py`) that builds arrays on the
+chosen device and needs to bring results back to host afterwards. The
+`estimate_yield`/`estimate_spectrum_width` cheap-analytic-estimate methods
+that used to live on `CollisionParams` were removed entirely (dead code --
+never used by the real computation, and `models/analytical/analytical.py`
+already has its own independent, SI-based reimplementation of the same
+estimates for the GUI's always-on preview).
+
+`particles.push_and_sample` takes a `compton_io.collision.CollisionParams`
+instance as its parameter source, same as before the move.
 
 ### GUI-facing engine -- `tabulated_engine.py`
 
-`TabulatedEngine` wraps a `config.CollisionParams` instance purely for its
-plain-data properties and drives Stages 0/1/2 for one collision config:
-`.run(n_steps=, n_bins=, scheme=, backend=, a0_max=0.5, n_time_bins=,
-n_spatial_bins=, bunch=)` (`bunch`, a `compton_io.bunch.MacroBunch`, is
-required and keyword-only -- electron sampling is the caller's job, not
-this engine's) pushes and samples it (`a0_shape` output), builds an
-`a0_kind='shape'` table, and retargets it to this run's `params.a0` in
-one call, producing a physical, spectrum-ready table.
+`TabulatedEngine` wraps a `compton_io.collision.CollisionParams` instance
+purely for its plain-data properties and drives Stages 0/1/2 for one
+collision config: `.run(n_steps=, n_bins=, scheme=, backend=, a0_max=0.5,
+n_time_bins=, n_spatial_bins=, bunch=)` (`bunch`, a `compton_io.bunch.
+MacroBunch`, is required and keyword-only -- electron sampling is the
+caller's job, not this engine's) pushes and samples it (`a0_shape`
+output), builds an `a0_kind='shape'` table, and retargets it to this run's
+`params.a0` in one call, producing a physical, spectrum-ready table.
 `.total_yield`/`.spectrum(s)`/`.angular_spectrum(s, theta_x, theta_y,
 phi_pol, device=)`/`.temporal_envelope`/`.spatial_distribution` wrap
-`table.total_weight`/`reference.angle_integrated_spectrum`/
+`table.total_weight`/`spectrum_from_particles.angle_integrated_spectrum`/
 `spectrum4d.calculate_angular_spectrum_4d`/`PushDiagnostics` respectively
 (the angular-spectrum call auto-selects the GPU or CPU kernel unless
 `device` is given explicitly; the temporal/spatial properties are `None`
 unless `.run()` was called with `n_time_bins`/`n_spatial_bins`).
 
-Unit conversion: both `reference.angle_integrated_spectrum` and
-`spectrum4d.calculate_angular_spectrum_4d` return **dN/ds** (dimensionless
-`s`), not dN/dE. `E = 4*Wph*s` converts (`dN/dE_MeV = dN/ds /
-(4*compton.Wph)`) -- getting this backwards silently produces a spectrum
+Unit conversion: both `spectrum_from_particles.angle_integrated_spectrum`
+and `spectrum4d.calculate_angular_spectrum_4d` return **dN/ds**
+(dimensionless `s`), not dN/dE. `E = 4*Wph*s` converts (`dN/dE_MeV = dN/ds
+/ (4*compton.Wph)`) -- getting this backwards silently produces a spectrum
 off by a factor of `s` (~`gamma0**2`, i.e. wrong by many orders of
 magnitude), easy to miss if you're not looking at absolute scale.
 
@@ -371,8 +397,8 @@ and recorded yet. Pattern:
 
     import numpy as np
     from compton_io.bunch import sample_gaussian_bunch
+    from compton_io.collision import build_params
     from xigma_i import particles, deposition, spectrum4d
-    from xigma_i.config import build_params
 
     params = build_params(beam, laser)  # beam: GaussianElectronBeam, laser: GaussianParaxialLaser
     macrobunch = sample_gaussian_bunch(beam, n_particles)
@@ -484,11 +510,11 @@ devices default to float64, see Conventions).
 ## Environment
 
 CuPy with `cupyx.jit` rawkernels for the GPU path; `numba` for the CPU
-fallback (either is sufficient, see `config._detect_device`). `scipy` is
-used on the host for `erfcx`. No build system beyond `pyproject.toml`
-(setuptools), no repo-tracked test suite at present (validation lives in
-ad hoc scripts run against `reference.py`/`deposition.py`'s functions, not
-a `pytest` tree).
+fallback (either is sufficient, see `compton_io.collision.detect_device`).
+No build system beyond `pyproject.toml` (setuptools), no repo-tracked test
+suite at present (validation lives in ad hoc scripts run against
+`reference.py`/`spectrum_from_particles.py`/`deposition.py`'s functions,
+not a `pytest` tree).
 
 A working GPU environment was set up as a conda env (`conda create -n
 xigma python=3.12`, then `pip install numpy scipy pytest cupy-cuda12x

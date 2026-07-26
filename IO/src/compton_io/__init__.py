@@ -44,6 +44,12 @@ each, that every consumer imports directly (never vendors or re-derives):
 7. **External-format I/O** -- ``io_formats/``: ``sdds.py`` (elegant
    ``.ele``), ``yaml_spec.py`` (this package's own ``gaussian_6d_waist``/
    ``gaussian_paraxial`` YAML formats).
+8. **CGS collision-parameters bundle** -- ``collision.py``:
+   ``CollisionParams``/``build_params``, the CGS/``k0_las``-normalised
+   scalar bundle tabulated-overlap-style GPU/CPU pipelines (``xigma_i``,
+   ``xigma_direct``) need, derived from this package's own SI beam/laser/
+   geometry description. Not needed by every model (``kascade`` works
+   directly in SI) -- shared here so it isn't re-derived per pipeline.
 
 Typical use:
 
@@ -62,7 +68,7 @@ Typical use:
 
 """
 
-from . import bunch, constants, interaction, io_formats, laser, photons, propagation, results
+from . import bunch, collision, constants, interaction, io_formats, laser, photons, propagation, results
 from .adapter import adapt_to_model, params_to_floats
 from .canonical import CANONICAL_CONVENTIONS, CANONICAL_UNIT, from_canonical, to_canonical
 from .enums import AmplitudeConvention, PhysicalMeaning, TimeConvention, WidthConvention
@@ -108,6 +114,7 @@ __all__ = [
     "laser",
     "photons",
     "interaction",
+    "collision",
     "propagation",
     "results",
     "io_formats",

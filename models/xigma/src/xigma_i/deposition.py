@@ -595,7 +595,7 @@ def build_table_streaming(params, beam, n_particles, n_steps, *, chunk_particles
     already-materialised sample array). Deriving the grid from the first
     chunk if not supplied, so every chunk deposits into the same fixed grid.
 
-    params: this pipeline's xigma_i.config.CollisionParams (see build_params).
+    params: this pipeline's compton_io.collision.CollisionParams (see build_params).
     beam: a compton_io.bunch.GaussianElectronBeam (SI) describing the
         electron beam to sample -- electron sampling happens here via
         compton_io, not internally to this model (see

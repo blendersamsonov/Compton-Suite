@@ -1,23 +1,27 @@
 """ModelAdapter for the brute-force particle-binning model.
 
-Extracted from ``xigma_i.reference``: reuses ``xigma_i.particles.
-push_and_sample`` (Stage 0 -- the same ballistic trajectory-through-
-laser-pulse push the tabulated ``xigma-i`` model uses)
-and ``xigma_i.reference.direct_binning_spectrum``/``angle_integrated_
-spectrum`` directly, with NO Stage 1 deposition and NO Stage 2 kernel --
-"no table, no importance sampling -- assumption-free on both the
-deposition and the lookup" (direct_binning_spectrum's own docstring).
+Reuses ``xigma_i.particles.push_and_sample`` (Stage 0 -- the same ballistic
+trajectory-through-laser-pulse push the tabulated ``xigma-i`` model uses)
+and ``xigma_i.spectrum_from_particles.direct_binning_spectrum``/
+``angle_integrated_spectrum`` directly, with NO Stage 1 deposition and NO
+Stage 2 kernel -- "no table, no importance sampling -- assumption-free on
+both the deposition and the lookup" (direct_binning_spectrum's own
+docstring). Those two functions are load-bearing production code, not the
+package's validation-only ``reference.py`` (brute-force table quadrature,
+no production caller at all -- see that module's own docstring).
 
-Depends on both ``compton_io`` (bunch/laser representations, and electron
+Depends on both ``compton_io`` (bunch/laser representations, collision
+parameters via ``compton_io.collision.build_params``, and electron
 sampling via ``compton_io.bunch.sample_gaussian_bunch``) and ``xigma_i``
-(Stage 0 push physics) -- not embedded in either. Duck-typed against
-``compton_guide.model_api``, same decoupling discipline every other
-adapter in this suite uses.
+(Stage 0 push physics, spectrum_from_particles) -- not embedded in either.
+Duck-typed against ``compton_guide.model_api``, same decoupling discipline
+every other adapter in this suite uses.
 
-Never imports ``cupy`` unconditionally -- ``xigma_i.config``/``particles``/
-``reference`` are themselves cupy-optional at import time (cupy only
-matters when actually running on ``device='gpu'``), so importing them
-here doesn't force a cupy dependency either.
+Never imports ``cupy`` unconditionally -- ``compton_io.collision``/
+``xigma_i.particles``/``spectrum_from_particles`` are themselves
+cupy-optional at import time (cupy only matters when actually running on
+``device='gpu'``), so importing them here doesn't force a cupy dependency
+either.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from compton_io.bunch import MacroBunch, beta_star_from_sigma_emit, fit_gaussian
+from compton_io.constants import E_CHARGE as _ELEMENTARY_CHARGE_C, M_TO_CM as _M_TO_CM
 from compton_io.io_formats.sdds import load_elegant_ele
 from compton_io.photons import (
     AngularRangeSpectrumResult,
@@ -37,19 +42,16 @@ from compton_io.photons import (
 )
 from compton_io.results import CommonResults
 
-_ELEMENTARY_CHARGE_C = 1.602176634e-19   # [C]
-_M_TO_CM = 1.0e2
-
 _TRUST_NOTE = (
     "Cross-validated against kascade and xigma-i: total_yield agrees to "
     "<1% against both (tightest of the three: ~0.17% vs xigma-i), "
     "angle-integrated spectrum shape near-identical to xigma-i's own "
     "(weighted-L1 ~0.2%) since both share Stage 0 physics (validation/"
     "run_cross_validation.py). Direct per-macroparticle resonance binning "
-    "(xigma_i.reference.direct_binning_spectrum), no table/kernel/"
-    "importance-sampling -- but that function's own angle-integrated total "
-    "is KNOWN to disagree with angle_integrated_spectrum by a consistent, "
-    "unexplained ~2*pi (~6.3x) factor (see xigma_i/reference.py's "
+    "(xigma_i.spectrum_from_particles.direct_binning_spectrum), no table/"
+    "kernel/importance-sampling -- but that function's own angle-integrated "
+    "total is KNOWN to disagree with angle_integrated_spectrum by a "
+    "consistent, unexplained ~2*pi (~6.3x) factor (see that module's "
     "docstring). total_yield/spectrum here come from "
     "angle_integrated_spectrum instead (no known issue), but "
     "angular_spectrum inherits that residual -- do not expect "
@@ -58,7 +60,7 @@ _TRUST_NOTE = (
     "(shares its Stage 0 physics), and inherits xigma-i's own unresolved "
     "~49% a0-formula discrepancy against compton_io.laser.GaussianParaxial"
     "Laser.a0_focus (validation/tier0_wiring.py) since both build "
-    "CollisionParams via xigma_i.config.build_params."
+    "CollisionParams via compton_io.collision.build_params."
 )
 
 
@@ -142,8 +144,8 @@ def capabilities() -> dict:
 
 def available() -> tuple[bool, str]:
     try:
-        from xigma_i.config import _detect_device
-        _detect_device()
+        from compton_io.collision import detect_device
+        detect_device()
     except Exception as e:
         return False, str(e)
     return True, ""
@@ -284,12 +286,12 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
             f"xigma-i-direct: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
     from compton_io.bunch import beam_from_shared_fields
+    from compton_io.collision import build_params, detect_device
     from compton_io.interaction import InteractionGeometry
     from compton_io.laser import laser_from_shared_fields
-    from xigma_i.config import build_params, _detect_device
-    from xigma_i import particles, reference
+    from xigma_i import particles, spectrum_from_particles
 
-    device = _detect_device()
+    device = detect_device()
 
     # ``seed`` is unused here: electron sampling is the caller's job (see
     # this function's docstring), so there's no RNG left for this function
@@ -321,14 +323,15 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
 
     total_yield = float(params.asnumpy(w).sum() if hasattr(w, "get") else np.sum(w))
 
-    # Total angle-integrated spectrum: reference.angle_integrated_spectrum,
-    # no known normalization issue (unlike direct_binning_spectrum's own
+    # Total angle-integrated spectrum:
+    # spectrum_from_particles.angle_integrated_spectrum, no known
+    # normalization issue (unlike direct_binning_spectrum's own
     # angle-integrated total, see _TRUST_NOTE) -- needs only gamma/weight.
     s_scale_MeV = 4.0 * params.Wph
     s_grid = np.linspace(0.0, 1.1, 512) * gamma_0 ** 2
     gamma_h = params.asnumpy(gamma) if hasattr(gamma, "get") else np.asarray(gamma)
     w_h = params.asnumpy(w) if hasattr(w, "get") else np.asarray(w)
-    dNds_tot = reference.angle_integrated_spectrum(gamma_h, w_h, s_grid)
+    dNds_tot = spectrum_from_particles.angle_integrated_spectrum(gamma_h, w_h, s_grid)
     E_eV = s_grid * s_scale_MeV * 1e6
     dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6
 
@@ -346,7 +349,7 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     d2NdEdOmega = np.empty((n_grid, n_grid, s_centers.size))
     for i, x0 in enumerate(theta_x_grid):
         for j, y0 in enumerate(theta_y_grid):
-            hist = reference.direct_binning_spectrum(
+            hist = spectrum_from_particles.direct_binning_spectrum(
                 gamma_h, tx_h, ty_h, w_h, a0_h, x0, y0, s_edges, cfg.phi_pol)
             d2NdEdOmega[i, j, :] = hist / s_scale_MeV / 1e6
     E_ang_eV = s_centers * s_scale_MeV * 1e6
@@ -355,8 +358,8 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     # own angle-integrated total is KNOWN to disagree with the correctly-
     # normalised total_yield/angle_integrated_spectrum by a still-open,
     # deliberately-deferred ~2*pi residual (see this module's _TRUST_NOTE
-    # and xigma_i/reference.py's docstring -- pre-existing, not introduced
-    # here). Rather than leave angular_spectrum over-normalised -- which can
+    # and xigma_i/spectrum_from_particles.py's docstring -- pre-existing,
+    # not introduced here). Rather than leave angular_spectrum over-normalised -- which can
     # show a collimated flux exceeding total flux for a wide enough window,
     # a real bug users can trip over -- rescale d2NdEdOmega so integrating
     # it over this run's own full theta/energy grid reproduces total_yield
@@ -440,7 +443,7 @@ def spectrum_in_angular_range(res: CommonResults, theta_x_range: tuple[float, fl
     spectrum_in_angular_range, which already evaluates its kernel at
     observation points for exactly this reason.
     """
-    from xigma_i import reference
+    from xigma_i import spectrum_from_particles
 
     if res._gamma is None:
         raise RuntimeError("spectrum_in_angular_range: run() must be called first")
@@ -453,7 +456,7 @@ def spectrum_in_angular_range(res: CommonResults, theta_x_range: tuple[float, fl
     d2NdEdOmega = np.empty((n_points, n_points, s_centers.size))
     for i, x0 in enumerate(theta_x_grid):
         for j, y0 in enumerate(theta_y_grid):
-            hist = reference.direct_binning_spectrum(
+            hist = spectrum_from_particles.direct_binning_spectrum(
                 res._gamma, res._theta_x, res._theta_y, res._weight, res._a0,
                 x0, y0, s_edges, res._phi_pol)
             d2NdEdOmega[i, j, :] = hist / res._s_scale_MeV / 1e6

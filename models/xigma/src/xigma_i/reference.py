@@ -1,13 +1,18 @@
-"""Stage 2 numpy reference paths -- independent, non-GPU-kernel ways to turn
-Stage 0/1 particle samples or an H table into a spectrum, used to validate
-`spectrum4d.spectrum_kernel_4d` without trusting it:
+"""Cross-validation-only tooling: a brute-force, non-GPU-kernel way to turn
+a Stage 1 `H` table into a spectrum, used to validate
+`spectrum4d.spectrum_kernel_4d` without trusting it.
 
-  - angle_integrated_spectrum: dN/ds integrated over all emission solid
-    angle, computed directly from real Stage 0/1 macroparticles using only
-    the standard (textbook, angle-independent) Compton edge shape -- no
-    coef, no H lookup, no area quadrature at all. The right first check to
-    run: it isolates the gamma axis and the Stage 0/1 weight normalisation
-    from everything angular.
+**Not production code, and not imported by any production adapter.**
+`angle_integrated_spectrum`/`direct_binning_spectrum` used to live in this
+module too; they were extracted to `spectrum_from_particles.py` because
+they turned out to be load-bearing for real model output (`xigma-i`'s
+`TabulatedEngine.spectrum(s)`, `xigma-i-direct`'s total_yield/spectrum/
+angular_spectrum) rather than pure validation, and this module is expected
+to eventually leave this repo entirely (folded into a separate,
+standalone cross-validation project) -- kept here for now for ad hoc Stage
+2 cross-checks, not wired into anything that runs during a normal
+simulation.
+
   - spectrum_from_table: brute-force grid quadrature over the H table (no
     annulus/arc/inverse-CDF importance sampling), for the per-solid-angle
     (theta_x, theta_y, s) spectrum. `coef = 1.5`, a pure numerical constant
@@ -15,30 +20,13 @@ Stage 0/1 particle samples or an H table into a spectrum, used to validate
     -- no pi, no Wph, no PHI_CELLS belongs here, since this is a plain grid
     quadrature with no phi cells and H's weights are already correctly
     CGS-normalised coming out of push_and_sample.
-  - direct_binning_spectrum: iterates real macroparticles, computes each
-    one's resonance frequency for a fixed observation direction, and bins
-    with its weight. No table, no quadrature grid at all -- the primary
-    correctness test for correlated bunches, and a permanent debug tool.
-    Uses the single-electron prefactor from eq. "xsec" (`g**2 * gth_sq_inv`,
-    not the ensemble-collapsed `g**5` of eq. "Fmatrix", which bakes in a
-    Jacobian meant for a smooth, already-binned H and doesn't apply to raw
-    macroparticles), pure numerical coefficient 3 (no Wph/pi**4), no extra
-    `1/s**2` (the `domega -> ds` Jacobian is a constant that cancels exactly
-    against the histogram bin-width conversion).
 
-VALIDATED: angle_integrated_spectrum and spectrum_from_table agree with
-Stage 0/1's own total weight to 1-3%. spectrum_from_table and
-direct_binning_spectrum agree with each other to <5% for a typical bunch.
-a0/ahat resonance term is included in direct_binning_spectrum
-(s_res = g**2/(1+a0+g**2*r_sq)), with no extra Jacobian in the prefactor --
-see that function's own docstring for why that differs from
-spectrum_from_table/spectrum_kernel_4d.
-
-KNOWN, DELIBERATELY DEFERRED: direct_binning_spectrum's angle-integrated
-total (Riemann-summed over a grid of (x0, y0) weighted by cell area) is
-consistently ~6.3x angle_integrated_spectrum's output, suspiciously close
-to 2*pi, with small spread across configurations (systematic, not noise).
-Not yet explained; flagged, not chased further.
+VALIDATED: agrees with Stage 0/1's own total weight (via
+spectrum_from_particles.angle_integrated_spectrum) to 1-3%, and with
+spectrum_from_particles.direct_binning_spectrum to <5% for a typical bunch.
+a0/ahat resonance term is included (s_res = g**2/(1+a0+g**2*r_sq)), with no
+extra Jacobian in the prefactor -- see spectrum_from_table's own docstring
+for why that differs from spectrum_from_particles.direct_binning_spectrum.
 """
 import numpy as np
 
@@ -55,34 +43,6 @@ def _xp_for(backend):
         import cupy as cp
         return cp
     raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
-
-
-def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy'):
-    """dN/ds integrated over all emission solid angle, from real Stage 0/1
-    macroparticles. A single electron's angle-integrated spectral shape
-    depends only on its own gamma (not its transverse angle), via the
-    standard Compton edge formula. `dE = 4*Wph*ds` converts to dN/dE if
-    needed (see module docstring / CLAUDE.md's GUI integration section for
-    the unit convention).
-
-    gamma, particle_weight: 1D arrays, one entry per macroparticle -- e.g.
-    the gamma and weight arrays push_and_sample already returns (one row per
-    particle; no external per-particle summing needed).
-    s: scalar or 1D array of normalised photon energies.
-    backend: 'numpy' (default) or 'cupy' -- array-module-agnostic, same
-    pattern as deposition.py/particles.py. gamma/particle_weight/s are
-    converted to the target module if not already; the whole computation is
-    elementwise/reduction, so there's nothing GPU-specific to write.
-    """
-    xp = _xp_for(backend)
-    gamma, particle_weight = xp.asarray(gamma), xp.asarray(particle_weight)
-    s_arr = xp.atleast_1d(xp.asarray(s, dtype=xp.float64))
-    gamma = gamma[:, None]
-    y = s_arr[None, :] / gamma**2
-    shape = 1.5 * (1.0 - 2.0 * y * (1.0 - y))
-    shape = xp.where((y < 0) | (y > 1), 0.0, shape)
-    out = xp.sum(particle_weight[:, None] * shape / gamma**2, axis=0)
-    return out if np.ndim(s) else out[0]
 
 
 def _interp4d(H, grid, gamma, theta_x, theta_y, a0, xp):
@@ -216,78 +176,3 @@ def spectrum_from_table(table, x0, y0, s, phi_pol, backend='numpy'):
         out[k] = float(coef * f.sum() * cell_vol / sk**2)
 
     return out if np.ndim(s) else out[0]
-
-
-def direct_binning_spectrum(gamma, theta_x, theta_y, particle_weight, a0,
-                             x0, y0, s_edges, phi_pol, backend='numpy'):
-    """Reference path: for each real macroparticle, compute the photon
-    energy it resonates at when viewed from (x0, y0), and bin its weight
-    into the s_edges histogram. No table, no importance sampling --
-    assumption-free on both the deposition and the lookup.
-
-    Normalisation, root-caused this session (was previously an unexplained
-    ~3000-4000x gap): this is a *single-electron*, not-yet-ensemble-collapsed
-    quantity, so it must use Paper/xigma.tex eq. "xsec" (the bare
-    differential cross-section, g**2 * gth_sq_inv prefactor) rather than
-    eq. "Fmatrix" (g**5, used by spectrum_from_table/spectrum_kernel_4d --
-    that g**3 extra power is a |dGamma/domega| Jacobian for evaluating a
-    *smooth, already-binned* H, and double-applying it here, on raw discrete
-    macroparticles, was the original bug). Converting eq. "xsec" to a photon
-    count via the incident flux uses v_rel (=2c for near-backscattering, the
-    same V_REL particles.py already bakes into `particle_weight`), not bare
-    c: d3N_i/(domega dOmega) = 3 * particle_weight_i * g_i**2 * gth_sq_inv *
-    a_fac * delta(omega - omega_R,i). Histogrammed over s (domega = 4*omega_L
-    * ds, a *constant* Jacobian that cancels exactly against the same factor
-    converting the histogram's bin width to ds) gives d3N/(ds dOmega) =
-    [sum of weights in bin] / ds -- no additional 1/s**2, unlike
-    spectrum_from_table's coef (that division belongs to the H-density/coef
-    convention of the other two reference functions, not to this one; carrying
-    it over here was the second half of the original bug).
-
-    Known residual, deliberately not chased in this pass: even with the
-    fix above, this function's angle-integrated total (Riemann-summed over a
-    grid of (x0, y0), weighted by cell area) is consistently ~6.3x
-    angle_integrated_spectrum's output -- suspiciously close to 2*pi, not
-    yet explained. Small, systematic spread across configurations (not
-    noise). Flag to the user before spending more time on it.
-
-    a0/ahat resonance term (Paper/xigma.tex eq. "wRgamma"): s_res =
-    g**2 / (1 + a0 + g**2*r_sq), i.e. the resonance condition shifts with
-    a0 same as spectrum_from_table/spectrum_kernel_4d's g**2 =
-    (1+a0)/(1/s - r_sq) (same relation, solved for s instead of g here).
-    Unlike those two, NO extra 1/(1+a0) Jacobian is needed in the prefactor:
-    that factor comes specifically from the *ensemble* gamma-integral
-    collapse (Paper eq. "jacobian") those two methods perform when inverting
-    the resonance condition to look up a smooth, pre-binned H at an
-    interpolated gamma. This function never does that inversion -- each
-    particle contributes at its own exact gamma_i, no lookup, no second
-    collapse -- so that Jacobian doesn't apply here. Verified empirically:
-    adding a0 to s_res alone (prefactor untouched) flattens the ratio against
-    spectrum_from_table from a ~100x s-dependent swing (at a0~0.3, without
-    this term) down to a ~6% flat spread, at the same overall (still open,
-    ~2*pi-adjacent) offset described above.
-
-    backend: 'numpy' (default) or 'cupy' -- array-module-agnostic; the
-    per-particle arrays and s_edges are converted to the target module,
-    including the histogram+weights reduction (cupy.histogram supports
-    weights the same as numpy.histogram).
-    """
-    xp = _xp_for(backend)
-    gamma, theta_x, theta_y, particle_weight, a0 = (
-        xp.asarray(a) for a in (gamma, theta_x, theta_y, particle_weight, a0))
-
-    r_sq = (theta_x - x0)**2 + (theta_y - y0)**2
-    g = gamma
-    s_res = g**2 / (1.0 + a0 + g**2 * r_sq)
-
-    gth_sq_inv = 1.0 / (1.0 + r_sq * g**2)**2
-    cos_pol = xp.cos(phi_pol - xp.arctan2(theta_y - y0, theta_x - x0))**2
-    a_fac = 1.0 - 4.0 * cos_pol * r_sq * g**2 * gth_sq_inv
-
-    prefactor = 3.0 * particle_weight * a_fac * g**2 * gth_sq_inv
-
-    s_edges = xp.asarray(s_edges)
-    hist, _ = xp.histogram(s_res, bins=s_edges, weights=prefactor)
-    ds = xp.diff(s_edges)
-
-    return hist / ds

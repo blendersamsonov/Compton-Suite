@@ -1,11 +1,13 @@
 """GUI-facing engine on the tabulated-energy pipeline (particles.py/
-deposition.py/spectrum4d.py/reference.py), covering everything
-gui_adapter.py needs: total yield, angle-integrated spectrum, angular
-spectrum, angular-range spectrum, temporal envelope, spatial distribution.
+deposition.py/spectrum4d.py/spectrum_from_particles.py), covering
+everything gui_adapter.py needs: total yield, angle-integrated spectrum,
+angular spectrum, angular-range spectrum, temporal envelope, spatial
+distribution.
 
-`TabulatedEngine` wraps an already-built `config.CollisionParams` instance
-(see `config.build_params`) purely for its plain-data properties (k0_las,
-Wph, N_l, a0, beta_ff, ellipticity, sigma_ex/sigma_ey, ...) --
+`TabulatedEngine` wraps an already-built `compton_io.collision.
+CollisionParams` instance (see `compton_io.collision.build_params`) purely
+for its plain-data properties (k0_las, Wph, N_l, a0, beta_ff, ellipticity,
+sigma_ex/sigma_ey, ...) --
 particles.push_and_sample already takes a `CollisionParams` instance as
 its parameter source, so this is reuse, not a new dependency. `params`
 itself runs no computation; all of it happens in this class's
@@ -29,7 +31,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import particles, deposition, spectrum4d, reference
+from . import particles, deposition, spectrum4d, spectrum_from_particles
 
 # The a0 range the weakly-nonlinear approximation this whole codebase is
 # built on (a0 <~ 1, see CLAUDE.md's "a0 is a trajectory average" section)
@@ -61,7 +63,7 @@ class TabulatedEngine:
         spectrum-ready table.
 
         backend: 'numpy' or 'cupy', passed to push_and_sample and
-        reference.angle_integrated_spectrum (build_table's own `device` is
+        spectrum_from_particles.angle_integrated_spectrum (build_table's own `device` is
         left to auto-detect from the Stage 0 output arrays -- same
         'cpu'/'gpu' outcome, different vocabulary, no need to translate
         twice). Table.H always ends up host/numpy regardless (see
@@ -132,10 +134,10 @@ class TabulatedEngine:
 
     def spectrum(self, s):
         """dN/ds, angle-integrated over all emission solid angle --
-        reference.angle_integrated_spectrum on this run's raw Stage 0/1
-        samples (not the table -- this observable doesn't need the
+        spectrum_from_particles.angle_integrated_spectrum on this run's raw
+        Stage 0/1 samples (not the table -- this observable doesn't need the
         angular/a0 binning at all, see that function's docstring)."""
-        return reference.angle_integrated_spectrum(
+        return spectrum_from_particles.angle_integrated_spectrum(
             self.gamma, self.weight, s, backend=self.backend)
 
     def angular_spectrum(self, s, theta_x, theta_y, phi_pol,

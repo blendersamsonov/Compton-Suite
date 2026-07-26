@@ -9,8 +9,11 @@ Design notes:
     that ``import xigma_i.gui_adapter`` degrades gracefully -- the
     consuming GUI wraps that import in a broad ``try/except Exception`` and
     shows the model disabled rather than crashing when cupy/CUDA isn't
-    available. ``cupy``/``config.build_params``/``tabulated_engine`` are only
-    imported inside ``available()`` and ``run_simulation()``.
+    available. ``cupy``/``compton_io.collision.build_params``/
+    ``tabulated_engine`` are only imported inside ``available()`` and
+    ``run_simulation()``. ``compton_io`` itself has no cupy dependency, so
+    ``compton_io.bunch``/``compton_io.constants`` etc. are safe to import at
+    module scope unconditionally (see below).
   * ``Config`` mirrors ``dfe5_compton_mc.Config``'s field names and SI units
     wherever a physical mapping exists, so the GUI's model-agnostic
     spread-estimate formula (which reads ``cfg.eps0``, ``cfg.sigma_eps_rel``,
@@ -31,6 +34,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from compton_io.bunch import MacroBunch, beta_star_from_sigma_emit
+from compton_io.constants import C_LIGHT as _C_LIGHT_M, E_CHARGE as _ELEMENTARY_CHARGE_C, M_TO_CM as _M_TO_CM
 from compton_io.photons import (
     AngularRangeSpectrumResult,
     BinnedAngularSpectrum,
@@ -39,14 +43,6 @@ from compton_io.photons import (
     BinnedTemporalEnvelope,
 )
 from compton_io.results import CommonResults
-
-# Matches xigma_i.config.elC exactly; duplicated here (rather than
-# imported) purely to keep this module's own promise of no xigma_i imports
-# at module scope (see module docstring) -- config.py itself is actually
-# cupy-optional too, this is just consistent with the rest of the file.
-_ELEMENTARY_CHARGE_C = 1.602176634e-19   # [C]
-_C_LIGHT_M = 2.99792458e8                # [m/s]
-_M_TO_CM = 1.0e2
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +166,7 @@ _TRUST_NOTE = (
     "resolved, xigma-i's own convention is used as-is; (2) angular_spectrum "
     "carries a known, deliberately-deferred ~2*pi normalisation residual "
     "against the angle-integrated total (see run_simulation's 'QUICK FIX' "
-    "comment and reference.py's module docstring), rescaled at query time so "
+    "comment and spectrum_from_particles.py's module docstring), rescaled at query time so "
     "collimated flux never exceeds total flux but the underlying kernel "
     "normalisation itself is still unexplained. Spectrum-shape agreement "
     "against the other two engines also degrades (to ~24% weighted-L1) near "
@@ -211,11 +207,11 @@ def capabilities() -> dict:
 def available() -> tuple[bool, str]:
     """True if either supported backend can actually run: a real CUDA GPU
     (cupy + a visible device), or the CPU/numba fallback (see
-    config._detect_device). Only returns False -- greying out the model in
-    the GUI -- if neither works."""
+    compton_io.collision.detect_device). Only returns False -- greying out
+    the model in the GUI -- if neither works."""
     try:
-        from .config import _detect_device
-        _detect_device()
+        from compton_io.collision import detect_device
+        detect_device()
     except Exception as e:
         return False, str(e)
     return True, ""
@@ -226,8 +222,8 @@ def _backend_note() -> str:
     -- not part of the ModelAdapter contract, just a convenience for callers
     that want to show e.g. "running on CPU (numba)" in the UI."""
     try:
-        from .config import _detect_device
-        return _detect_device()
+        from compton_io.collision import detect_device
+        return detect_device()
     except Exception:
         return "unavailable"
 
@@ -433,9 +429,9 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
     from compton_io.bunch import beam_from_shared_fields
+    from compton_io.collision import build_params, detect_device as _detect_device
     from compton_io.interaction import InteractionGeometry
     from compton_io.laser import laser_from_shared_fields
-    from .config import build_params, _detect_device
     from .tabulated_engine import TabulatedEngine
 
     device = _detect_device()
@@ -528,8 +524,8 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # angular_spectrum is known to disagree with the correctly-normalised
     # total_yield/angle-integrated spectrum by a still-open, deliberately-
     # deferred ~2*pi residual (see CLAUDE.md's "Current state" section and
-    # reference.py's module docstring -- this is pre-existing, not
-    # introduced by this adapter). Rather than leave angular_spectrum
+    # spectrum_from_particles.py's direct_binning_spectrum docstring -- this
+    # is pre-existing, not introduced by this adapter). Rather than leave angular_spectrum
     # (and therefore the GUI's "collimated flux" stat and Angular-Range
     # Spectrum tab) silently over-normalised -- which can show a
     # collimated flux EXCEEDING the total flux for a wide enough

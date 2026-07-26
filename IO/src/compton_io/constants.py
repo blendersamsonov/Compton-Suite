@@ -47,12 +47,9 @@ R_E_M = _Q(1, "classical_electron_radius").to("meter").magnitude
 SIGMA_T_M2 = _Q(1, "thomson_cross_section").to("meter ** 2").magnitude
 
 # ---------------------------------------------------------------------------
-# CGS-Gaussian views -- for xigma_i's config.py specifically. Only the
-# primitives xigma_i actually stores as literals move here; xigma_i keeps
-# deriving its own classical-electron-radius/Thomson-cross-section/
-# fine-structure-constant *locally* from these (its existing formulas), so
-# this module doesn't need to grow CGS-derived versions of quantities no
-# other consumer needs.
+# CGS-Gaussian views -- for xigma_i's config.py and compton_io.collision
+# (the CGS CollisionParams/build_params convention those pipelines share).
+# Only the primitives actually needed as literals move here.
 # ---------------------------------------------------------------------------
 HBAR_ERG_S = _Q(1, "hbar").to("erg * second").magnitude
 ME_G = _Q(1, "electron_mass").to("gram").magnitude
@@ -64,3 +61,15 @@ C_CM_S = _Q(1, "speed_of_light").to("centimeter / second").magnitude
 # literal (charge has no CODATA-vintage mismatch between repos -- only
 # hbar/electron mass did).
 EL_STATC = E_CHARGE * C_CM_S / 10.0
+
+# Classical electron radius, CGS (cm) -- numerically agrees with
+# el**2/(me*c**2) computed from EL_STATC/ME_G/C_CM_S above to ~1.3e-10
+# relative (verified), but sourced directly from pint's own CODATA value
+# instead of re-deriving the formula, same rationale as R_E_M above.
+R_E_CM = _Q(1, "classical_electron_radius").to("centimeter").magnitude
+
+# Meter <-> centimeter, derived rather than a hand-typed 100.0 -- used by
+# every CGS-unit consumer (compton_io.collision, xigma_i/xigma_direct's
+# gui_adapter.py, particles.py) instead of each keeping its own local
+# `_M_TO_CM = 100.0`/`1.0e2` literal.
+M_TO_CM = _Q(1, "meter").to("centimeter").magnitude
