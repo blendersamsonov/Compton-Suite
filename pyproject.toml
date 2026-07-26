@@ -18,5 +18,15 @@ requires-python = ">=3.10"
 [project.scripts]
 comptonsuite-gui = "compton_suite.gui:run_gui"
 
+[project.optional-dependencies]
+all = [
+    "compton-io @ file:./IO",
+    "compton-guide @ file:./GUIde",
+    "kascade @ file:./models/kaskade",
+    "xigma-i @ file:./models/xigma",
+    "xigma-direct @ file:./models/xigma_direct",
+    "compton-analytical @ file:./models/analytical",
+]
+
 [tool.setuptools.package-dir]
 "" = "src"
