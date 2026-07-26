@@ -5,7 +5,7 @@ spectrum, angular-range spectrum, temporal envelope, spatial distribution.
 
 `TabulatedEngine` wraps an already-configured `config.Compton` instance
 purely for its config-bag properties (k0_las, Wph, N_l, a0, beta_ff,
-ellipticity, sigma_ex/sigma_ey, ...) -- particles.sample_bunch/
+ellipticity, sigma_ex/sigma_ey, ...) -- particles.bunch_from_macrobunch/
 push_and_sample already take a `compton` object as their parameter source,
 so this is reuse, not a new dependency. `compton` itself runs no
 computation; all of it happens in this class's `.run()`/property methods.

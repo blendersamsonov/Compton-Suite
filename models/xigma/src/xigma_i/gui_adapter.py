@@ -135,10 +135,9 @@ def _attach_private_cache(res: CommonResults, *, compton, gamma_0, sigma_gamma_0
                            engine, device, angular_rescale) -> CommonResults:
     """Stash this adapter's own private recompute cache on a
     ``compton_io.results.CommonResults`` instance (a plain, non-frozen
-    dataclass -- arbitrary extra attributes work exactly like
-    ``XigmaResults``'s own extra fields used to, just set after
-    construction instead of declared as part of the shared class).
-    ``_compton`` is ``TabulatedEngine``'s config source (never anything
+    dataclass -- arbitrary extra attributes work fine set after
+    construction, without needing to be declared as part of the shared
+    class). ``_compton`` is ``TabulatedEngine``'s config source (never anything
     else -- it runs no compute itself); ``_engine``/``_device`` are cached
     the same way, all so ``spectrum_in_angular_range()`` can recompute an
     on-demand angular-range query without rerunning the whole simulation.
@@ -308,13 +307,11 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
     # zero-size histogram) rather than raising a clear ParamError; there's
     # no physical reason to allow smaller values.
     # Upper-clamped against _N_PARTICLES_SANITY_MAX too (not just floored at
-    # 1): this used to be enforced inside run_simulation itself, at the
-    # point where it self-sampled cfg.n_particles_01 particles. Now that
-    # electron sampling is the caller's job (run_simulation requires an
-    # already-sampled ``electrons`` bunch -- see its docstring), the
-    # fat-fingered-value guard has to live here instead, at the one point
-    # this adapter still owns: parsing the field a caller will size its
-    # sample from.
+    # 1): electron sampling is the caller's job (run_simulation requires an
+    # already-sampled ``electrons`` bunch -- see its docstring), so this
+    # fat-fingered-value guard lives here instead, at the one point this
+    # adapter still owns: parsing the field a caller will size its sample
+    # from.
     n_particles_01 = min(max(1, int(round(g("n_particles_01")))), _N_PARTICLES_SANITY_MAX)
     n_steps_0 = max(1, int(round(g("n_steps_0"))))
     n_bins_gamma = max(1, int(round(g("n_bins_gamma"))))
@@ -376,17 +373,17 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
 # TabulatedEngine.run()'s Stage 0/1/2 sizing is user-tunable via Config's
 # numerical-control fields (n_particles_01, n_steps_0, n_bins_*, a0_max,
 # samples_per_point_2, n_time_bins, n_spatial_bins_*; see extra_params()) --
-# the defaults on those fields are the same first-cut values this module
-# used to hardcode here, still deliberately not profiled against an actual
-# interactive GUI session. Cost is close to linear in n_particles*n_steps
-# for Stage 0/1 and independent of n_particles for Stage 2's quadrature.
+# their defaults are first-cut values, deliberately not profiled against an
+# actual interactive GUI session. Cost is close to linear in
+# n_particles*n_steps for Stage 0/1 and independent of n_particles for
+# Stage 2's quadrature.
 # _N_PARTICLES_SANITY_MAX guards against a fat-fingered GUI n_particles_01
 # value hanging the GPU/CPU for a very long time -- applied in
 # params_to_config (where n_particles_01 is parsed), not in run_simulation:
-# run_simulation no longer decides how many particles to sample (electron
-# sampling is the caller's job -- see its docstring), so this clamp moved
-# to the last point this adapter still owns, parsing the field a caller
-# will size its sample from. Everything else is taken from cfg as-is.
+# electron sampling is the caller's job (see run_simulation's docstring),
+# so this clamp lives at the last point this adapter still owns, parsing
+# the field a caller will size its sample from. Everything else is taken
+# from cfg as-is.
 _N_PARTICLES_SANITY_MAX = 2_000_000
 
 
@@ -423,10 +420,9 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     ``electrons`` is required: electron sampling is the caller's job, not
     this adapter's, or this package's at all -- there's exactly one place
     electrons get drawn from a beam description
-    (``compton_io.bunch.sample_gaussian_bunch``), not one per model.
-    ``particles.sample_bunch`` no longer exists; every caller (this
-    adapter, ``TabulatedEngine.run()``, and the standalone scripts) samples
-    via ``compton_io.bunch`` and converts with
+    (``compton_io.bunch.sample_gaussian_bunch``), not one per model. Every
+    caller (this adapter, ``TabulatedEngine.run()``) samples via
+    ``compton_io.bunch`` and converts with
     ``particles.bunch_from_macrobunch`` instead."""
     if cfg.crossing_angle != 0.0:
         raise ValueError(

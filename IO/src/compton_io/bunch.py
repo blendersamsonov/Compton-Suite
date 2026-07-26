@@ -199,11 +199,9 @@ def sample_gaussian_bunch(beam: GaussianElectronBeam, n_particles: int, *,
     ``chirp=0.1`` means a 10% fractional energy change over one bunch RMS
     length. ``angle_energy_corr``: correlation coefficient in ``[-1, 1]``
     between ``thx`` and the ``(gamma - gamma0) / sigma_gamma`` residual.
-    Both default to 0 (the plain, uncorrelated case this function has
-    always drawn); this is the same correlated-bunch capability
-    ``xigma_i.particles.sample_bunch`` used to provide on its own, moved
-    here so there's exactly one place electron bunches get sampled from a
-    beam description, correlated or not.
+    Both default to 0 (the plain, uncorrelated case). This is the one
+    place electron bunches get sampled from a beam description, correlated
+    or not -- no model has its own internal bunch sampler.
     """
     rng = np.random.default_rng() if rng is None else rng
 

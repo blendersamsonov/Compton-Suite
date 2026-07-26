@@ -6,12 +6,7 @@ observable dataclasses do: every model already depends on ``compton_io``
 (for units/constants), so constructing this shared class directly costs
 nothing, whereas depending on the GUI package would be a real, avoidable
 coupling in the wrong direction (a physics model has no business needing
-the GUI to run). Before this move, ``xigma_i``/``xigma_direct`` each
-defined their own structurally-identical-but-not-the-same local
-``XigmaResults``/``DirectResults`` specifically to avoid importing the
-GUI's ``compton_guide.model_api.CommonResults`` -- now that the shared
-class lives here instead, that workaround is no longer needed and those
-local classes are gone.
+the GUI to run).
 
 A model is free to leave any field beyond the required six as ``None`` if
 it doesn't compute that observable (see the field docs below) -- this is

@@ -100,7 +100,7 @@ class ModelCapabilities:
     supports_angular_distribution: bool = False
     supports_angular_range_spectrum: bool = False
     is_fast_preview: bool = False   # True only for the always-on analytical
-                                     # model (compton_suite.analytical_adapter)
+                                     # model (models/analytical/analytical_adapter.py)
 
 
 class ModelAdapter(Protocol):
@@ -126,12 +126,8 @@ class ModelAdapter(Protocol):
     def run(self, cfg: Any, n_mc: int, seed: int,
             *, electrons: MacroBunch) -> CommonResults:
         """``electrons`` is required: electron sampling is the IO layer's
-        (caller's) job, not any individual model's -- every adapter used
-        to fall back to its own independent internal sampler when
-        ``electrons`` was omitted (kascade's own ``sample_initial_
-        electrons``, xigma-i/xigma-i-direct's own ``particles.
-        sample_bunch``, the analytical adapter's own extra internal
-        resample); those fallbacks were removed so there's exactly one
+        (caller's) job, not any individual model's -- no adapter has its
+        own internal sampler; there's exactly one
         place electrons get drawn from a beam description
         (``compton_io.bunch.sample_gaussian_bunch``, typically via
         ``compton_io.bunch.beam_from_shared_fields`` from whichever

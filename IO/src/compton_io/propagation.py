@@ -22,8 +22,10 @@ silently be wrong for one side:
   ``z`` already describe one consistent instant.
 * ``xigma_i.particles.Bunch``'s ``x0``/``y0`` are instead each particle's
   transverse position extrapolated to ``z=0`` along its own straight-line
-  trajectory (``sample_bunch`` draws them independently of ``z0``, i.e. as
-  the beam's transverse profile AT the waist/interaction plane) -- while
+  trajectory (``compton_io.bunch.sample_gaussian_bunch`` draws ``x``/``y``
+  independently of ``z``, i.e. as the beam's transverse profile AT the
+  waist/interaction plane, and ``xigma_i.particles.bunch_from_macrobunch``
+  carries them straight through unchanged into ``x0``/``y0``) -- while
   ``z0`` is that same particle's real, independently-drawn longitudinal
   offset. ``(x0, y0, z0)`` together are therefore NOT a simultaneous
   position the way ``MacroBunch``'s fields are; using them as such would

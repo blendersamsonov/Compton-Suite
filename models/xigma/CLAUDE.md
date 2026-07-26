@@ -22,7 +22,11 @@ analytically to a 4D overlap table (`H`) plus a 3D quadrature
 Stage 0 (particle source + ballistic pusher) and Stage 1 (nearest + CIC
 deposition, CPU and GPU) are done. Stage 2 (`spectrum_kernel_4d`) is done
 and its `coef` normalisation (see `reference.py` below) is validated: at a
-typical bunch config (`compare_direct_vs_table.py --grid-integrate`), all
+typical bunch config (validated via an ad hoc comparison run; see
+`reference.py`'s module docstring for the comparison method -- the
+standalone script this was originally run through has since been removed
+as part of making models pure libraries, so this is a historical result,
+not currently a one-command rerun), all
 three of `spectrum_from_table`/`direct_binning_spectrum`/
 `spectrum_kernel_4d` agree within ~15% (clustered around a still-open,
 deliberately-deferred `~2*pi` residual against `angle_integrated_spectrum`
@@ -51,16 +55,12 @@ table for one chosen `a0` by a cheap, exact rebin -- see "a0 factorises
 out of the table" below. `a0_max` is a fixed *model* parameter (the a0
 range the weakly-nonlinear approximation is meant to be valid over), not
 derived per-collision from `compton.a0` -- current default guidance is
-`a0_max=0.5`. `compare_direct_vs_table.py`, `deposition.build_table_streaming`,
-and `tabulated_engine.py` all use this convention; the rest of
-`validation/*.py` (`refs.py`'s `make_samples`/table builders,
-`fig_gridres.py`'s a0-axis bin-count scan in particular) was **not**
-updated -- those scripts still treat `push_and_sample`'s 4th output column
-as physical `ahat` directly, so re-running them now would silently produce
-wrong a0-axis physics rather than erroring. Flagged, not fixed, pending a
-scoped follow-up (`fig_gridres.py`'s a0-scan in particular needs a design
-call, not a mechanical find/replace -- see that script's own module
-docstring for why).
+`a0_max=0.5`. `deposition.build_table_streaming` and `tabulated_engine.py`
+both use this convention consistently; this package's model-local
+`validation/` subdirectory (which used to contain scripts treating
+`push_and_sample`'s 4th output column as physical `ahat` directly, predating
+the `a0_shape`/`retarget_a0` split) has since been deleted entirely, so
+there is no remaining code path in this repo with that mismatch.
 
 **Not done**: systematic resolution/convergence scans (tooling exists, see
 "Convergence testing" below -- no results recorded yet); chasing the
@@ -72,10 +72,16 @@ Four stages, plus shared config and validation/GUI layers.
 
 ### Stage 0 -- `particles.py`
 
-`sample_bunch(compton, n_particles, gamma0, sigma_gamma0, chirp=,
-angle_energy_corr=, rng=)` draws a macroparticle bunch with real
-per-particle `(x0, y0, z0, gamma, theta_x, theta_y)` from their *true*
-(untruncated) distributions. `push_and_sample(compton, bunch, n_steps=,
+This package no longer samples its own electrons: there is exactly one
+place electron bunches get drawn from a beam description
+(`compton_io.bunch.sample_gaussian_bunch`), not one per model.
+`bunch_from_macrobunch(macrobunch, compton)` converts the resulting
+`compton_io.bunch.MacroBunch` (SI, engine-agnostic) into this module's own
+`Bunch` (CGS, `k0_las`-normalised positions) -- `gamma`/`theta_x`/`theta_y`
+pass through unchanged, only positions get the `k0_las` scaling, and
+`weight` is recomputed as `compton.N_e / macrobunch.n_particles` rather
+than taken from the macrobunch (so the GUI's charge/`N_e` field stays
+authoritative). `push_and_sample(compton, bunch, n_steps=,
 backend=)` ballistically pushes each particle through the pulse and emits
 **one** `(gamma, theta_x, theta_y, a0, weight)` sample **per particle**
 (not per timestep -- see "a0 is a trajectory average" below).
@@ -274,8 +280,8 @@ unrelated to physics) stays local. The GPU kernel sizing constants
 (`set_electron_parameters`/`set_laser_parameters`/`set_foci_displacement`)
 and the quantities derived from them (`k0_las`, `Wph`, `a0`, `N_e`, `N_l`,
 `sigma_thx`/`sigma_thy`, ...); it runs no computation itself --
-`particles.sample_bunch`/`push_and_sample` take an instance of it purely
-as their parameter source. `Compton(device=None)` auto-detects a backend
+`particles.bunch_from_macrobunch`/`push_and_sample` take an instance of it
+purely as their parameter source. `Compton(device=None)` auto-detects a backend
 via `_detect_device()`: a real CUDA GPU via cupy if
 `cp.cuda.runtime.getDeviceCount() > 0`, else CPU (requires `numba`), else
 raises -- there is no third backend. `.xp` (`cp` or `np`) and
@@ -356,15 +362,18 @@ Tooling for resolution/deposition-scheme scans exists; no scan has been run
 and recorded yet. Pattern:
 
     import numpy as np
+    from compton_io.bunch import sample_gaussian_bunch
     from xigma_i import particles, deposition, spectrum4d
 
-    bunch = particles.sample_bunch(compton, n_particles, gamma0, sigma_gamma0)
-    gamma, tx, ty, a0, w = particles.push_and_sample(compton, bunch, n_steps=200)
+    macrobunch = sample_gaussian_bunch(beam, n_particles)  # beam: GaussianElectronBeam
+    bunch = particles.bunch_from_macrobunch(macrobunch, compton)
+    gamma, tx, ty, a0_shape, w = particles.push_and_sample(compton, bunch, n_steps=200)
 
     results = {}
     for n_bins in [(32, 32, 32, 8), (64, 64, 64, 16), (128, 128, 128, 32)]:
-        table = deposition.build_table(gamma, tx, ty, a0, w, n_bins=n_bins,
-                                        scheme='nearest', device='gpu')
+        table = deposition.build_table(gamma, tx, ty, a0_shape, w, n_bins=n_bins,
+                                        scheme='nearest', device='gpu', a0_kind='shape')
+        table = deposition.retarget_a0(table, compton.a0, a0_max=0.5)
         spec, _, _ = spectrum4d.calculate_angular_spectrum_4d(
             table, s_array, theta_x_array, theta_y_array, phi_pol=0.0)
         results[n_bins] = spec
@@ -380,7 +389,8 @@ enough"):
   (`δω/ω ≈ 2δγ/γ` against the reporting resolution you actually need); the
   other three are a memory/accuracy tradeoff (a 128×128×128×32 float32
   table is ~270 MB).
-- **Particle statistics**: `n_particles` (`sample_bunch`) sets how many
+- **Particle statistics**: `n_particles` (passed to
+  `compton_io.bunch.sample_gaussian_bunch`) sets how many
   `(gamma, theta_x, theta_y, a0, weight)` rows land in the table --
   `push_and_sample` emits exactly one per particle. `n_steps`
   (`push_and_sample`) does *not* affect that count; it's purely the
@@ -591,8 +601,8 @@ interpreter`).
 - `models/kaskade/` -- `kascade`, the other event-generator-style physics
   engine plugged into the same GUI. No dependency either direction.
 - `models/xigma_direct/` -- reuses this package's Stage 0 physics
-  (`particles.sample_bunch`/`push_and_sample`) directly as a library
-  dependency.
+  (`particles.bunch_from_macrobunch`/`push_and_sample`) directly as a
+  library dependency.
 - `GUIde/` -- the shared Tkinter GUI. Depends on this package only through
   `gui_adapter.py`'s contract (never touches `deposition.py`/etc. directly).
 - `IO/` (package `compton_io`) -- shared physical constants, pint registry,

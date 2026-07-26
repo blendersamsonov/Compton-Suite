@@ -573,14 +573,14 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         apart from ``eps`` which is Lorentz gamma). Required: electron
         sampling is the caller's job, not this engine's -- build a
         ``compton_io.bunch.GaussianElectronBeam`` and draw one via
-        ``compton_io.bunch.sample_gaussian_bunch`` (see ``main()`` below
-        for the standalone-CLI pattern, or ``compton_guide.app.py``'s
-        ``on_start()`` for the GUI pattern). Passing ``electrons=None``
-        raises a plain ``TypeError`` below (indexing ``None``), not a
-        silent internal resample -- this engine used to have its own
-        ``sample_initial_electrons`` fallback for a missing bunch; it was
-        removed so there's exactly one place electrons get drawn from a
-        beam description, not one per model.
+        ``compton_io.bunch.sample_gaussian_bunch``, then convert the
+        resulting ``MacroBunch`` to this dict shape (see
+        ``compton_guide.adapters.kascade_adapter._macrobunch_to_kascade_electrons``
+        or ``validation/runners.py`` for the conversion). Passing
+        ``electrons=None`` raises a plain ``TypeError`` below (indexing
+        ``None``), not a silent internal resample: there is exactly one
+        place electrons get drawn from a beam description, not one per
+        model.
     """
     rng = np.random.default_rng(seed)
     weight = cfg.N_e / n_mc

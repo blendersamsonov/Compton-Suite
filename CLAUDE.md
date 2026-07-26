@@ -50,7 +50,7 @@ not any individual model's; no model has its own internal bunch sampler.
   `models/xigma/src/xigma_i/gui_adapter.py`.
 - **`xigma-i-direct`** (`models/xigma_direct/src/xigma_direct`) —
   brute-force per-macroparticle binning, no table/kernel; reuses `xigma_i`'s
-  Stage 0 (`particles.sample_bunch`/`push_and_sample`) as a library
+  Stage 0 (`particles.bunch_from_macrobunch`/`push_and_sample`) as a library
   dependency. Adapter: `models/xigma_direct/src/xigma_direct/gui_adapter.py`.
 - **`analytical`** (`models/analytical/`) — closed-form yield/spectrum/width
   estimates, fast enough that the GUI runs it automatically alongside
@@ -134,11 +134,11 @@ python3 IO/tests/test_constants.py && python3 IO/tests/test_conversions.py \
     && python3 IO/tests/test_bunch.py && python3 IO/tests/test_laser.py \
     && python3 IO/tests/test_io_formats.py
 
-# Kaskade -- standalone CLI run (independent of the GUI)
-python3 models/kaskade/kascade.py -c models/kaskade/kascade_config.toml
+# Kaskade -- pure library, no CLI (see models/kaskade/CLAUDE.md for a
+# minimal run_simulation() snippet)
 
-# Xigma -- validation/comparison scripts (needs GPU+cupy, or numba CPU fallback)
-python3 models/xigma/compare_direct_vs_table.py --grid-integrate
+# Xigma -- pure library, GPU+cupy or numba CPU fallback (see
+# models/xigma/CLAUDE.md for a minimal TabulatedEngine snippet)
 
 # Cross-model validation suite (all four models, tiered comparisons)
 python3 validation/run_cross_validation.py

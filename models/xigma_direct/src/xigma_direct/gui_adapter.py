@@ -243,10 +243,9 @@ def _attach_private_cache(res: CommonResults, *, gamma, theta_x, theta_y, a0, we
                            s_edges, s_scale_MeV, phi_pol, angular_rescale) -> CommonResults:
     """Stash this adapter's own private recompute cache on a
     ``compton_io.results.CommonResults`` instance (a plain, non-frozen
-    dataclass -- arbitrary extra attributes work exactly like
-    ``DirectResults``'s own extra fields used to, just set after
-    construction instead of declared as part of the shared class), for
-    ``spectrum_in_angular_range()``'s on-demand recompute.
+    dataclass -- arbitrary extra attributes work fine set after
+    construction, without needing to be declared as part of the shared
+    class), for ``spectrum_in_angular_range()``'s on-demand recompute.
     ``_angular_rescale`` is the QUICK-FIX rescale factor (see
     ``run_simulation``'s "QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION"
     comment), reapplied identically in ``spectrum_in_angular_range``.
@@ -266,15 +265,12 @@ def _attach_private_cache(res: CommonResults, *, gamma, theta_x, theta_y, a0, we
 def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
                    *, electrons: MacroBunch) -> CommonResults:
     """``electrons`` is required: electron sampling is the caller's job,
-    not this adapter's -- it used to fall back to its own internal
-    ``particles.sample_bunch(compton, cfg.n_particles_01, ...)`` draw when
-    ``electrons`` was ``None``; that fallback was removed so there's
-    exactly one place electrons get drawn from a beam description
-    (``compton_io.bunch.sample_gaussian_bunch``), not one per model. The
-    caller is expected to size its sample to ``cfg.n_particles_01``
-    particles, mirroring xigma-i's own convention (``compton_guide.
-    app.py``'s ``on_start()`` and ``ComptonSuite/validation/runners.py``
-    both already do this)."""
+    not this adapter's -- there's exactly one place electrons get drawn
+    from a beam description (``compton_io.bunch.sample_gaussian_bunch``),
+    not one per model. The caller is expected to size its sample to
+    ``cfg.n_particles_01`` particles, mirroring xigma-i's own convention
+    (``compton_guide.app.py``'s ``on_start()`` and
+    ``ComptonSuite/validation/runners.py`` both already do this)."""
     if cfg.crossing_angle != 0.0:
         raise ValueError(
             f"xigma-i-direct: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
@@ -285,12 +281,9 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     device = _detect_device()
     compton = Compton(device=device)
 
-    # ``seed`` is no longer used here -- it used to feed the internal
-    # particles.sample_bunch(..., rng=...) draw this function made when
-    # ``electrons`` was optional; now that electron sampling is the
-    # caller's job (see this function's docstring), there's no RNG left
-    # for this function to own. Kept in the signature for ModelAdapter
-    # interface compatibility.
+    # ``seed`` is unused here: electron sampling is the caller's job (see
+    # this function's docstring), so there's no RNG left for this function
+    # to own. Kept in the signature for ModelAdapter interface compatibility.
     compton.set_electron_parameters(
         chargeNC=cfg.N_e * _ELEMENTARY_CHARGE_C * 1e9,
         emit_x=cfg.emit_x * _M_TO_CM, emit_y=cfg.emit_y * _M_TO_CM,
