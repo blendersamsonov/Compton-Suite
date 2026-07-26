@@ -68,6 +68,7 @@ from compton_suite.io.bunch import MacroBunch as _MacroBunch
 from compton_suite.io.bunch import beta_star_from_sigma_emit as _beta_star_from_sigma_emit
 from compton_suite.io.io_formats.sdds import save_elegant_ele as _save_elegant_ele
 from compton_suite.io.laser import GaussianParaxialLaser as _GaussianParaxialLaser
+from compton_suite.io.laser_envelope import gaussian_pulse_envelope as _gaussian_pulse_envelope
 
 # ---------------------------------------------------------------------------
 # Physical constants (SI) -- from compton_io.constants (shared, pint-
@@ -151,11 +152,12 @@ class Config:
             # are exactly compton_io.laser.GaussianParaxialLaser's
             # n_photons/rayleigh_x_m -- read from there instead of
             # re-deriving the same formulas locally (verified to agree to
-            # float precision). laser_density/laser_a0sq below stay local:
-            # they evaluate the envelope at an arbitrary (x, y, z, t),
-            # including a nonzero crossing_angle, which GaussianParaxialLaser
-            # (head-on/on-axis only, see its own module docstring) doesn't
-            # support.
+            # float precision). laser_density/laser_a0sq below evaluate the
+            # envelope at an arbitrary (x, y, z, t), including a nonzero
+            # crossing_angle, which GaussianParaxialLaser itself (head-on/
+            # on-axis only, see its own module docstring) doesn't support --
+            # they call compton_io.laser_envelope.gaussian_pulse_envelope
+            # instead, the shared evaluator that does support this.
             _laser = _GaussianParaxialLaser(
                 pulse_energy_J=self.pulse_energy_J, wavelength_m=self.lambda_L,
                 waist_rms_x_m=self.sigma0_l, waist_rms_y_m=self.sigma0_l,
@@ -265,17 +267,19 @@ def laser_density(x, y, z, t, cfg: Config):
     Reduces exactly to dfe4's counter-propagating pulse when crossing_angle = 0
     and delta = 0.  The waist is at the focus point ``delta`` and the pulse
     centre passes the focus at ``t = 0``.
+
+    Thin SI wrapper over compton_io.laser_envelope.gaussian_pulse_envelope
+    (the shared, unit-convention-agnostic evaluator this formula was
+    extracted into -- see that function's docstring) -- ``t`` (seconds) is
+    converted to ``C_LIGHT * t`` (a length) at this boundary, since the
+    shared function takes light-travel-time as a length, not a bare ``t``.
     """
-    nx, ny, nz = laser_axis(cfg)
-    rx = x - cfg.delta_x
-    ry = y - cfg.delta_y
-    rz = z - cfg.delta_z
-    u = rx * nx + ry * ny + rz * nz               # along propagation from focus
-    perp2 = np.clip(rx * rx + ry * ry + rz * rz - u * u, 0.0, None)
-    sp2 = cfg.sigma0_l ** 2 * (1.0 + (u / cfg.R_sf) ** 2)
-    norm = 1.0 / ((2.0 * np.pi) ** 1.5 * sp2 * cfg.sigma_par_L)
-    arg = -perp2 / (2.0 * sp2) - (u - C_LIGHT * t) ** 2 / (2.0 * cfg.sigma_par_L ** 2)
-    return norm * np.exp(arg)
+    return _gaussian_pulse_envelope(
+        x, y, z, C_LIGHT * t,
+        sigma0=cfg.sigma0_l, rayleigh_range=cfg.R_sf, sigma_ct=cfg.sigma_par_L,
+        axis=laser_axis(cfg), focus=(cfg.delta_x, cfg.delta_y, cfg.delta_z),
+        xp=np,
+    )
 
 
 def laser_a0sq(x, y, z, t, cfg: Config):

@@ -25,6 +25,7 @@ be simple to reason about and validate independently.
 import numpy as np
 from dataclasses import dataclass
 
+from compton_suite.io.laser_envelope import gaussian_pulse_envelope
 from compton_suite.io.propagation import ballistic_position_z0_reference, laser_overlap_time_window
 
 from .config import GAUSS_WIDTH, LORENTZ_WIDTH
@@ -320,9 +321,15 @@ def _push_and_sample_vectorized(params, macrobunch, n_steps, xp,
     x, y, z = ballistic_position_z0_reference(
         x0[:, None], y0[:, None], z0[:, None], theta_x[:, None], theta_y[:, None], t)
 
-    sigma_l_sq = w0 * w0 * (1.0 + (z - beta_ff * t)**2 / z_rayleigh**2)
-    env = xp.exp(-((z + t) / zT)**2 / 2) / xp.sqrt(2 * np.pi) / zT
-    n_ph_shape = xp.exp(-(x**2 + y**2) / sigma_l_sq / 2) / (2 * np.pi) / sigma_l_sq * env
+    # n_ph_shape: this pipeline's own CGS/k0_las-normalised call into the
+    # shared spatiotemporal envelope (compton_io.laser_envelope) -- axis/
+    # focus left at their defaults (head-on, no offset), matching this
+    # pipeline's own convention (see gaussian_pulse_envelope's docstring on
+    # why CollisionParams.delta_x/y/z aren't threaded through here).
+    n_ph_shape = gaussian_pulse_envelope(
+        x, y, z, t, sigma0=w0, rayleigh_range=z_rayleigh, sigma_ct=zT,
+        beta_ff=beta_ff, xp=xp,
+    )
 
     peak_shape = 1.0 / (2 * np.pi * w0 * w0) / (np.sqrt(2 * np.pi) * zT)
     # ratio = (a0_local/params.a0)**2 -- deliberately built without params.a0
@@ -399,6 +406,16 @@ def _get_numba_kernel():
                 y = y0[i] + vy[i] * (t + dt0)
                 z = z0[i] + vz[i] * t
 
+                # Scalar, numba-compatible hand-inlining of
+                # compton_io.laser_envelope.gaussian_pulse_envelope (head-on,
+                # focus=(0,0,0) case: u=-z, perp2=x^2+y^2, u_spot=-z+beta_ff*t
+                # -- see that function's docstring for the general form).
+                # numba's nopython mode can't accept that function's `xp`
+                # parameter (not a numba-representable type), so this stays a
+                # separate copy from _push_and_sample_vectorized's call into
+                # the shared function -- if the shared formula's math ever
+                # changes, this block must be updated by hand in lockstep;
+                # there is no automated sync.
                 zr_term = z - beta_ff * t
                 sigma_l_sq = w0 * w0 * (1.0 + zr_term * zr_term / (z_rayleigh * z_rayleigh))
                 env = np.exp(-((z + t) / zT) ** 2 / 2.0) / sqrt_two_pi / zT

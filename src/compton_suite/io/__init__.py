@@ -50,6 +50,11 @@ each, that every consumer imports directly (never vendors or re-derives):
    ``xigma_direct``) need, derived from this package's own SI beam/laser/
    geometry description. Not needed by every model (``kascade`` works
    directly in SI) -- shared here so it isn't re-derived per pipeline.
+9. **Spatiotemporal laser-pulse envelope** -- ``laser_envelope.py``:
+   ``gaussian_pulse_envelope``, the full (x, y, z, t) Gaussian-pulse
+   photon-density evaluator ``laser.py``'s on-axis-peak-only
+   ``GaussianParaxialLaser`` deliberately doesn't provide -- previously
+   independently reimplemented by both ``kascade`` and ``xigma_i``.
 
 Typical use:
 
@@ -68,7 +73,10 @@ Typical use:
 
 """
 
-from . import bunch, collision, constants, interaction, io_formats, laser, photons, propagation, results
+from . import (
+    bunch, collision, constants, interaction, io_formats, laser,
+    laser_envelope, photons, propagation, results,
+)
 from .adapter import adapt_to_model, params_to_floats
 from .canonical import CANONICAL_CONVENTIONS, CANONICAL_UNIT, from_canonical, to_canonical
 from .enums import AmplitudeConvention, PhysicalMeaning, TimeConvention, WidthConvention
@@ -112,6 +120,7 @@ __all__ = [
     "MeaningMismatchError",
     "bunch",
     "laser",
+    "laser_envelope",
     "photons",
     "interaction",
     "collision",
