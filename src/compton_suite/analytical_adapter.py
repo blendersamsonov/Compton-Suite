@@ -22,7 +22,7 @@ from . import _bootstrap
 
 _bootstrap.setup_paths()
 
-from compton_io.bunch import GaussianElectronBeam, MacroBunch, fit_gaussian, sample_gaussian_bunch  # noqa: E402
+from compton_io.bunch import GaussianElectronBeam, MacroBunch, fit_gaussian  # noqa: E402
 from compton_io.constants import C_LIGHT, E_CHARGE, HBAR  # noqa: E402
 from compton_io.io_formats.sdds import load_elegant_ele  # noqa: E402
 from compton_io.laser import GaussianParaxialLaser  # noqa: E402
@@ -190,21 +190,46 @@ class AnalyticalAdapter:
         extra = dict(n_mc=5000, seed=0, rep_rate_hz=g("pulse_frequency_Hz"), warnings=warnings)
         return cfg, extra
 
-    def run(self, cfg: AnalyticalConfig, n_mc: int, seed: int, electrons: MacroBunch | None = None):
-        beam = fit_gaussian(electrons) if electrons is not None else cfg.beam
+    def run(self, cfg: AnalyticalConfig, n_mc: int, seed: int, *, electrons: MacroBunch):
+        beam = fit_gaussian(electrons)
         self._last_beam = beam
         pulse = cfg.pulse
 
         total_yield = float(analytical.estimate_yield(beam, pulse))
         width = float(analytical.estimate_spectrum_width(beam, pulse, cfg.theta_col_rad))
 
-        rng = np.random.default_rng(seed)
-        preview = sample_gaussian_bunch(beam, n_particles=max(n_mc, 2000), rng=rng)
+        # Electron sampling is the caller's job now, not this adapter's
+        # (see module docstring / the cross-repo "macrobunching" change
+        # this is part of) -- this used to draw its OWN separate preview
+        # bunch here (max(n_mc, 2000) particles via sample_gaussian_bunch)
+        # for the per-electron kinematic shape calculation below, even
+        # though ``electrons`` had already been fitted into ``beam`` two
+        # lines above. That was strictly more self-sampling than
+        # necessary: ``electrons`` already IS a macroparticle sample of
+        # this same beam, so its own gamma/weight are used directly below
+        # instead of drawing a second, independent one.
+        #
+        # Particle-count check: every real caller sizes ``electrons`` far
+        # above the old max(n_mc, 2000) floor -- compton_guide.app.py's
+        # on_start() samples it to whichever *other* active model's own
+        # convention (kascade's shared n_mc field, default 200_000; xigma-
+        # i/-direct's n_particles_01, default 60_000/20_000), and
+        # ComptonSuite/validation/runners.py samples DEFAULT_N_MC=100_000
+        # particles for this adapter specifically -- so in practice this
+        # is always a strictly larger, not noisier, sample than the old
+        # internal draw. The one case that could hand this a small
+        # ``electrons`` is a hand-loaded .ele file with few macroparticles
+        # (supports_ele_file_io=True); if that ever proves too noisy for
+        # this shape estimate, the fix is a caller-side minimum bunch
+        # size, not resurrecting an internal resample here -- reintroducing
+        # sampling in this adapter is exactly what this change removes.
+        gamma_arr = np.asarray(electrons.gamma, dtype=float)
+        weight_arr = np.full(electrons.n_particles, electrons.weight)
 
         omega0 = 2.0 * np.pi * C_LIGHT / pulse.wavelength_m
         Wph_eV = HBAR * omega0 / E_CHARGE
         s_grid = np.linspace(1e-3, 1.0 - 1e-3, 256)
-        dNds = analytical.angle_integrated_spectrum(preview.gamma, np.full(preview.n_particles, preview.weight), s_grid)
+        dNds = analytical.angle_integrated_spectrum(gamma_arr, weight_arr, s_grid)
         E_eV = 4.0 * beam.gamma0**2 * Wph_eV * s_grid
         dNdE_per_eV = dNds / (4.0 * Wph_eV)
 
@@ -226,7 +251,7 @@ class AnalyticalAdapter:
         return CommonResults(
             model_name="analytical",
             cfg=cfg,
-            n_mc=preview.n_particles,
+            n_mc=electrons.n_particles,
             total_yield=total_yield,
             spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
             summary={"estimated_spectrum_width_fwhm": width, "gamma0": beam.gamma0,
