@@ -6,8 +6,8 @@ tabulated_engine.py, gui_adapter.py).
 `Compton` holds a laser-electron collision's physical parameters
 (`set_electron_parameters`/`set_laser_parameters`/`set_foci_displacement`)
 and the quantities derived from them (`k0_las`, `Wph`, `a0`, `N_e`, `N_l`,
-...); `particles.sample_bunch`/`push_and_sample` take an instance of it as
-their parameter source. It is a plain config object -- it does not compute
+...); `particles.push_and_sample` takes an instance of it as its parameter
+source. It is a plain config object -- it does not compute
 a spectrum itself; `TabulatedEngine` (tabulated_engine.py) and the
 functions in `reference.py`/`spectrum4d.py` do that.
 

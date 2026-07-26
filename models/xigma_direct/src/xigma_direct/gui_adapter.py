@@ -1,16 +1,16 @@
 """ModelAdapter for the brute-force particle-binning model.
 
 Extracted from ``xigma_i.reference``: reuses ``xigma_i.particles.
-sample_bunch``/``push_and_sample`` (Stage 0 -- the same ballistic
+bunch_from_macrobunch``/``push_and_sample`` (Stage 0 -- the same ballistic
 trajectory-through-laser-pulse push the tabulated ``xigma-i`` model uses)
 and ``xigma_i.reference.direct_binning_spectrum``/``angle_integrated_
 spectrum`` directly, with NO Stage 1 deposition and NO Stage 2 kernel --
 "no table, no importance sampling -- assumption-free on both the
 deposition and the lookup" (direct_binning_spectrum's own docstring).
 
-Depends on both ``compton_io`` (bunch/laser representations) and
-``xigma_i`` (Stage 0 physics) as sibling repos -- not embedded in either,
-per the "every module gets its own repo" rule. Duck-typed against
+Depends on both ``compton_io`` (bunch/laser representations, and electron
+sampling via ``compton_io.bunch.sample_gaussian_bunch``) and ``xigma_i``
+(Stage 0 push physics) -- not embedded in either. Duck-typed against
 ``compton_guide.model_api``, same decoupling discipline every other
 adapter in this suite uses.
 

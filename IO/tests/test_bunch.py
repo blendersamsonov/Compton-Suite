@@ -93,6 +93,27 @@ def test_fit_gaussian_recovers_waist_after_drift():
     assert abs(fit.emit_geom_x_m / _EXAMPLE_BEAM.emit_geom_x_m - 1.0) < 0.03
 
 
+def test_sample_gaussian_bunch_chirp_correlates_energy_with_z():
+    rng = np.random.default_rng(6)
+    chirped = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, chirp=0.5, rng=rng)
+    # Positive chirp: gamma should increase with z (correlation > 0).
+    corr = np.corrcoef(chirped.z, chirped.gamma)[0, 1]
+    assert corr > 0.3
+    rng0 = np.random.default_rng(6)
+    unchirped = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, chirp=0.0, rng=rng0)
+    assert abs(np.corrcoef(unchirped.z, unchirped.gamma)[0, 1]) < 0.05
+
+
+def test_sample_gaussian_bunch_angle_energy_corr():
+    rng = np.random.default_rng(7)
+    correlated = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, angle_energy_corr=0.8, rng=rng)
+    corr = np.corrcoef(correlated.thx, correlated.gamma)[0, 1]
+    assert corr > 0.5
+    rng0 = np.random.default_rng(7)
+    uncorrelated = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, angle_energy_corr=0.0, rng=rng0)
+    assert abs(np.corrcoef(uncorrelated.thx, uncorrelated.gamma)[0, 1]) < 0.05
+
+
 def test_validate_rejects_nonpositive_fields():
     bad = GaussianElectronBeam(
         bunch_charge_C=-1.0, kinetic_energy_eV=1e6, rel_energy_spread_rms=0.001,

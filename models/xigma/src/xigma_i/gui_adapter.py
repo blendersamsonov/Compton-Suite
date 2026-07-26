@@ -431,16 +431,13 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     do this).
 
     ``electrons`` is required: electron sampling is the caller's job, not
-    this adapter's -- it used to fall back to its own internal
-    ``particles.sample_bunch()`` draw when ``electrons`` was ``None``; that
-    fallback was removed so there's exactly one place electrons get drawn
-    from a beam description (``compton_io.bunch.sample_gaussian_bunch``),
-    not one per model. ``particles.sample_bunch`` itself still exists and
-    is still used internally by ``TabulatedEngine.run()``'s own optional
-    ``bunch=None`` convenience and by standalone scripts
-    (``compare_direct_vs_table.py``, ``validation/refs.py``) that call
-    Stage 0/1/2 directly without going through this adapter -- only this
-    GUI/ModelAdapter-facing boundary stopped self-sampling."""
+    this adapter's, or this package's at all -- there's exactly one place
+    electrons get drawn from a beam description
+    (``compton_io.bunch.sample_gaussian_bunch``), not one per model.
+    ``particles.sample_bunch`` no longer exists; every caller (this
+    adapter, ``TabulatedEngine.run()``, and the standalone scripts) samples
+    via ``compton_io.bunch`` and converts with
+    ``particles.bunch_from_macrobunch`` instead."""
     if cfg.crossing_angle != 0.0:
         raise ValueError(
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
@@ -451,12 +448,6 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     device = _detect_device()
     compton = Compton(device=device)
     xp = compton.xp
-
-    # Best-effort reproducibility: particles.sample_bunch takes an explicit
-    # rng, not a global seed -- not guaranteed bit-exact across GPU/driver/
-    # cupy versions or between the GPU and CPU backends, see
-    # capabilities()'s supports_seed_reproducibility=False.
-    rng = np.random.default_rng(seed)
 
     compton.set_electron_parameters(
         chargeNC=cfg.N_e * _ELEMENTARY_CHARGE_C * 1e9,
@@ -499,8 +490,8 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     n_bins = (int(cfg.n_bins_gamma), int(cfg.n_bins_theta_x),
               int(cfg.n_bins_theta_y), int(cfg.n_bins_a0))
     n_spatial_bins = (int(cfg.n_spatial_bins_x), int(cfg.n_spatial_bins_y))
-    engine.run(n_particles_new, gamma_0, sigma_gamma_0, n_steps=int(cfg.n_steps_0),
-               n_bins=n_bins, backend=push_backend, rng=rng, a0_max=cfg.a0_max,
+    engine.run(n_steps=int(cfg.n_steps_0),
+               n_bins=n_bins, backend=push_backend, a0_max=cfg.a0_max,
                n_time_bins=int(cfg.n_time_bins), n_spatial_bins=n_spatial_bins,
                bunch=pushed_bunch)
     total_yield = engine.total_yield

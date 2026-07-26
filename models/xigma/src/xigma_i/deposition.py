@@ -47,7 +47,8 @@ input on the GPU at once.
 build_table's batching still assumes the full (gamma, theta_x, theta_y, a0,
 weight) sample set already exists as one array -- it only bounds the
 *deposition* side. build_table_streaming bounds Stage 0 too: it draws and
-pushes `chunk_particles` macroparticles at a time (particles.sample_bunch +
+pushes `chunk_particles` macroparticles at a time
+(compton_io.bunch.sample_gaussian_bunch + particles.bunch_from_macrobunch +
 push_and_sample) and deposits+discards each chunk before drawing the next,
 so push_and_sample's own O(n_chunk*n_steps) internal trajectory-integration
 arrays -- not just the (small, O(n_particles)) samples it returns -- never
@@ -578,28 +579,35 @@ def build_table(gamma, theta_x, theta_y, a0, weight, *, grid=None, scheme='neare
     )
 
 
-def build_table_streaming(compton, n_particles, n_steps, *, chunk_particles,
-                           gamma0, sigma_gamma0, chirp=0.0, angle_energy_corr=0.0, rng=None,
+def build_table_streaming(compton, beam, n_particles, n_steps, *, chunk_particles,
+                           chirp=0.0, angle_energy_corr=0.0, rng=None,
                            push_backend='numpy', grid=None, scheme='nearest', device=None,
                            n_bins=(128, 128, 128, 32), margin=0.05, accumulate_dtype=np.float64,
                            gamma_quantile=1e-4, a0_kind='ahat', quiet=True, **scheme_kwargs):
     """Stage 0+1 combined, for n_particles too large (times n_steps) to draw
     and push in one call: draws and pushes `chunk_particles` macroparticles
-    at a time (particles.sample_bunch + particles.push_and_sample), deposits
-    each chunk immediately, and accumulates -- so push_and_sample's own
-    O(n_chunk*n_steps) internal trajectory-integration arrays never scale
-    with the full n_particles, only with chunk_particles (see module
-    docstring for how this differs from build_table's own `batch_size`,
-    which only bounds *depositing* an already-materialised sample array).
-    Deriving the grid from the first chunk if not supplied, so every chunk
-    deposits into the same fixed grid.
+    at a time (compton_io.bunch.sample_gaussian_bunch +
+    particles.push_and_sample), deposits each chunk immediately, and
+    accumulates -- so push_and_sample's own O(n_chunk*n_steps) internal
+    trajectory-integration arrays never scale with the full n_particles,
+    only with chunk_particles (see module docstring for how this differs
+    from build_table's own `batch_size`, which only bounds *depositing* an
+    already-materialised sample array). Deriving the grid from the first
+    chunk if not supplied, so every chunk deposits into the same fixed grid.
 
+    beam: a compton_io.bunch.GaussianElectronBeam (SI) describing the
+        electron beam to sample -- electron sampling happens here via
+        compton_io, not internally to this model (see
+        compton_io.bunch.sample_gaussian_bunch); each chunk's SI MacroBunch
+        is converted to this pipeline's own CGS Bunch via
+        particles.bunch_from_macrobunch(macrobunch, compton).
     chunk_particles: particles drawn+pushed+deposited per iteration -- size
         this so chunk_particles*n_steps fits comfortably in push_backend's
         memory (GPU memory for 'cupy', system RAM for 'numpy'/'numba').
-    gamma0, sigma_gamma0, chirp, angle_energy_corr, rng: passed to
-        particles.sample_bunch for each chunk; rng is shared/advanced across
-        chunks (a fresh `np.random.default_rng()` if not supplied).
+    chirp, angle_energy_corr, rng: passed to
+        compton_io.bunch.sample_gaussian_bunch for each chunk; rng is
+        shared/advanced across chunks (a fresh `np.random.default_rng()`
+        if not supplied).
     push_backend: passed to particles.push_and_sample for each chunk --
         'numpy' (default, matching push_and_sample's own default -- always
         available, no GPU required), 'cupy', or 'numba'.
@@ -616,7 +624,7 @@ def build_table_streaming(compton, n_particles, n_steps, *, chunk_particles,
     quiet: if False, prints per-chunk progress.
 
     Each chunk's macroparticle weight is rescaled by n_chunk/n_particles:
-    particles.sample_bunch sets weight = compton.N_e/n_chunk (as if this
+    bunch_from_macrobunch sets weight = compton.N_e/n_chunk (as if this
     chunk alone were the whole population), so this rescales it to
     compton.N_e/n_particles, the correct per-macroparticle weight for a
     fraction of a streamed bunch -- omitting this inflates the total
@@ -624,6 +632,8 @@ def build_table_streaming(compton, n_particles, n_steps, *, chunk_particles,
 
     Returns a Table (same as build_table).
     """
+    from compton_io.bunch import sample_gaussian_bunch
+
     if scheme not in _DEPOSIT_FUNCS:
         raise ValueError(f"scheme must be one of {list(_DEPOSIT_FUNCS)}, got {scheme!r}")
     xp = {'cpu': np, 'gpu': cp}.get(device)
@@ -640,8 +650,9 @@ def build_table_streaming(compton, n_particles, n_steps, *, chunk_particles,
     t0 = time.time()
     while n_done < n_particles:
         n_chunk = min(chunk_particles, n_particles - n_done)
-        bunch = particles.sample_bunch(compton, n_chunk, gamma0, sigma_gamma0,
-                                        chirp=chirp, angle_energy_corr=angle_energy_corr, rng=rng)
+        macrobunch = sample_gaussian_bunch(beam, n_chunk, chirp=chirp,
+                                            angle_energy_corr=angle_energy_corr, rng=rng)
+        bunch = particles.bunch_from_macrobunch(macrobunch, compton)
         bunch.weight *= n_chunk / n_particles
         gamma, tx, ty, a0, w = particles.push_and_sample(compton, bunch, n_steps=n_steps, backend=push_backend)
 

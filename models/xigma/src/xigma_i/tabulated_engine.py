@@ -51,11 +51,10 @@ class TabulatedEngine:
     backend: str = field(default='numpy', repr=False)
     diagnostics: object = field(default=None, repr=False)
 
-    def run(self, n_particles, gamma_0, sigma_gamma0, *, n_steps=100,
-            n_bins=(48, 48, 48, 12), scheme='nearest', backend='numpy',
-            a0_max=DEFAULT_A0_MAX, chirp=0.0, angle_energy_corr=0.0, rng=None,
-            n_time_bins=None, n_spatial_bins=None, bunch=None):
-        """Stage 0 (particles.sample_bunch/push_and_sample) + Stage 1
+    def run(self, *, n_steps=100, n_bins=(48, 48, 48, 12), scheme='nearest',
+            backend='numpy', a0_max=DEFAULT_A0_MAX,
+            n_time_bins=None, n_spatial_bins=None, bunch):
+        """Stage 0 (particles.push_and_sample) + Stage 1
         (deposition.build_table, a0_kind='shape') + retarget to this
         engine's compton.a0 (deposition.retarget_a0) -- one physical,
         spectrum-ready table.
@@ -75,17 +74,14 @@ class TabulatedEngine:
         t_edges/spatial_edges override exposed here; construct via
         particles.push_and_sample directly if a specific window is needed).
 
-        bunch (optional): a pre-built particles.Bunch (e.g. from
-        particles.bunch_from_macrobunch, for a loaded .ele file) to push
-        instead of internally sampling one via particles.sample_bunch --
-        n_particles/gamma_0/sigma_gamma0/chirp/angle_energy_corr/rng are
-        all ignored when given (mirrors kascade's run_simulation:
-        electrons overrides sampling, its size overrides n_mc).
+        bunch: a pre-built particles.Bunch (e.g. from
+        particles.bunch_from_macrobunch) to push -- required, keyword-only.
+        Electron sampling is the caller's job, not this engine's: there is
+        exactly one place electron bunches get drawn from a beam
+        description (compton_io.bunch.sample_gaussian_bunch), not one per
+        model (mirrors kascade's run_simulation: electrons is mandatory,
+        no internal sampling fallback).
         """
-        if bunch is None:
-            bunch = particles.sample_bunch(
-                self.compton, n_particles, gamma_0, sigma_gamma0,
-                chirp=chirp, angle_energy_corr=angle_energy_corr, rng=rng)
         result = particles.push_and_sample(
             self.compton, bunch, n_steps=n_steps, backend=backend,
             n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins)

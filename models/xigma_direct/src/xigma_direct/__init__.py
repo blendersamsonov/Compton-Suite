@@ -7,10 +7,8 @@ physics (``particles.bunch_from_macrobunch``/``push_and_sample``)
 directly as a library dependency rather than duplicating it -- see this
 repo's ``gui_adapter.py`` module docstring and ``CLAUDE.md``. Electron
 sampling itself is the caller's job (``gui_adapter.run_simulation``
-requires an already-sampled ``electrons`` bunch), so ``particles.
-sample_bunch`` is no longer called from anywhere in this repo -- only
-from ``xigma_i`` itself, where it remains a legitimate standalone Stage 0
-entry point.
+requires an already-sampled ``electrons`` bunch) -- there is no internal
+sampler anywhere in this package.
 """
 
 from .gui_adapter import DirectConfig, DirectResults, XigmaDirectAdapter

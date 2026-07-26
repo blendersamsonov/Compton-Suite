@@ -184,23 +184,41 @@ def validate(beam: GaussianElectronBeam) -> list[str]:
     return warnings
 
 
-def sample_gaussian_bunch(beam: GaussianElectronBeam, n_particles: int, *, rng=None) -> MacroBunch:
+def sample_gaussian_bunch(beam: GaussianElectronBeam, n_particles: int, *,
+                           chirp: float = 0.0, angle_energy_corr: float = 0.0,
+                           rng=None) -> MacroBunch:
     """Draw macroparticles from a :class:`GaussianElectronBeam`.
 
     Independent factorized Gaussians per spec Sec. 13, defined at the beam
     waist (``z=0``): ``x``/``thx`` and ``y``/``thy`` uncorrelated
-    (``alpha=0`` at the waist), no chirp (``<z, delta_E> = 0``).
+    (``alpha=0`` at the waist), no correlation by default (``chirp=0``,
+    ``angle_energy_corr=0``).
+
+    ``chirp``: dimensionless energy-position correlation. ``gamma``
+    acquires an additional shift ``chirp * gamma0 * z / sigma_z_m``, so
+    ``chirp=0.1`` means a 10% fractional energy change over one bunch RMS
+    length. ``angle_energy_corr``: correlation coefficient in ``[-1, 1]``
+    between ``thx`` and the ``(gamma - gamma0) / sigma_gamma`` residual.
+    Both default to 0 (the plain, uncorrelated case this function has
+    always drawn); this is the same correlated-bunch capability
+    ``xigma_i.particles.sample_bunch`` used to provide on its own, moved
+    here so there's exactly one place electron bunches get sampled from a
+    beam description, correlated or not.
     """
     rng = np.random.default_rng() if rng is None else rng
 
     x = rng.normal(0.0, beam.sigma_x_m, n_particles)
-    thx = rng.normal(0.0, beam.divergence_x_rad, n_particles)
     y = rng.normal(0.0, beam.sigma_y_m, n_particles)
     thy = rng.normal(0.0, beam.divergence_y_rad, n_particles)
 
+    corr = np.clip(angle_energy_corr, -1.0, 1.0)
+    g_std = rng.normal(0.0, 1.0, n_particles)
+    thx_std = corr * g_std + np.sqrt(max(0.0, 1.0 - corr**2)) * rng.normal(0.0, 1.0, n_particles)
+    thx = beam.divergence_x_rad * thx_std
+
     t = rng.normal(0.0, beam.sigma_t_s, n_particles)
     z = beam.beta0 * C_LIGHT * t
-    gamma = beam.gamma0 + rng.normal(0.0, beam.sigma_gamma, n_particles)
+    gamma = beam.gamma0 * (1.0 + chirp * z / beam.sigma_z_m) + beam.sigma_gamma * g_std
 
     weight = beam.N_e / n_particles
     return MacroBunch(x=x, y=y, z=z, thx=thx, thy=thy, gamma=gamma, weight=weight,

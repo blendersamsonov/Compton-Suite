@@ -163,7 +163,7 @@ def bunch_from_macrobunch(macrobunch, compton) -> "Bunch":
     pass through unchanged -- both kascade and xigma_i use the same
     position-at-a-reference-slice-plus-ballistic-angle convention, so no
     angle/energy conversion is needed, only the position normalisation
-    ``sample_bunch`` itself applies (``k0_las * x[cm]``).
+    below (``k0_las * x[cm]``).
 
     ``weight`` is deliberately NOT taken from ``macrobunch.weight`` --
     recomputed as ``compton.N_e / macrobunch.n_particles`` instead, so the
@@ -182,46 +182,6 @@ def bunch_from_macrobunch(macrobunch, compton) -> "Bunch":
     theta_x = np.asarray(macrobunch.thx, dtype=float)
     theta_y = np.asarray(macrobunch.thy, dtype=float)
     weight = compton.N_e / macrobunch.n_particles
-    return Bunch(x0=x0, y0=y0, z0=z0, gamma=gamma, theta_x=theta_x, theta_y=theta_y, weight=weight)
-
-
-def sample_bunch(compton, n_particles, gamma0, sigma_gamma0, *,
-                  chirp=0.0, angle_energy_corr=0.0, rng=None):
-    """Draw a macroparticle bunch from the beam's (possibly correlated) phase space.
-
-    compton: a configured Compton instance (must have set_electron_parameters
-        and set_laser_parameters already called; only electron-side and
-        k0_las/delta_z attributes are used here).
-    gamma0, sigma_gamma0: mean and RMS of the electron energy distribution.
-    chirp: dimensionless energy-position correlation. gamma acquires an
-        additional shift `chirp * gamma0 * z0_phys / sigma_ez`, so chirp=0.1
-        means a 10% fractional energy change over one bunch RMS length.
-    angle_energy_corr: correlation coefficient in [-1, 1] between theta_x and
-        the (gamma - gamma0) / sigma_gamma0 residual. Used to test
-        divergence-energy correlated bunches (validation 3).
-    rng: numpy Generator, or None to create a fresh one.
-    """
-    rng = np.random.default_rng() if rng is None else rng
-
-    k0 = compton.k0_las
-    x0 = rng.normal(0.0, k0 * compton.sigma_ex, n_particles)
-    y0 = rng.normal(0.0, k0 * compton.sigma_ey, n_particles)
-    z0 = rng.normal(k0 * compton.delta_z, k0 * compton.sigma_ez, n_particles)
-
-    sigma_thx = compton.emit_x / compton.sigma_ex
-    sigma_thy = compton.emit_y / compton.sigma_ey
-
-    corr = np.clip(angle_energy_corr, -1.0, 1.0)
-    g_std = rng.normal(0.0, 1.0, n_particles)
-    thx_std = corr * g_std + np.sqrt(max(0.0, 1.0 - corr**2)) * rng.normal(0.0, 1.0, n_particles)
-
-    z0_phys = z0 / k0
-    gamma = gamma0 * (1.0 + chirp * z0_phys / compton.sigma_ez) + sigma_gamma0 * g_std
-    theta_x = sigma_thx * thx_std
-    theta_y = sigma_thy * rng.normal(0.0, 1.0, n_particles)
-
-    weight = compton.N_e / n_particles
-
     return Bunch(x0=x0, y0=y0, z0=z0, gamma=gamma, theta_x=theta_x, theta_y=theta_y, weight=weight)
 
 
