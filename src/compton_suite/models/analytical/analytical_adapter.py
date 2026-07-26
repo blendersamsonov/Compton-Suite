@@ -24,7 +24,7 @@ from compton_suite.io.io_formats.sdds import load_elegant_ele
 from compton_suite.io.laser import GaussianParaxialLaser
 from compton_suite.io.photons import BinnedSpectrum
 
-import analytical
+from . import analytical
 
 
 class ParamError(Exception):
@@ -145,7 +145,7 @@ class AnalyticalAdapter:
         # GaussianElectronBeam's kinetic_energy_eV convention explicitly
         # (kinetic = total - rest mass) so the two conventions don't get
         # silently conflated.
-        from compton_io.constants import MEC2_EV
+        from compton_suite.io.constants import MEC2_EV
         gamma0 = g("mean_energy_MeV") * 1e6 / MEC2_EV
         kinetic_energy_eV = (gamma0 - 1.0) * MEC2_EV
 
@@ -243,7 +243,7 @@ class AnalyticalAdapter:
         if _raw_integral > 0:
             dNdE_per_eV = dNdE_per_eV * (total_yield / _raw_integral)
 
-        from compton_io.results import CommonResults
+        from compton_suite.io.results import CommonResults
         return CommonResults(
             model_name="analytical",
             cfg=cfg,

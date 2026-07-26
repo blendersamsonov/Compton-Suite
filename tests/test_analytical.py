@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import numpy as np
 
-import analytical
-from compton_io.bunch import GaussianElectronBeam
-from compton_io.laser import GaussianParaxialLaser
+import compton_suite.models.analytical.analytical as analytical
+from compton_suite.io.bunch import GaussianElectronBeam
+from compton_suite.io.laser import GaussianParaxialLaser
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
     bunch_charge_C=100.0e-12,

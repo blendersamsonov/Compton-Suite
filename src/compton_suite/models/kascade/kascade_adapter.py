@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
-import kascade as _kascade
+from . import kascade as _kascade
 from compton_suite.io import constants as _io_constants
 from compton_suite.io.bunch import MacroBunch
 from compton_suite.io.bunch import fit_gaussian as _fit_gaussian
