@@ -18,7 +18,7 @@ pip-installable package; see "Dev install" below.
 | Directory | Python package | Role |
 |-----------|-----------------|------|
 | `IO/` | `compton_io` | Shared constants/units/parameter-convention framework, electron-bunch (`bunch.py`) and laser-pulse (`laser.py`) representations, output/observable dataclasses (`photons.py`), external I/O (`io_formats/`). Depended on by everything else; depends on nothing in this repo. |
-| `GUIde/` | `compton_guide` | Tkinter desktop GUI, model-agnostic via the `ModelAdapter` protocol (`compton_guide/model_api.py`). |
+| `gui/` | `compton_guide` | Tkinter desktop GUI, model-agnostic via the `ModelAdapter` protocol (`compton_guide/model_api.py`). |
 | `models/kaskade/` | flat module `kascade` | CPU Monte Carlo physics engine (sequential multi-photon event generator), SI units, always available. |
 | `models/xigma/` | `xigma_i` | GPU (CuPy, numba CPU fallback) tabulated-overlap-table physics engine, CGS units. Greyed out in the GUI if cupy/CUDA isn't usable. |
 | `models/xigma_direct/` | `xigma_direct` | Brute-force per-macroparticle resonance-binning model, reuses `xigma_i`'s Stage 0 physics directly. |
@@ -29,12 +29,12 @@ pip-installable package; see "Dev install" below.
 
 All four physics engines (`kascade`, `xigma_i`, `xigma_direct`, `analytical`)
 live under `models/` — they're the pluggable, `ModelAdapter`-shaped pieces;
-`IO/` (shared framework) and `GUIde/` (GUI) are not models and stay at the
+`IO/` (shared framework) and `gui/` (GUI) are not models and stay at the
 top level.
 
 ## Architecture
 
-`GUIde` (`compton_guide`) plugs in physics engines through a `ModelAdapter`
+`gui` (`compton_guide`) plugs in physics engines through a `ModelAdapter`
 protocol (`compton_guide/model_api.py`) instead of hardcoded imports, so the
 GUI and each physics engine don't depend on each other's internals. Every
 model's `run()` requires a pre-sampled `electrons: MacroBunch` (keyword-only)
@@ -43,7 +43,7 @@ not any individual model's; no model has its own internal bunch sampler.
 
 - **`kascade`** (`models/kaskade/kascade.py`) — sequential multi-photon
   inverse-Compton MC event generator, SI units, CPU-only (numpy). Adapter:
-  `GUIde/src/compton_guide/adapters/kascade_adapter.py`.
+  `gui/src/compton_guide/adapters/kascade_adapter.py`.
 - **`xigma-i`** (`models/xigma/src/xigma_i`) — tabulated-overlap-table
   pipeline (particle push → 4D deposition → spectrum kernel), CGS units,
   GPU (CuPy/`cupyx.jit`) with a numba CPU fallback. Adapter:
@@ -72,7 +72,7 @@ several installable packages, not one big package) — install them all
 editable in one go:
 
 ```bash
-pip install -e ./IO -e ./GUIde -e ./models/kaskade -e ./models/xigma \
+pip install -e ./IO -e ./gui -e ./models/kaskade -e ./models/xigma \
             -e ./models/xigma_direct -e ./models/analytical -e .
 ```
 
@@ -81,7 +81,7 @@ work (`xigma-i`, `xigma-i-direct`, GUI runs with `xigma-i` enabled) needs the
 `core` conda env:
 
 ```bash
-conda run -n core --no-capture-output pip install -e ./IO -e ./GUIde \
+conda run -n core --no-capture-output pip install -e ./IO -e ./gui \
     -e ./models/kaskade -e ./models/xigma -e ./models/xigma_direct \
     -e ./models/analytical -e .
 conda run -n core --no-capture-output python3 <script>
@@ -132,11 +132,11 @@ Each component's own `AGENTS.md` has the full picture (dev conda env
 details, GPU requirements, etc.); short version:
 
 ```bash
-# GUIde -- run the GUI (needs numpy, matplotlib, tkinter, pint; cupy optional for xigma-i)
-python3 GUIde/scripts/run_gui.py
+# gui -- run the GUI (needs numpy, matplotlib, tkinter, pint; cupy optional for xigma-i)
+python3 gui/scripts/run_gui.py
 
-# GUIde -- headless smoke test (discover_models -> params_to_config -> run -> validate_results)
-python3 GUIde/scripts/headless_test.py
+# gui -- headless smoke test (discover_models -> params_to_config -> run -> validate_results)
+python3 gui/scripts/headless_test.py
 
 # IO (compton_io) -- framework self-checks, no GPU/tkinter needed
 python3 IO/tests/test_constants.py && python3 IO/tests/test_conversions.py \
@@ -155,7 +155,7 @@ python3 validation/run_cross_validation.py
 
 ## Where to look next
 
-- `GUIde/AGENTS.md` -- GUI layout, `ModelAdapter` contract, adding a new
+- `gui/AGENTS.md` -- GUI layout, `ModelAdapter` contract, adding a new
   observable, the `extra_params()` mechanism, known gaps.
 - `IO/AGENTS.md` -- `compton_io` layout, why it exists, naming.
 - `models/kaskade/AGENTS.md` -- engine internals, `Config`/`Results` fields,
@@ -188,7 +188,7 @@ Resolved:
   dead-code deletion.
 - `models/xigma/src/xigma_i/params/spec.py`'s `XIGMA_SPEC`/
   `XIGMA_DIAGNOSTIC_SPEC` are still not wired into `params_to_config` --
-  left as-is (still exercised by `GUIde/scripts/physics_params_demo.py`).
+  left as-is (still exercised by `gui/scripts/physics_params_demo.py`).
   Finishing that wiring is real design work tied to item 5, still open.
 
 ### 2. Move `CollisionParams`/`build_params` into `compton_io`
@@ -259,18 +259,18 @@ shared field entirely, so there's one obvious place per model to control
 
 ### 5. Unify the `ModelAdapter` interface properly
 
-The protocol (`GUIde/src/compton_guide/model_api.py`) is already shared,
+The protocol (`gui/src/compton_guide/model_api.py`) is already shared,
 but per-model wiring is still inconsistent in ways worth finishing, not
 just documenting as "not yet done":
 - `params_to_config` still does FWHM/waist/duration arithmetic by hand in
   both `kascade_adapter.py` and `xigma_i/gui_adapter.py`, instead of going
   through `compton_io`'s canonical-conversion framework
   (`adapt_to_model`/`ModelSpec`) that `xigma_i.params.XIGMA_SPEC` already
-  declares but doesn't use (see item 1). `GUIde/scripts/
-  physics_params_demo.py` already demonstrates what the wired-up version
+declares but doesn't use (see item 1). `gui/scripts/
+physics_params_demo.py` already demonstrates what the wired-up version
   would look like end to end.
 - `kascade` has no `ModelSpec`/`ParameterSpec` schema at all (unlike
-  `xigma_i.params`) -- `GUIde/src/compton_guide/physics_params/schemas/
+  `xigma_i.params`) -- `gui/src/compton_guide/physics_params/schemas/
   kascade.py`'s `KASCADE_SPEC` is GUI-owned, not model-owned, which is the
   same asymmetry `compton_io.results`/`compton_io.photons` already fixed
   for results -- move it into `models/kaskade/` for real model-contract
@@ -303,7 +303,7 @@ instead of always auto-detecting. Same applies to `xigma_direct`'s
    `models/kaskade/pyproject.toml` for a flat single-module package, or
    `models/xigma/pyproject.toml` for a `src/` layout) and add it to the
    dev-install command in this file's "Dev install" section.
-2. Implement the `ModelAdapter` protocol (`GUIde/src/compton_guide/
+2. Implement the `ModelAdapter` protocol (`gui/src/compton_guide/
    model_api.py`): `capabilities()`, `available()`, `extra_params()`,
    `params_to_config(fields, quantum)`, `run(cfg, n_mc, seed, *,
    electrons: MacroBunch) -> CommonResults`, `load_ele_file`,
@@ -312,7 +312,7 @@ instead of always auto-detecting. Same applies to `xigma_direct`'s
    functions plus a thin `XigmaAdapter` class delegating to them) or a
    single class (kascade's `KascadeAdapter` style) -- both work, `models/
    xigma_direct/` and `models/xigma/` use the module-functions style,
-   `GUIde/src/compton_guide/adapters/kascade_adapter.py` uses the class
+   `gui/src/compton_guide/adapters/kascade_adapter.py` uses the class
    style directly.
 3. **Follow this session's architecture rules** (see "No model-local
    physics-parameter configs..." above): build electron/laser objects via
@@ -322,13 +322,13 @@ instead of always auto-detecting. Same applies to `xigma_direct`'s
    `compton_io.results.CommonResults` directly (don't define a local
    lookalike), and keep only genuinely model-specific numerics (grid
    sizes, step counts, ...) on your own `Config`.
-4. Register in `GUIde/src/compton_guide/models.py`'s `discover_models()`:
+4. Register in `gui/src/compton_guide/models.py`'s `discover_models()`:
    `try: from <name>_pkg import gui_adapter as _x; register("<name>",
    _x.SomeAdapter()) except Exception as e: register("<name>",
    UnavailableAdapter(...))` -- wrap in try/except so a missing optional
    dependency (e.g. no GPU) greys the model out instead of crashing GUI
    startup, matching every existing model.
-5. Extend `GUIde/scripts/headless_test.py`'s model loop to exercise the
+5. Extend `gui/scripts/headless_test.py`'s model loop to exercise the
    new adapter, and add a `build_<name>_config`/`run_<name>` pair to
    `validation/scenarios.py`/`validation/runners.py` if it should
    participate in the cross-model validation suite.

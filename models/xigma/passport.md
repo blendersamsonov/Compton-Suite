@@ -294,8 +294,8 @@ reference.py (см. §8).
 | Поле | Значение |
 |---|---|
 | Название минимального test / benchmark case | не зафиксировано (нет фиксированного эталонного конфига) |
-| Основной config-файл | нет — этот пакет является чистой физической библиотекой без своего CLI/TOML-конфига (стандаловый скрипт `calculate-spec-ang.py -c example-config.toml` был удалён при переходе на модели-как-библиотеки); минимальный воспроизводимый запуск — через `TabulatedEngine.run(...)` как библиотеку (см. `CLAUDE.md`, "GUI-facing engine") или через `GUIde/scripts/headless_test.py` |
-| Команда запуска | `conda run -n core --no-capture-output python3 GUIde/scripts/headless_test.py` (сквозной прогон через GUI-адаптер) |
+| Основной config-файл | нет — этот пакет является чистой физической библиотекой без своего CLI/TOML-конфига (стандаловый скрипт `calculate-spec-ang.py -c example-config.toml` был удалён при переходе на модели-как-библиотеки); минимальный воспроизводимый запуск — через `TabulatedEngine.run(...)` как библиотеку (см. `CLAUDE.md`, "GUI-facing engine") или через `gui/scripts/headless_test.py` |
+| Команда запуска | `conda run -n core --no-capture-output python3 gui/scripts/headless_test.py` (сквозной прогон через GUI-адаптер) |
 | Seed, если используется | опционально: передаётся сэмплированию сгустка (`compton_io.bunch.sample_gaussian_bunch(..., rng=...)`) |
 | Путь к output | не стандартизирован (`Table.save` пишет `.npz`) |
 | Путь к benchmark-результату / отчету сравнения | не зафиксировано |
@@ -305,7 +305,7 @@ reference.py (см. §8).
 ### Минимальная команда запуска
 
 ```bash
-conda run -n core --no-capture-output python3 GUIde/scripts/headless_test.py
+conda run -n core --no-capture-output python3 gui/scripts/headless_test.py
 ```
 
 ---

@@ -5,28 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "compton-suite"
 version = "0.1.0"
-description = "Umbrella package gluing ComptonSuite's pieces together (compton_io, compton_guide, and the models/ physics engines: kascade, xigma_i, xigma_direct, analytical)."
+description = "Inverse-Compton scattering physics simulation toolkit: shared framework (io), GUI (gui), and models (kascade, xigma_i, xigma_direct, analytical)"
 authors = [{name = "Alexander Samsonov", email = "asams@ipfran.ru"}]
+requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "scipy",
-    "compton-io",
-    "compton-guide",
+    "pint>=0.24",
+    "pyyaml",
+    "matplotlib",
 ]
-requires-python = ">=3.10"
+
+[project.optional-dependencies]
+gpu = ["cupy>=13.6"]
+cpu = ["numba>=0.55"]
 
 [project.scripts]
 comptonsuite-gui = "compton_suite.gui:run_gui"
 
-[project.optional-dependencies]
-all = [
-    "compton-io @ file:./IO",
-    "compton-guide @ file:./GUIde",
-    "kascade @ file:./models/kaskade",
-    "xigma-i @ file:./models/xigma",
-    "xigma-direct @ file:./models/xigma_direct",
-    "compton-analytical @ file:./models/analytical",
-]
-
-[tool.setuptools.package-dir]
-"" = "src"
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["compton_suite*"]

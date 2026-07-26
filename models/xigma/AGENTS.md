@@ -527,7 +527,7 @@ path.
 ## GUI integration (`gui_adapter.py`)
 
 `src/xigma_i/gui_adapter.py` is the bridge that plugs this package into
-`GUIde`'s Tkinter desktop GUI as one of several pluggable `ModelAdapter`s
+`gui/`'s Tkinter desktop GUI as one of several pluggable `ModelAdapter`s
 (the others being `kascade`, `xigma_direct`, and `analytical`). See
 `passport.md` for the full physics "passport" this adapter reports
 through its `capabilities()`.
@@ -604,7 +604,7 @@ through its `capabilities()`.
 
 ### GUI-side testing
 
-No unit tests in this directory. Validated via `GUIde`'s
+No unit tests in this directory. Validated via `gui/`'s
 `scripts/headless_test.py` (calls `params_to_config -> run ->
 validate_results` plus the temporal/spatial/angular fields through
 `XigmaAdapter`), and via standalone smoke scripts exercising
@@ -621,7 +621,7 @@ On this dev machine: system Python has no pip/cupy/matplotlib. Use the
 tkinter, all working against the local GTX 1660 Ti):
 
 ```bash
-conda run -n core --no-capture-output python3 GUIde/scripts/headless_test.py
+conda run -n core --no-capture-output python3 gui/scripts/headless_test.py
 ```
 
 `conda run` silently swallows stdout unless you pass `--no-capture-output`.
@@ -637,12 +637,11 @@ interpreter`).
   engine plugged into the same GUI. No dependency either direction.
 - `models/xigma_direct/` -- reuses this package's Stage 0 physics
   (`particles.push_and_sample`) directly as a library dependency.
-- `GUIde/` -- the shared Tkinter GUI. Depends on this package only through
+- `gui/` -- the shared Tkinter GUI. Depends on this package only through
   `gui_adapter.py`'s contract (never touches `deposition.py`/etc. directly).
 - `IO/` (package `compton_io`) -- shared physical constants, pint registry,
   and parameter-convention framework, depended on by this package
-  (`config.py`, `params/`), the reverse direction from the `GUIde`
-  relationship above.
+  (`config.py`, `params/`), the reverse direction from the `gui/`
 
 ### pyproject.toml note
 
@@ -682,7 +681,7 @@ never a crash.
 
 **Not yet wired into `gui_adapter.params_to_config`** -- that still does
 the FWHM/waist/duration arithmetic by hand (see `spec.py`'s module
-docstring). `GUIde/scripts/physics_params_demo.py` exercises
+docstring). `gui/scripts/physics_params_demo.py` exercises
 `xigma_i.params` end to end, alongside `compton_guide`'s own
 `physics_params.schemas.kascade.KASCADE_SPEC`.
 

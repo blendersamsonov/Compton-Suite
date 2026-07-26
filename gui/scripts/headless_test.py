@@ -25,8 +25,8 @@ _SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
-from compton_guide.model_api import validate_results
-from compton_guide.models import discover_models
+from compton_suite.gui.model_api import validate_results
+from compton_suite.gui.models import discover_models
 
 # Electron sampling is the IO layer's job now, not any individual model's
 # (every adapter's run() requires ``electrons`` -- see model_api.
@@ -41,7 +41,7 @@ from compton_guide.models import discover_models
 # since it always reuses whichever bunch was already sampled for the
 # actively-selected model), so that case is handled separately below.
 import numpy as np
-from compton_io.bunch import beam_from_shared_fields, sample_gaussian_bunch
+from compton_suite.io.bunch import beam_from_shared_fields, sample_gaussian_bunch
 
 
 def sample_electrons_for(cfg, extra: dict):

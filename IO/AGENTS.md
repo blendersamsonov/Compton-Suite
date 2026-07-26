@@ -2,7 +2,7 @@
 
 Shared physical constants, pint unit registry, parameter-semantics/
 convention framework, and electron-bunch/laser-pulse representations for
-the ComptonSuite toolkit: `compton_guide` (`GUIde/`), `xigma_i`/
+the ComptonSuite toolkit: `compton_guide` (`gui/`), `xigma_i`/
 `xigma_direct`/`analytical` (`models/`), and `kascade` (`models/kaskade/`).
 See `src/compton_io/__init__.py`'s module docstring for the full design
 rationale.
