@@ -28,6 +28,35 @@ if _SRC not in sys.path:
 from compton_guide.model_api import validate_results
 from compton_guide.models import discover_models
 
+# Electron sampling is the IO layer's job now, not any individual model's
+# (every adapter's run() requires ``electrons`` -- see model_api.
+# ModelAdapter.run's docstring) -- this mirrors app.py's on_start(): build
+# one GaussianElectronBeam from whichever cfg is on hand and draw one
+# MacroBunch from it, sized to that model's own particle-count convention
+# (n_particles_01 for xigma-i/xigma-i-direct, the shared n_mc field
+# otherwise). AnalyticalConfig carries its GaussianElectronBeam directly
+# (``cfg.beam``) rather than the flat eps0/sigma_eps_rel/... field set the
+# other three Configs expose (it has no sigma0_x/sigma0_y/sigma_par_e/N_e
+# properties -- app.py never needs to reconstruct a beam for it either,
+# since it always reuses whichever bunch was already sampled for the
+# actively-selected model), so that case is handled separately below.
+import numpy as np
+from compton_io.bunch import beam_from_shared_fields, sample_gaussian_bunch
+
+
+def sample_electrons_for(cfg, extra: dict):
+    n_sample = int(getattr(cfg, "n_particles_01", extra["n_mc"]))
+    beam = getattr(cfg, "beam", None)
+    if beam is None:
+        beam = beam_from_shared_fields(
+            eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
+            emit_x=cfg.emit_x, emit_y=cfg.emit_y,
+            sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
+            sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
+        )
+    return sample_gaussian_bunch(beam, n_particles=n_sample,
+                                  rng=np.random.default_rng(int(extra["seed"])))
+
 
 # Same defaults as the GUI's Electrons/Laser/Compton panels
 # (app.py's _build_electrons_panel/_build_laser_panel/_build_compton_panel).
@@ -90,9 +119,13 @@ def test_model(name: str, adapter) -> bool:
         return False
     ok &= check("params_to_config returns (cfg, extra)", cfg is not None and isinstance(extra, dict))
 
-    # 2. run() -- same call on_start()'s worker thread makes
+    # 2. run() -- same call on_start()'s worker thread makes, plus the
+    #    electron-sampling step on_start() itself does immediately before
+    #    it (run() now requires ``electrons`` -- see sample_electrons_for's
+    #    docstring above).
     try:
-        res = adapter.run(cfg, n_mc=int(extra["n_mc"]), seed=int(extra["seed"]))
+        electrons = sample_electrons_for(cfg, extra)
+        res = adapter.run(cfg, n_mc=int(extra["n_mc"]), seed=int(extra["seed"]), electrons=electrons)
     except Exception as e:
         print(f"  [FAIL] run() raised: {e}")
         traceback.print_exc()
@@ -194,8 +227,15 @@ def test_preview_alongside(models: dict) -> bool:
         extras.update({key: default for _label, default, key in preview_adapter.extra_params()})
         fields = make_fields(extras)
         try:
+            # Mirrors app.py's on_start(): ONE MacroBunch is sampled from
+            # the actively-selected model's cfg (``adapter``, not
+            # ``preview_adapter``) and reused verbatim for the preview run
+            # -- the preview never draws its own bunch.
+            cfg, extra = adapter.params_to_config(fields, quantum=False)
+            electrons = sample_electrons_for(cfg, extra)
             p_cfg, p_extra = preview_adapter.params_to_config(fields, quantum=False)
-            p_res = preview_adapter.run(p_cfg, n_mc=int(p_extra["n_mc"]), seed=int(p_extra["seed"]))
+            p_res = preview_adapter.run(p_cfg, n_mc=int(p_extra["n_mc"]), seed=int(p_extra["seed"]),
+                                         electrons=electrons)
             problems = validate_results(p_res)
             this_ok = check(f"preview runs alongside '{name}''s fields",
                             not problems and p_res.total_yield is not None and p_res.total_yield >= 0,

@@ -189,7 +189,21 @@ class ModelAdapter(Protocol):
     def params_to_config(self, fields: dict, quantum: bool) -> tuple[Any, dict]: ...
 
     def run(self, cfg: Any, n_mc: int, seed: int,
-            electrons: MacroBunch | None = None) -> CommonResults: ...
+            *, electrons: MacroBunch) -> CommonResults:
+        """``electrons`` is required: electron sampling is the IO layer's
+        (caller's) job, not any individual model's -- every adapter used
+        to fall back to its own independent internal sampler when
+        ``electrons`` was omitted (kascade's own ``sample_initial_
+        electrons``, xigma-i/xigma-i-direct's own ``particles.
+        sample_bunch``, the analytical adapter's own extra internal
+        resample); those fallbacks were removed so there's exactly one
+        place electrons get drawn from a beam description
+        (``compton_io.bunch.sample_gaussian_bunch``, typically via
+        ``compton_io.bunch.beam_from_shared_fields`` from whichever
+        model's ``Config`` the caller already has -- see ``app.py``'s
+        ``on_start()`` for the GUI's own draw-once-pass-to-every-model
+        pattern)."""
+        ...
 
     def load_ele_file(self, path: str) -> MacroBunch:
         """Raise NotImplementedError if capabilities().supports_ele_file_io is False."""
@@ -239,7 +253,7 @@ class UnavailableAdapter:
     def params_to_config(self, fields, quantum):
         raise NotImplementedError(f"{self._name}: {self._reason}")
 
-    def run(self, cfg, n_mc, seed, electrons=None):
+    def run(self, cfg, n_mc, seed, *, electrons=None):
         raise NotImplementedError(f"{self._name}: {self._reason}")
 
     def load_ele_file(self, path):

@@ -801,12 +801,11 @@ class ComptonGuideApp(tk.Tk):
 
         # Electron sampling is the IO layer's job, not each model's own --
         # the GUI draws ONE canonical MacroBunch here (via compton_io) and
-        # passes it to every model uniformly, rather than leaving
-        # electrons=None and letting each engine fall back to its own
-        # independent internal sampler (kascade's sample_initial_electrons,
-        # xigma_i/xigma_direct's particles.sample_bunch) -- those still
-        # exist as each engine's own standalone-library fallback, but the
-        # GUI's Calculate button no longer exercises them by default.
+        # passes it to every model uniformly. Every adapter's run() now
+        # *requires* ``electrons`` (kascade's own sample_initial_electrons
+        # and xigma_i/xigma_direct's own gui_adapter-level self-sampling
+        # were deleted -- the "should not be responsible for that" cross-
+        # repo cleanup), so this can no longer be skipped or left None.
         # If a 6-D .ele file was loaded, that takes precedence and IS the
         # bunch (no sampling needed); its length becomes the effective
         # ``n_mc``.

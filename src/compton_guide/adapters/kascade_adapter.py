@@ -146,8 +146,8 @@ class KascadeAdapter:
                      rep_rate_hz=rep_rate_hz, warnings=warnings)
         return cfg, extra
 
-    def run(self, cfg, n_mc: int, seed: int, electrons: MacroBunch | None = None) -> CommonResults:
-        kascade_electrons = _macrobunch_to_kascade_electrons(electrons) if electrons is not None else None
+    def run(self, cfg, n_mc: int, seed: int, *, electrons: MacroBunch) -> CommonResults:
+        kascade_electrons = _macrobunch_to_kascade_electrons(electrons)
         res = _kascade.run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=kascade_electrons)
         self._last_results = res
         s = res.summary
