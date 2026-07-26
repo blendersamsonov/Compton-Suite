@@ -13,6 +13,9 @@ dist/
 
 graphify-out/cost.json
 
+# graphify AST cache -- regenerated on graphify update, not source
+graphify-out/cache/ast/
+
 # kascade.run_simulation's internal "final distribution" write lands here
 # when run from this directory (e.g. via validation/*.py) -- a run
 # byproduct, not source.
