@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agents (Claude Code, etc.) when working with code in this repository.
 
 ## What this is
 
@@ -128,7 +128,7 @@ stdout.)
 
 ## Commands per component
 
-Each component's own `CLAUDE.md` has the full picture (dev conda env
+Each component's own `AGENTS.md` has the full picture (dev conda env
 details, GPU requirements, etc.); short version:
 
 ```bash
@@ -143,11 +143,11 @@ python3 IO/tests/test_constants.py && python3 IO/tests/test_conversions.py \
     && python3 IO/tests/test_bunch.py && python3 IO/tests/test_laser.py \
     && python3 IO/tests/test_io_formats.py
 
-# Kaskade -- pure library, no CLI (see models/kaskade/CLAUDE.md for a
+# Kaskade -- pure library, no CLI (see models/kaskade/AGENTS.md for a
 # minimal run_simulation() snippet)
 
 # Xigma -- pure library, GPU+cupy or numba CPU fallback (see
-# models/xigma/CLAUDE.md for a minimal TabulatedEngine snippet)
+# models/xigma/AGENTS.md for a minimal TabulatedEngine snippet)
 
 # Cross-model validation suite (all four models, tiered comparisons)
 python3 validation/run_cross_validation.py
@@ -155,12 +155,12 @@ python3 validation/run_cross_validation.py
 
 ## Where to look next
 
-- `GUIde/CLAUDE.md` -- GUI layout, `ModelAdapter` contract, adding a new
+- `GUIde/AGENTS.md` -- GUI layout, `ModelAdapter` contract, adding a new
   observable, the `extra_params()` mechanism, known gaps.
-- `IO/CLAUDE.md` -- `compton_io` layout, why it exists, naming.
-- `models/kaskade/CLAUDE.md` -- engine internals, `Config`/`Results` fields,
+- `IO/AGENTS.md` -- `compton_io` layout, why it exists, naming.
+- `models/kaskade/AGENTS.md` -- engine internals, `Config`/`Results` fields,
   `.ele` file I/O, units.
-- `models/xigma/CLAUDE.md` -- the four-stage pipeline (particle push →
+- `models/xigma/AGENTS.md` -- the four-stage pipeline (particle push →
   deposition → spectrum kernel → validation), physics conventions, a long
   list of previously-made mistakes documented as traps (a0
   trajectory-averaging, the `1/(1+a0)` Jacobian, shared-memory aliasing,
@@ -248,8 +248,7 @@ owns that document, not something to auto-edit.
 `app.py`'s shared "Number of macroelectrons" field (`n_mc`, ~line 534) is
 silently ignored by xigma-i/xigma-i-direct, which size Stage 0/1 from
 their own `extra_params()` field (`n_particles_01`) instead --
-`params_to_config` already raises a warning about this (see `models/xigma/
-CLAUDE.md`'s "GUI integration"), but the GUI still shows the shared field
+`params_to_config` already raises a warning about this (see `models/xigma/AGENTS.md`'s "GUI integration"), but the GUI still shows the shared field
 as if it mattered for every model, which is exactly the kind of "annoying"
 inconsistency worth fixing properly: either grey out/hide "Number of
 macroelectrons" when the active model doesn't use it (`ModelCapabilities`
