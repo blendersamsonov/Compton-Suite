@@ -25,7 +25,7 @@ import numpy as np
 
 from .constants import C_LIGHT, E_CHARGE, EPS0, HBAR, ME
 
-__all__ = ["GaussianParaxialLaser", "validate"]
+__all__ = ["GaussianParaxialLaser", "validate", "laser_from_shared_fields"]
 
 
 @dataclass(frozen=True)
@@ -168,3 +168,30 @@ def validate(pulse: GaussianParaxialLaser) -> list[str]:
             "different x/y focus positions is not supported."
         )
     return warnings
+
+
+def laser_from_shared_fields(*, lambda_L: float, sigma0_l: float, sigma_par_L: float,
+                              pulse_energy_J: float, focus_z_m: float = 0.0) -> GaussianParaxialLaser:
+    """Build a :class:`GaussianParaxialLaser` from the flat SI field set every
+    model's own ``Config`` already derives and agrees on (``lambda_L``,
+    ``sigma0_l``, ``sigma_par_L``, ``pulse_energy_J`` -- see
+    ``ComptonSuite/validation/scenarios.py``'s ``scenario_to_shared_fields``,
+    this function's exact inverse). Mirrors :func:`compton_io.bunch.
+    beam_from_shared_fields`'s role for the electron beam.
+
+    ``sigma0_l`` is a single round-beam transverse width, applied to both
+    ``waist_rms_x_m`` and ``waist_rms_y_m`` -- every current consumer
+    (kascade, xigma_i, xigma_direct) models the laser spot as round, never
+    elliptical, at this shared-field boundary. ``sigma_par_L`` is a
+    *length* (``duration_rms_s * C_LIGHT``, the same ``c*t`` convention
+    ``compton_io.bunch``'s ``sigma_par_e`` uses for the electron bunch),
+    converted back to a duration here.
+    """
+    return GaussianParaxialLaser(
+        pulse_energy_J=pulse_energy_J,
+        wavelength_m=lambda_L,
+        waist_rms_x_m=sigma0_l,
+        waist_rms_y_m=sigma0_l,
+        duration_rms_s=sigma_par_L / C_LIGHT,
+        focus_z_m=focus_z_m,
+    )

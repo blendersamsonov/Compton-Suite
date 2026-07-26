@@ -62,7 +62,7 @@ Typical use:
 
 """
 
-from . import bunch, constants, io_formats, laser, photons
+from . import bunch, constants, interaction, io_formats, laser, photons
 from .adapter import adapt_to_model, params_to_floats
 from .canonical import CANONICAL_CONVENTIONS, CANONICAL_UNIT, from_canonical, to_canonical
 from .enums import AmplitudeConvention, PhysicalMeaning, TimeConvention, WidthConvention
@@ -107,5 +107,6 @@ __all__ = [
     "bunch",
     "laser",
     "photons",
+    "interaction",
     "io_formats",
 ]

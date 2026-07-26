@@ -68,6 +68,7 @@ import numpy as np
 from compton_io import constants as _io_constants
 from compton_io.bunch import MacroBunch as _MacroBunch
 from compton_io.io_formats.sdds import save_elegant_ele as _save_elegant_ele
+from compton_io.laser import GaussianParaxialLaser as _GaussianParaxialLaser
 
 # ---------------------------------------------------------------------------
 # Physical constants (SI) -- from compton_io.constants (shared, pint-
@@ -146,10 +147,25 @@ class Config:
         self.omega_L = 2.0 * np.pi * C_LIGHT / self.lambda_L
         self.hbar_omega_L_J = HBAR * self.omega_L
         self.eps_L = self.hbar_omega_L_J / MEC2_J
-        if self.N_L <= 0.0:
-            self.N_L = self.pulse_energy_J / self.hbar_omega_L_J
-        if self.R_sf <= 0.0:
-            self.R_sf = np.pi * (2.0 * self.sigma0_l) ** 2 / self.lambda_L
+        if self.N_L <= 0.0 or self.R_sf <= 0.0:
+            # N_L (pulse photon count) and R_sf (Rayleigh-range-like scale)
+            # are exactly compton_io.laser.GaussianParaxialLaser's
+            # n_photons/rayleigh_x_m -- read from there instead of
+            # re-deriving the same formulas locally (verified to agree to
+            # float precision). laser_density/laser_a0sq below stay local:
+            # they evaluate the envelope at an arbitrary (x, y, z, t),
+            # including a nonzero crossing_angle, which GaussianParaxialLaser
+            # (head-on/on-axis only, see its own module docstring) doesn't
+            # support.
+            _laser = _GaussianParaxialLaser(
+                pulse_energy_J=self.pulse_energy_J, wavelength_m=self.lambda_L,
+                waist_rms_x_m=self.sigma0_l, waist_rms_y_m=self.sigma0_l,
+                duration_rms_s=self.sigma_par_L / C_LIGHT,
+            )
+            if self.N_L <= 0.0:
+                self.N_L = _laser.n_photons
+            if self.R_sf <= 0.0:
+                self.R_sf = _laser.rayleigh_x_m
         self.beta_x = self.sigma0_x ** 2 / self.emit_x
         self.beta_y = self.sigma0_y ** 2 / self.emit_y
 

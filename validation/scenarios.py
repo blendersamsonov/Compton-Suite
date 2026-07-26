@@ -21,6 +21,7 @@ from dataclasses import dataclass
 
 from compton_io.bunch import GaussianElectronBeam
 from compton_io.constants import C_LIGHT, MEC2_EV
+from compton_io.interaction import InteractionGeometry, InteractionParameters
 from compton_io.laser import GaussianParaxialLaser
 
 # Default random seed for every scenario run -- deterministic comparisons,
@@ -65,6 +66,18 @@ class Scenario:
     phi_pol: float = 0.0          # xigma-i/xigma-i-direct-only extra
     a0_max: float = 0.5           # xigma-i-only Stage 1/2 table sizing knob
     theta_col_rad: float = 1.0e-3  # collimation half-angle, for analytical's estimate_spectrum_width
+
+    @property
+    def interaction_parameters(self) -> InteractionParameters:
+        """This scenario's (beam, pulse, geometry) as one shared
+        compton_io.interaction.InteractionParameters bundle -- the
+        physics-parameter subset every model's Config should ultimately be
+        built from (see that module's docstring)."""
+        return InteractionParameters(
+            beam=self.beam, laser=self.pulse,
+            geometry=InteractionGeometry(crossing_angle_rad=self.crossing_angle_rad),
+            quantum=self.quantum,
+        )
 
 
 def _baseline() -> Scenario:

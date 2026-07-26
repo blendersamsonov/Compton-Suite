@@ -11,7 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from compton_io.laser import GaussianParaxialLaser, validate  # noqa: E402
+from compton_io.constants import C_LIGHT  # noqa: E402
+from compton_io.laser import GaussianParaxialLaser, laser_from_shared_fields, validate  # noqa: E402
 
 _EXAMPLE_PULSE = GaussianParaxialLaser(
     pulse_energy_J=0.05,
@@ -75,6 +76,22 @@ def test_validate_rejects_nonpositive_fields():
         raise AssertionError("expected ValueError")
     except ValueError:
         pass
+
+
+def test_laser_from_shared_fields_round_trips():
+    rebuilt = laser_from_shared_fields(
+        lambda_L=_EXAMPLE_PULSE.wavelength_m,
+        sigma0_l=_EXAMPLE_PULSE.waist_rms_x_m,
+        sigma_par_L=_EXAMPLE_PULSE.duration_rms_s * C_LIGHT,
+        pulse_energy_J=_EXAMPLE_PULSE.pulse_energy_J,
+        focus_z_m=_EXAMPLE_PULSE.focus_z_m,
+    )
+    assert abs(rebuilt.wavelength_m - _EXAMPLE_PULSE.wavelength_m) < 1e-12 * _EXAMPLE_PULSE.wavelength_m
+    assert abs(rebuilt.waist_rms_x_m - _EXAMPLE_PULSE.waist_rms_x_m) < 1e-12 * _EXAMPLE_PULSE.waist_rms_x_m
+    assert abs(rebuilt.waist_rms_y_m - _EXAMPLE_PULSE.waist_rms_y_m) < 1e-12 * _EXAMPLE_PULSE.waist_rms_y_m
+    assert abs(rebuilt.duration_rms_s - _EXAMPLE_PULSE.duration_rms_s) < 1e-12 * _EXAMPLE_PULSE.duration_rms_s
+    assert abs(rebuilt.pulse_energy_J - _EXAMPLE_PULSE.pulse_energy_J) < 1e-12 * _EXAMPLE_PULSE.pulse_energy_J
+    assert abs(rebuilt.a0_focus - _EXAMPLE_PULSE.a0_focus) < 1e-9 * _EXAMPLE_PULSE.a0_focus
 
 
 def test_validate_warns_on_astigmatism():
