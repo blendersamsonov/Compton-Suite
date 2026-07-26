@@ -326,7 +326,15 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
     # negative GUI entry can't crash Stage 0/1/2 (e.g. an empty table or a
     # zero-size histogram) rather than raising a clear ParamError; there's
     # no physical reason to allow smaller values.
-    n_particles_01 = max(1, int(round(g("n_particles_01"))))
+    # Upper-clamped against _N_PARTICLES_SANITY_MAX too (not just floored at
+    # 1): this used to be enforced inside run_simulation itself, at the
+    # point where it self-sampled cfg.n_particles_01 particles. Now that
+    # electron sampling is the caller's job (run_simulation requires an
+    # already-sampled ``electrons`` bunch -- see its docstring), the
+    # fat-fingered-value guard has to live here instead, at the one point
+    # this adapter still owns: parsing the field a caller will size its
+    # sample from.
+    n_particles_01 = min(max(1, int(round(g("n_particles_01")))), _N_PARTICLES_SANITY_MAX)
     n_steps_0 = max(1, int(round(g("n_steps_0"))))
     n_bins_gamma = max(1, int(round(g("n_bins_gamma"))))
     n_bins_theta_x = max(1, int(round(g("n_bins_theta_x"))))
@@ -391,9 +399,13 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
 # used to hardcode here, still deliberately not profiled against an actual
 # interactive GUI session. Cost is close to linear in n_particles*n_steps
 # for Stage 0/1 and independent of n_particles for Stage 2's quadrature.
-# _N_PARTICLES_SANITY_MAX is the one clamp still applied unconditionally
-# (in run_simulation), as a guard against a fat-fingered GUI value hanging
-# the GPU/CPU for a very long time -- everything else is taken from cfg as-is.
+# _N_PARTICLES_SANITY_MAX guards against a fat-fingered GUI n_particles_01
+# value hanging the GPU/CPU for a very long time -- applied in
+# params_to_config (where n_particles_01 is parsed), not in run_simulation:
+# run_simulation no longer decides how many particles to sample (electron
+# sampling is the caller's job -- see its docstring), so this clamp moved
+# to the last point this adapter still owns, parsing the field a caller
+# will size its sample from. Everything else is taken from cfg as-is.
 _N_PARTICLES_SANITY_MAX = 2_000_000
 
 
@@ -418,13 +430,26 @@ def _theta_grid(cfg: Config, n_points: int = 33,
 
 
 def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
-                   electrons: MacroBunch | None = None) -> XigmaResults:
+                   *, electrons: MacroBunch) -> XigmaResults:
     """``n_mc`` is accepted for ``ModelAdapter.run`` signature compatibility
-    but unused: xigma-i sizes Stage 0/1 from ``cfg.n_particles_01`` instead
-    (see extra_params()/Config's numerical-control fields above), UNLESS
-    ``electrons`` (a loaded ``.ele`` bunch) is given, in which case its own
-    size determines the particle count instead (mirrors kascade's
-    ``run_simulation``: a loaded bunch overrides internal sampling)."""
+    but unused: xigma-i sizes Stage 0/1 from ``electrons``'s own particle
+    count instead (the caller is expected to have sampled it to
+    ``cfg.n_particles_01`` particles -- see extra_params()/Config's
+    numerical-control fields above; ``compton_guide.app.py``'s
+    ``on_start()`` and ``ComptonSuite/validation/runners.py`` both already
+    do this).
+
+    ``electrons`` is required: electron sampling is the caller's job, not
+    this adapter's -- it used to fall back to its own internal
+    ``particles.sample_bunch()`` draw when ``electrons`` was ``None``; that
+    fallback was removed so there's exactly one place electrons get drawn
+    from a beam description (``compton_io.bunch.sample_gaussian_bunch``),
+    not one per model. ``particles.sample_bunch`` itself still exists and
+    is still used internally by ``TabulatedEngine.run()``'s own optional
+    ``bunch=None`` convenience and by standalone scripts
+    (``compare_direct_vs_table.py``, ``validation/refs.py``) that call
+    Stage 0/1/2 directly without going through this adapter -- only this
+    GUI/ModelAdapter-facing boundary stopped self-sampling."""
     if cfg.crossing_angle != 0.0:
         raise ValueError(
             f"xigma-i: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
@@ -472,15 +497,14 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     # here -- xigma-i's own 'Stage 0/1 particles' field (cfg.n_particles_01)
     # is the sampling density for the beam-laser overlap integral, not a
     # per-electron event count (see the warning raised in params_to_config).
-    # Only clamped against a runaway-cost sanity ceiling, not a floor --
-    # params_to_config already enforces >= 1 on every numerical field.
-    pushed_bunch = None
-    if electrons is not None:
-        from .particles import bunch_from_macrobunch
-        pushed_bunch = bunch_from_macrobunch(electrons, compton)
-        n_particles_new = pushed_bunch.n_particles
-    else:
-        n_particles_new = min(int(cfg.n_particles_01), _N_PARTICLES_SANITY_MAX)
+    # The caller is expected to have sampled ``electrons`` to that many
+    # particles already; not re-clamped against _N_PARTICLES_SANITY_MAX
+    # here since that guard now belongs at sampling time (the caller's
+    # side), not at this adapter's -- this adapter no longer decides how
+    # many particles to draw, only what to do with whatever it's handed.
+    from .particles import bunch_from_macrobunch
+    pushed_bunch = bunch_from_macrobunch(electrons, compton)
+    n_particles_new = pushed_bunch.n_particles
     n_bins = (int(cfg.n_bins_gamma), int(cfg.n_bins_theta_x),
               int(cfg.n_bins_theta_y), int(cfg.n_bins_a0))
     n_spatial_bins = (int(cfg.n_spatial_bins_x), int(cfg.n_spatial_bins_y))
@@ -665,7 +689,7 @@ class XigmaAdapter:
     def params_to_config(self, fields: dict, quantum: bool = False):
         return params_to_config(fields, quantum)
 
-    def run(self, cfg: Config, n_mc: int, seed: int, electrons: MacroBunch | None = None):
+    def run(self, cfg: Config, n_mc: int, seed: int, *, electrons: MacroBunch):
         res = run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=electrons)
         self._last_results = res
         return res
