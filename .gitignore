@@ -10,7 +10,8 @@ dist/
 # Claude Code session/tool state (settings, worktree admin, knowledge-graph
 # cache) -- not source, regenerate/reconfigure locally as needed.
 .claude/
-graphify-out/
+
+graphify-out/cost.json
 
 # kascade.run_simulation's internal "final distribution" write lands here
 # when run from this directory (e.g. via validation/*.py) -- a run
