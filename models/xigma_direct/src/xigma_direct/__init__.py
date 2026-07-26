@@ -11,6 +11,6 @@ requires an already-sampled ``electrons`` bunch) -- there is no internal
 sampler anywhere in this package.
 """
 
-from .gui_adapter import DirectConfig, DirectResults, XigmaDirectAdapter
+from .gui_adapter import DirectConfig, XigmaDirectAdapter
 
-__all__ = ["DirectConfig", "DirectResults", "XigmaDirectAdapter"]
+__all__ = ["DirectConfig", "XigmaDirectAdapter"]

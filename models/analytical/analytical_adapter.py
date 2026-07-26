@@ -243,7 +243,7 @@ class AnalyticalAdapter:
         if _raw_integral > 0:
             dNdE_per_eV = dNdE_per_eV * (total_yield / _raw_integral)
 
-        from compton_guide.model_api import CommonResults
+        from compton_io.results import CommonResults
         return CommonResults(
             model_name="analytical",
             cfg=cfg,

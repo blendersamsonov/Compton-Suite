@@ -1,20 +1,21 @@
 """Model-agnostic contract between app.py and physics-engine adapters.
 
 This module knows nothing about ``kascade`` or ``xigma_i`` -- every adapter
-constructs its result fields (``spectrum``, ``angular_spectrum``, ...) using
-the shared observable-representation classes re-exported below from
-``compton_io.photons``, which every model already depends on (for units).
-This is why they can be the *literal same classes* everywhere rather than
-each adapter defining its own structurally-identical lookalikes: neither
-physics package needs to import this GUI module or depend on it, only on
-``compton_io``, which is a shared dependency by design already. (An earlier
-version of this module defined these dataclasses locally, and
-``xigma_i.gui_adapter`` kept its own separately-defined,
-structurally-identical copies specifically to avoid depending on this
-module -- see git history / ``GUIde/CLAUDE.md``'s "The ModelAdapter
-contract, and the bug it caused" for the isinstance-vs-duck-typing bug that
-caused. That workaround is obsolete now that these types live in
-``compton_io`` instead.)
+constructs its result (``CommonResults``, including fields like
+``spectrum``/``angular_spectrum``) using the shared classes re-exported
+below from ``compton_io.results``/``compton_io.photons``, which every
+model already depends on (for units). This is why they can be the
+*literal same classes* everywhere rather than each adapter defining its
+own structurally-identical lookalikes: no physics package needs to import
+this GUI module or depend on it, only on ``compton_io``, which is a shared
+dependency by design already. (An earlier version of this module defined
+these dataclasses locally, and ``xigma_i.gui_adapter``/
+``xigma_direct.gui_adapter`` each kept their own separately-defined,
+structurally-identical ``CommonResults`` copies specifically to avoid
+depending on this module -- see git history / ``GUIde/CLAUDE.md``'s "The
+ModelAdapter contract, and the bug it caused" for the isinstance-vs-duck-
+typing bug that caused. That workaround is obsolete now that these types
+live in ``compton_io`` instead.)
 
 Two physics engines currently target this contract:
 
@@ -35,7 +36,7 @@ exact shape -- see ``CommonResults`` field docs below.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from compton_io.bunch import MacroBunch
@@ -51,6 +52,7 @@ from compton_io.photons import (
     SampledSpectrum,
     SampledTemporalEnvelope,
 )
+from compton_io.results import CommonResults, validate_results
 
 __all__ = [
     "MacroBunch",
@@ -73,65 +75,6 @@ __all__ = [
     "register",
     "registered_models",
 ]
-
-
-@dataclass
-class CommonResults:
-    """What every adapter's ``run()`` must return (shape-compatibly).
-
-    Only ``model_name``, ``cfg``, ``n_mc``, ``total_yield``, ``spectrum`` and
-    ``summary`` are guaranteed present and non-None. Everything else is
-    optional and ``None`` when the model doesn't compute it -- the GUI must
-    check before using it.
-    """
-
-    model_name: str
-    cfg: Any                     # exposes eps0, sigma_eps_rel, omega_L, emit_x/y,
-                                  # beta_x/y, sigma_par_L, N_e, crossing_angle, quantum
-    n_mc: int
-    total_yield: float           # physical (weighted) total photon count
-    spectrum: SampledSpectrum | BinnedSpectrum
-    summary: dict                # free-form, model-specific scalar diagnostics (kascade and
-                                  # xigma-i both happen to include "crossing_angle_rad" and
-                                  # "quantum" keys, by convention, not by contract); use the
-                                  # top-level CommonResults fields (total_yield, n_mc, ...)
-                                  # for anything that must be read in a model-agnostic way
-    angular_spectrum: BinnedAngularSpectrum | None = None
-    photon_samples: Any | None = None          # kascade's raw Results, else None
-    electron_state: ElectronFinalState | None = None
-    photon_multiplicity: PhotonMultiplicity | None = None
-    temporal_envelope: SampledTemporalEnvelope | BinnedTemporalEnvelope | None = None
-    spatial_distribution: SampledSpatialDistribution | BinnedSpatialDistribution | None = None
-    final_distribution_path: str | None = None
-    warnings: list[str] = field(default_factory=list)
-
-
-def validate_results(res: Any) -> list[str]:
-    """Defensive duck-type check, run right after ``adapter.run()`` returns.
-
-    Returns a list of problem descriptions; empty means OK. Never raises --
-    the GUI decides whether a non-empty list is fatal.
-
-    Deliberately checks *shape* (attribute presence), not ``isinstance``
-    against this module's ``SampledSpectrum``/``BinnedSpectrum``: adapters
-    for physics packages that shouldn't depend on this GUI project (e.g.
-    ``xigma_i.gui_adapter``) define their own structurally-identical local
-    dataclasses rather than importing these -- an isinstance check would
-    reject every one of those as "unexpected type" even though they're
-    perfectly valid.
-    """
-    problems: list[str] = []
-    required = ("model_name", "cfg", "n_mc", "total_yield", "spectrum", "summary")
-    for name in required:
-        if getattr(res, name, None) is None:
-            problems.append(f"missing required field: {name!r}")
-    spectrum = getattr(res, "spectrum", None)
-    if spectrum is not None:
-        looks_sampled = hasattr(spectrum, "E_eV") and hasattr(spectrum, "weight")
-        looks_binned = hasattr(spectrum, "E_eV") and hasattr(spectrum, "dNdE_per_eV")
-        if not (looks_sampled or looks_binned):
-            problems.append(f"spectrum has unexpected type: {type(spectrum)!r}")
-    return problems
 
 
 # ---------------------------------------------------------------------------

@@ -35,6 +35,7 @@ from compton_io.photons import (
     BinnedSpectrum,
     BinnedTemporalEnvelope,
 )
+from compton_io.results import CommonResults
 
 _ELEMENTARY_CHARGE_C = 1.602176634e-19   # [C]
 _M_TO_CM = 1.0e2
@@ -238,40 +239,32 @@ def _theta_grid(cfg: DirectConfig, n_points: int, theta_range: tuple[float, floa
     return np.linspace(-half_window, half_window, n_points)
 
 
-@dataclass
-class DirectResults:
-    model_name: str
-    cfg: DirectConfig
-    n_mc: int
-    total_yield: float
-    spectrum: BinnedSpectrum
-    summary: dict
-    angular_spectrum: BinnedAngularSpectrum | None = None
-    photon_samples: object | None = None
-    electron_state: object | None = None
-    photon_multiplicity: object | None = None
-    temporal_envelope: BinnedTemporalEnvelope | None = None
-    spatial_distribution: BinnedSpatialDistribution | None = None
-    final_distribution_path: str | None = None
-    warnings: list | None = None
-    # Private cache for spectrum_in_angular_range's on-demand recompute --
-    # not part of the ModelAdapter/CommonResults contract.
-    _gamma: np.ndarray | None = None
-    _theta_x: np.ndarray | None = None
-    _theta_y: np.ndarray | None = None
-    _a0: np.ndarray | None = None
-    _weight: np.ndarray | None = None
-    _s_edges: np.ndarray | None = None
-    _s_scale_MeV: float | None = None
-    _phi_pol: float | None = None
-    # QUICK-FIX rescale factor (see run_simulation's "QUICK FIX, FLAGGED
-    # FOR FUTURE INVESTIGATION" comment) -- reapplied identically in
-    # spectrum_in_angular_range.
-    _angular_rescale: float = 1.0
+def _attach_private_cache(res: CommonResults, *, gamma, theta_x, theta_y, a0, weight,
+                           s_edges, s_scale_MeV, phi_pol, angular_rescale) -> CommonResults:
+    """Stash this adapter's own private recompute cache on a
+    ``compton_io.results.CommonResults`` instance (a plain, non-frozen
+    dataclass -- arbitrary extra attributes work exactly like
+    ``DirectResults``'s own extra fields used to, just set after
+    construction instead of declared as part of the shared class), for
+    ``spectrum_in_angular_range()``'s on-demand recompute.
+    ``_angular_rescale`` is the QUICK-FIX rescale factor (see
+    ``run_simulation``'s "QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION"
+    comment), reapplied identically in ``spectrum_in_angular_range``.
+    """
+    res._gamma = gamma
+    res._theta_x = theta_x
+    res._theta_y = theta_y
+    res._a0 = a0
+    res._weight = weight
+    res._s_edges = s_edges
+    res._s_scale_MeV = s_scale_MeV
+    res._phi_pol = phi_pol
+    res._angular_rescale = angular_rescale
+    return res
 
 
 def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
-                   *, electrons: MacroBunch) -> DirectResults:
+                   *, electrons: MacroBunch) -> CommonResults:
     """``electrons`` is required: electron sampling is the caller's job,
     not this adapter's -- it used to fall back to its own internal
     ``particles.sample_bunch(compton, cfg.n_particles_01, ...)`` draw when
@@ -404,7 +397,7 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
         angular_spectrum_rescale_applied=angular_rescale,
     )
 
-    return DirectResults(
+    res = CommonResults(
         model_name="xigma-i-direct",
         cfg=cfg,
         n_mc=n_particles_new,
@@ -415,13 +408,14 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
             theta_x=theta_x_grid, theta_y=theta_y_grid, E_eV=E_ang_eV, d2NdEdOmega=d2NdEdOmega),
         temporal_envelope=temporal_envelope,
         spatial_distribution=spatial_distribution,
-        _gamma=gamma_h, _theta_x=tx_h, _theta_y=ty_h, _a0=a0_h, _weight=w_h,
-        _s_edges=s_edges, _s_scale_MeV=s_scale_MeV, _phi_pol=cfg.phi_pol,
-        _angular_rescale=angular_rescale,
     )
+    return _attach_private_cache(
+        res, gamma=gamma_h, theta_x=tx_h, theta_y=ty_h, a0=a0_h, weight=w_h,
+        s_edges=s_edges, s_scale_MeV=s_scale_MeV, phi_pol=cfg.phi_pol,
+        angular_rescale=angular_rescale)
 
 
-def spectrum_in_angular_range(res: DirectResults, theta_x_range: tuple[float, float],
+def spectrum_in_angular_range(res: CommonResults, theta_x_range: tuple[float, float],
                               theta_y_range: tuple[float, float],
                               n_points: int = 17, n_energy: int = 65) -> AngularRangeSpectrumResult:
     """Evaluate direct_binning_spectrum at a grid of OBSERVATION angles
@@ -477,7 +471,7 @@ def spectrum_in_angular_range(res: DirectResults, theta_x_range: tuple[float, fl
 
 class XigmaDirectAdapter:
     def __init__(self):
-        self._last_results: DirectResults | None = None
+        self._last_results: CommonResults | None = None
 
     def capabilities(self):
         from compton_guide.model_api import ModelCapabilities

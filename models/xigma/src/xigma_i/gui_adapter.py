@@ -38,6 +38,7 @@ from compton_io.photons import (
     BinnedSpectrum,
     BinnedTemporalEnvelope,
 )
+from compton_io.results import CommonResults
 
 # Matches xigma_i.config.elC exactly; duplicated here (rather than
 # imported) purely to keep this module's own promise of no xigma_i imports
@@ -130,40 +131,29 @@ class Config:
         return self.sigma_eps_rel * self.eps0
 
 
-@dataclass
-class XigmaResults:
-    model_name: str
-    cfg: Config
-    n_mc: int
-    total_yield: float
-    spectrum: BinnedSpectrum
-    summary: dict
-    angular_spectrum: BinnedAngularSpectrum | None = None
-    photon_samples: object | None = None
-    electron_state: object | None = None
-    photon_multiplicity: object | None = None
-    temporal_envelope: BinnedTemporalEnvelope | None = None
-    spatial_distribution: object | None = None
-    final_distribution_path: str | None = None
-    warnings: list | None = None
-    # Private: the built Compton config instance (+ params it was built
-    # with), cached so XigmaAdapter.run() can stash it for
-    # spectrum_in_angular_range()'s on-demand recompute without
-    # restructuring the module-function/adapter split above. Not part of
-    # the model_api.CommonResults contract. _compton is TabulatedEngine's
-    # config source (never anything else -- it runs no compute itself);
-    # _engine/_device are cached the same way for
-    # spectrum_in_angular_range's on-demand angular-spectrum recompute.
-    _compton: object | None = None
-    _gamma_0: float | None = None
-    _sigma_gamma_0: float | None = None
-    _engine: object | None = None
-    _device: str | None = None
-    # QUICK-FIX rescale factor (see run_simulation's "QUICK FIX, FLAGGED
-    # FOR FUTURE INVESTIGATION" comment) -- reapplied identically in
-    # spectrum_in_angular_range so an on-demand angular-range query stays
-    # consistent with the main run's total_yield too.
-    _angular_rescale: float = 1.0
+def _attach_private_cache(res: CommonResults, *, compton, gamma_0, sigma_gamma_0,
+                           engine, device, angular_rescale) -> CommonResults:
+    """Stash this adapter's own private recompute cache on a
+    ``compton_io.results.CommonResults`` instance (a plain, non-frozen
+    dataclass -- arbitrary extra attributes work exactly like
+    ``XigmaResults``'s own extra fields used to, just set after
+    construction instead of declared as part of the shared class).
+    ``_compton`` is ``TabulatedEngine``'s config source (never anything
+    else -- it runs no compute itself); ``_engine``/``_device`` are cached
+    the same way, all so ``spectrum_in_angular_range()`` can recompute an
+    on-demand angular-range query without rerunning the whole simulation.
+    ``_angular_rescale`` is the QUICK-FIX rescale factor (see
+    ``run_simulation``'s "QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION"
+    comment), reapplied identically in ``spectrum_in_angular_range`` so an
+    on-demand query stays consistent with the main run's ``total_yield``.
+    """
+    res._compton = compton
+    res._gamma_0 = gamma_0
+    res._sigma_gamma_0 = sigma_gamma_0
+    res._engine = engine
+    res._device = device
+    res._angular_rescale = angular_rescale
+    return res
 
 
 # ---------------------------------------------------------------------------
@@ -421,7 +411,7 @@ def _theta_grid(cfg: Config, n_points: int = 33,
 
 
 def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
-                   *, electrons: MacroBunch) -> XigmaResults:
+                   *, electrons: MacroBunch) -> CommonResults:
     """``n_mc`` is accepted for ``ModelAdapter.run`` signature compatibility
     but unused: xigma-i sizes Stage 0/1 from ``electrons``'s own particle
     count instead (the caller is expected to have sampled it to
@@ -575,7 +565,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         angular_spectrum_rescale_applied=angular_rescale,
     )
 
-    return XigmaResults(
+    res = CommonResults(
         model_name="xigma-i",
         cfg=cfg,
         n_mc=n_particles_new,
@@ -590,13 +580,14 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         temporal_envelope=temporal_envelope,
         spatial_distribution=spatial_distribution,
         final_distribution_path=None,
-        _compton=compton, _gamma_0=gamma_0, _sigma_gamma_0=sigma_gamma_0,
-        _engine=engine, _device=device, _angular_rescale=angular_rescale,
     )
+    return _attach_private_cache(
+        res, compton=compton, gamma_0=gamma_0, sigma_gamma_0=sigma_gamma_0,
+        engine=engine, device=device, angular_rescale=angular_rescale)
 
 
 def spectrum_in_angular_range(
-        res: XigmaResults, theta_x_range: tuple[float, float],
+        res: CommonResults, theta_x_range: tuple[float, float],
         theta_y_range: tuple[float, float], n_points: int = 33,
         n_energy: int = 96) -> AngularRangeSpectrumResult:
     """Fresh, on-demand spectrum over an arbitrary user-picked angular
@@ -657,7 +648,7 @@ class _Capabilities:
 
 class XigmaAdapter:
     def __init__(self):
-        self._last_results: XigmaResults | None = None
+        self._last_results: CommonResults | None = None
 
     def capabilities(self):
         return _Capabilities(capabilities())
