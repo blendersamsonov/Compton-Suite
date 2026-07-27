@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Exercise compton_suite.io + compton_suite.gui.physics_params + compton_suite.models.xigma_i.params
+"""Exercise compton_suite.io + compton_suite.models.kascade.params + compton_suite.models.xigma_i.params
 end to end.
 
 Takes one set of laser/electron parameters expressed the way a GUI user
 would naturally type them (FWHM in micrometres, a duration in
 picoseconds, ...), pushes each through the canonical layer, and adapts it
-to both KASCADE_SPEC (compton_suite.gui.physics_params.schemas.kascade) and
+to both KASCADE_SPEC (compton_suite.models.kascade.params) and
 XIGMA_SPEC (compton_suite.models.xigma_i.params). Prints the result and asserts the two models
 land on the same numbers -- expected, since both engines' hand-written
-params_to_config already agree on convention (see schemas/kascade.py's
+params_to_config already agree on convention (see kascade/params/spec.py's
 docstring); this is the machine-checked version of that fact.
 
 Builds exactly *one* raw_inputs dict now, unlike an earlier version of
-this script: compton_suite.gui.physics_params and compton_suite.models.xigma_i.params both
-re-export the same compton_suite.io classes (see xigma_i's CLAUDE.md,
-"Parameter semantics & units"), so a PhysicalQuantity built via either
-module's re-exported name is literally the same class -- the identity
-assertion below is a permanent regression guard against that silently
-re-diverging into two independent copies again.
+this script: compton_suite.models.kascade.params and compton_suite.models.xigma_i.params both
+re-export the same compton_suite.io classes (see each package's __init__.py
+docstring, "Parameter semantics & units"), so a PhysicalQuantity built via
+either module's re-exported name is literally the same class -- the
+identity assertion below is a permanent regression guard against that
+silently re-diverging into two independent copies again.
 
-No cupy/GPU/tkinter needed -- pure compton_suite.io/physics_params/
+No cupy/GPU/tkinter needed -- pure compton_suite.io/kascade.params/
 xigma_i.params + pint.
 
     python3 scripts/physics_params_demo.py
@@ -27,9 +27,9 @@ xigma_i.params + pint.
 
 from __future__ import annotations
 
-import compton_suite.gui.physics_params as gui_physics_params
+import compton_suite.models.kascade.params as kascade_params
 import compton_suite.models.xigma_i.params as xigma_params
-from compton_suite.gui.physics_params import (
+from compton_suite.io import (
     PhysicalMeaning,
     PhysicalQuantity,
     TimeConvention,
@@ -37,19 +37,19 @@ from compton_suite.gui.physics_params import (
     adapt_to_model,
     params_to_floats,
 )
-from compton_suite.gui.physics_params.schemas.kascade import KASCADE_SPEC
+from compton_suite.models.kascade.params import KASCADE_SPEC
 from compton_suite.models.xigma_i.params import XIGMA_SPEC
 
-# Regression guard: compton_suite.gui.physics_params and compton_suite.models.xigma_i.params must
-# both be re-exporting the *same* compton_suite.io classes, not independently
-# defined look-alikes -- see module docstring.
-assert gui_physics_params.PhysicalQuantity is xigma_params.PhysicalQuantity, (
-    "compton_suite.gui.physics_params.PhysicalQuantity and compton_suite.models.xigma_i.params."
+# Regression guard: compton_suite.models.kascade.params and compton_suite.models.xigma_i.params
+# must both be re-exporting the *same* compton_suite.io classes, not
+# independently defined look-alikes -- see module docstring.
+assert kascade_params.PhysicalQuantity is xigma_params.PhysicalQuantity, (
+    "compton_suite.models.kascade.params.PhysicalQuantity and compton_suite.models.xigma_i.params."
     "PhysicalQuantity are no longer the same class -- the two packages "
     "have re-diverged into independent copies of the framework."
 )
-assert gui_physics_params.PhysicalMeaning is xigma_params.PhysicalMeaning, (
-    "compton_suite.gui.physics_params.PhysicalMeaning and compton_suite.models.xigma_i.params."
+assert kascade_params.PhysicalMeaning is xigma_params.PhysicalMeaning, (
+    "compton_suite.models.kascade.params.PhysicalMeaning and compton_suite.models.xigma_i.params."
     "PhysicalMeaning are no longer the same class."
 )
 
@@ -97,5 +97,5 @@ assert abs(xigma_out["sigma_par_L"] - expected_sigma_par_L) < 1e-12 * expected_s
 )
 
 print("\nOK: xigma-i and kascade specs agree; FWHM->sigma and duration->length "
-      "conversions verified; compton_suite.gui.physics_params and compton_suite.models.xigma_i.params "
+      "conversions verified; compton_suite.models.kascade.params and compton_suite.models.xigma_i.params "
       "confirmed to share the same compton_suite.io classes.")

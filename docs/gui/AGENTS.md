@@ -102,35 +102,41 @@ of `compton_io.constants` (was its own hand-typed literal block before).
 than the live `kascade` module's own copies — one less independent
 representation of `c` floating around this codebase.
 
-**xigma-i's schema lives in its own package.** `xigma_i/params/spec.py`'s
-`XIGMA_SPEC`/`XIGMA_DIAGNOSTIC_SPEC` (see `models/xigma/CLAUDE.md`,
-"Parameter semantics & units") — the model declares its own parameter
-contract instead of the GUI declaring it on the model's behalf. `kascade`
-hasn't had the same move yet, so `schemas/kascade.py`'s `KASCADE_SPEC`
-still lives here, importing its framework types from `compton_io` directly
-(same as `physics_params/__init__.py` does).
+**Both models' schemas now live in their own packages, not here.**
+`xigma_i/params/spec.py`'s `XIGMA_SPEC`/`XIGMA_DIAGNOSTIC_SPEC` (see
+`models/xigma/CLAUDE.md`, "Parameter semantics & units") and
+`models/kascade/params/spec.py`'s `KASCADE_SPEC`/`KASCADE_DIAGNOSTIC_SPEC`
+(moved out of this package's own `physics_params/schemas/`, which no
+longer exists) — each model declares its own parameter contract instead of
+the GUI declaring it on the model's behalf.
 
 Both schemas were written by reading each engine's actual source
 (`kascade.py`'s `laser_density`/`Config` field comments for `KASCADE_SPEC`;
-`xigma_i/config.py`'s `set_laser_parameters` comment for `XIGMA_SPEC`, now
-over in that repo), not guessed — and turn out to declare the *same*
-convention (RMS of the density/intensity profile, lengths standing in for
-durations, peak — not RMS — `a0`) on every field both `Config`s share,
-which is why `KASCADE_SPEC`'s docstring calls this "machine-checking" a
-fact rather than fixing a real mismatch: both adapters' hand-written
-`params_to_config` already agreed, this just makes that agreement explicit
-and enforced instead of implicit and silently breakable.
+`xigma_i/config.py`'s `set_laser_parameters` comment for `XIGMA_SPEC`), not
+guessed — and turn out to declare the *same* convention (RMS of the
+density/intensity profile, lengths standing in for durations, peak — not
+RMS — `a0`) on every field both `Config`s share, which is why
+`KASCADE_SPEC`'s docstring calls this "machine-checking" a fact rather
+than fixing a real mismatch: both adapters' hand-written `params_to_config`
+already agreed, this just makes that agreement explicit and enforced
+instead of implicit and silently breakable.
 
-**Not yet wired into `params_to_config`** in either adapter — those still
-do the FWHM/waist/duration arithmetic by hand. `scripts/physics_params_demo.py`
-is a GPU-free, tkinter-free demo/self-check: builds **one** raw-input dict
-in mixed conventions (a FWHM in µm, a duration in ps), adapts it to both
+**Partially wired into `params_to_config`** in both adapters:
+`sigma_par_e`/`sigma_par_L` (the two genuinely raw, convention-ambiguous
+duration inputs) go through `adapt_to_model`/`params_to_floats` against
+each model's own spec; `sigma0_x`/`sigma0_y`/`sigma0_l` still do the
+emittance/beta/Rayleigh-length arithmetic by hand, since they're derived
+from other unambiguous fields rather than typed directly in an ambiguous
+convention (see `docs/refactor/parameter-framework-and-collision-params.md`'s
+"sigma0_x/sigma0_l wrinkle"). `scripts/physics_params_demo.py` is a
+GPU-free, tkinter-free demo/self-check: builds **one** raw-input dict in
+mixed conventions (a FWHM in µm, a duration in ps), adapts it to both
 `XIGMA_SPEC` and `KASCADE_SPEC`, asserts the two models' outputs agree and
 that the FWHM→sigma and duration→length conversions actually ran, and
-asserts `compton_guide.physics_params.PhysicalQuantity is
-xigma_i.params.PhysicalQuantity` as a permanent regression guard against
-the two re-export shims silently re-diverging into independent copies
-again.
+asserts `compton_suite.models.kascade.params.PhysicalQuantity is
+compton_suite.models.xigma_i.params.PhysicalQuantity` as a permanent
+regression guard against the two re-export shims silently re-diverging
+into independent copies again.
 
 ```bash
 python3 scripts/physics_params_demo.py

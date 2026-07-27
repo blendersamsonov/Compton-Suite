@@ -66,13 +66,19 @@ agreed with `compton_io`'s canonical values to their quoted precision
 CODATA vintage and needed an actual, deliberate numeric update as part of
 the same migration).
 
-This directory has a `pyproject.toml` (flat `py-modules = ["kascade"]`
-layout) declaring `numpy`/`pint>=0.24`/`compton-io` as dependencies. This
-package has *not* adopted `compton_io`'s parameter-semantics/convention
-framework (`PhysicalQuantity`/`ParameterSpec`/`ModelSpec`/`adapt_to_model`)
-the way `xigma_i.params` has -- that's a materially bigger lift (this
-engine has no existing spec-owning layer analogous to
-`gui_adapter.params_to_config`) and stays a documented, undone follow-up.
+This package now owns its own `ModelSpec` -- `params/spec.py`'s
+`KASCADE_SPEC`/`KASCADE_DIAGNOSTIC_SPEC`, moved here from
+`compton_guide.physics_params.schemas.kascade` (GUI-owned) to match
+`xigma_i.params`'s already-moved pattern (`params/__init__.py` re-exports
+`compton_io`'s framework unchanged, so `kascade.params.PhysicalQuantity` is
+the same class as `xigma_i.params.PhysicalQuantity`, not a look-alike).
+`kascade_adapter.py::params_to_config` wires `sigma_par_e`/`sigma_par_L`
+(the two genuinely raw, convention-ambiguous duration inputs) through
+`adapt_to_model`/`params_to_floats` against `KASCADE_SPEC`; `sigma0_x`/
+`sigma0_y`/`sigma0_l` still do the emittance/beta/Rayleigh-length
+arithmetic by hand, since they aren't raw convention-ambiguous inputs
+today (see `docs/refactor/parameter-framework-and-collision-params.md`'s
+"sigma0_x/sigma0_l wrinkle" for why).
 
 ## No GPU dependency
 

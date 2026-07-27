@@ -1,33 +1,31 @@
-"""Thin re-export of ``compton_io``'s parameter-semantics/unit
+"""Thin re-export of ``compton_suite.io``'s parameter-semantics/unit
 normalisation framework, per ``Conventions-and-units.md``.
 
 The framework itself (``PhysicalQuantity``, the enums, canonical
 conversion, ``ParameterSpec``/``ModelSpec``, ``adapt_to_model``) lives in
-``compton_io`` -- **not defined here**, so
-``compton_guide.physics_params.PhysicalQuantity`` is the literal same
-class as e.g. ``xigma_i.params.PhysicalQuantity``, not an independently-
-defined look-alike (an earlier version of this move gave each repo its own
-copy, which broke exactly that; see git history if curious). This module
-exists so existing `from compton_guide.physics_params import ...` call
-sites don't need to change, and so `compton_guide.physics_params.
-schemas.kascade`'s `KASCADE_SPEC` has somewhere local to import the
-framework types from.
+``compton_suite.io`` -- **not defined here**, so
+``compton_suite.gui.physics_params.PhysicalQuantity`` is the literal same
+class as e.g. ``compton_suite.models.xigma_i.params.PhysicalQuantity``, not
+an independently-defined look-alike (an earlier version of this move gave
+each repo its own copy, which broke exactly that; see git history if
+curious). This module exists so existing `from compton_suite.gui.
+physics_params import ...` call sites don't need to change.
 
-**xigma-i's schema moved out of this repo.** `schemas/xigma.py`'s
-`XIGMA_SPEC`/`XIGMA_DIAGNOSTIC_SPEC` now live in that model's own repo as
-`xigma_i.params` (see that repo's `CLAUDE.md`, "Parameter semantics &
-units") -- the model declares its own parameter contract instead of the
-GUI declaring it on the model's behalf. `kascade` hasn't had the same
-move yet, so `schemas/kascade.py`'s `KASCADE_SPEC` still lives here.
+**Every model's own ``ModelSpec`` now lives with that model**, not here:
+``compton_suite.models.xigma_i.params.XIGMA_SPEC`` and
+``compton_suite.models.kascade.params.KASCADE_SPEC`` (the `schemas/`
+sub-package that used to hold `KASCADE_SPEC` on the GUI's behalf has been
+removed -- the model declares its own parameter contract instead of the
+GUI declaring it for it, matching xigma-i's already-moved pattern).
 
-Typical use (see `schemas/kascade.py` for a concrete local spec,
-`xigma_i.params` for xigma-i's, and `scripts/physics_params_demo.py` for a
-full cross-repo example):
+Typical use (see `compton_suite.models.xigma_i.params`/
+`compton_suite.models.kascade.params` for the concrete specs, and
+`scripts/physics_params_demo.py` for a full example):
 
-    from compton_guide.physics_params import (
+    from compton_suite.gui.physics_params import (
         PhysicalQuantity, PhysicalMeaning, WidthConvention, adapt_to_model,
     )
-    from xigma_i.params import XIGMA_SPEC
+    from compton_suite.models.xigma_i.params import XIGMA_SPEC
 
     laser_width = PhysicalQuantity(
         magnitude=5.0, unit="micrometer",

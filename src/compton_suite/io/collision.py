@@ -88,18 +88,10 @@ class CollisionParams:
 
     # Electron parameters
     N_e: float
-    emit_x: float
-    emit_y: float
     sigma_ex: float
     sigma_ey: float
-    sigma_ez: float
-    beta_x: float
-    beta_y: float
-    sigma_thx: float
-    sigma_thy: float
 
     # Laser parameters
-    lambda_l: float
     sigma_lr0: float
     sigma_lz: float
     omega_las: float
@@ -109,11 +101,6 @@ class CollisionParams:
     a0: float
     beta_ff: float
     ellipticity: float
-
-    # Foci displacement
-    delta_x: float = 0.0
-    delta_y: float = 0.0
-    delta_z: float = 0.0
 
     device: str = 'cpu'
 
@@ -147,17 +134,8 @@ def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
     def _m_to_cm(x_m: float) -> float:
         return x_m * _constants.M_TO_CM
 
-    emit_x = _m_to_cm(beam.emit_geom_x_m)
-    emit_y = _m_to_cm(beam.emit_geom_y_m)
     sigma_ex = _m_to_cm(beam.sigma_x_m)
     sigma_ey = _m_to_cm(beam.sigma_y_m)
-    sigma_ez = _m_to_cm(beam.sigma_z_m)
-    # beta_x/beta_y are length^2/length (CGS: cm); sigma_thx/sigma_thy are
-    # dimensionless angles, unit-system-invariant -- no conversion needed.
-    beta_x = _m_to_cm(beam.beta_star_x_m)
-    beta_y = _m_to_cm(beam.beta_star_y_m)
-    sigma_thx = beam.divergence_x_rad
-    sigma_thy = beam.divergence_y_rad
 
     lambda_l = _m_to_cm(laser.wavelength_m)
     # sigma_lr0: RMS radius of the *photon density* distribution (round-
@@ -175,13 +153,9 @@ def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
           / (np.power(np.pi, 3 / 2) * sigma_lr0**2 * sigma_lz))
 
     return CollisionParams(
-        N_e=beam.N_e, emit_x=emit_x, emit_y=emit_y,
-        sigma_ex=sigma_ex, sigma_ey=sigma_ey, sigma_ez=sigma_ez,
-        beta_x=beta_x, beta_y=beta_y, sigma_thx=sigma_thx, sigma_thy=sigma_thy,
-        lambda_l=lambda_l, sigma_lr0=sigma_lr0, sigma_lz=sigma_lz,
+        N_e=beam.N_e, sigma_ex=sigma_ex, sigma_ey=sigma_ey,
+        sigma_lr0=sigma_lr0, sigma_lz=sigma_lz,
         omega_las=omega_las, k0_las=k0_las, Wph=Wph, N_l=N_l, a0=a0,
         beta_ff=beta_ff, ellipticity=ellipticity,
-        delta_x=_m_to_cm(geometry.delta_x_m), delta_y=_m_to_cm(geometry.delta_y_m),
-        delta_z=_m_to_cm(geometry.delta_z_m),
         device=device,
     )
