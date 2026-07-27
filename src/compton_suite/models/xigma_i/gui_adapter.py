@@ -427,13 +427,6 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
     if sigma0_l <= 0:
         warnings.append("Rayleigh length must be > 0; using a very small laser "
                         "waist as a fallback.")
-    warnings.append(
-        "xigma-i: 'Number of macroelectrons' is ignored -- use this model's "
-        "own 'Stage 0/1 particles' field (Model Parameters panel) instead. "
-        "That count sets the sampling density of the beam-laser overlap "
-        "integral, not a per-electron photon-emission event count -- this "
-        "model has no discrete electron/photon event generator (no final "
-        "electron state, no photon-multiplicity stats).")
 
     from compton_suite.io.bunch import beam_from_shared_fields
     from compton_suite.io.interaction import InteractionGeometry
@@ -743,8 +736,11 @@ class XigmaAdapter:
     def available(self) -> tuple[bool, str]:
         return available()
 
-    def extra_params(self) -> list[tuple[str, float, str]]:
+    def extra_params(self) -> list[tuple[str, float | str, str]]:
         return extra_params()
+
+    def extra_choices(self) -> dict[str, list[str]]:
+        return {"device_preference": ["auto", "gpu", "cpu"]}
 
     def params_to_config(self, fields: dict, quantum: bool = False):
         return params_to_config(fields, quantum)

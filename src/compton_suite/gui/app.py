@@ -5,51 +5,33 @@ app.py
 
 Desktop GUI front-end for pluggable Compton-scattering physics models.
 
-Layout (top -> bottom):
+Layout (left | right, resizable split via PanedWindow):
 
-  * "Electrons" panel (blue)  -- electron-bunch parameters in practical units;
-    the transverse bunch sizes sigma_ex, sigma_ey are derived live from the
-    emittance and the beta function.  When a 6-D ``.ele`` file is loaded via
-    ``File -> Load file *.ele...`` the entries turn into a read-only display
-    of the parameters derived from the loaded bunch
-    (``File -> Clear loaded file`` reverts to input mode).
+  LEFT (IO panels):
+  * "Electrons" panel (blue)  -- electron-bunch parameters, MC sample count,
+    and random seed.  When a 6-D ``.ele`` file is loaded via
+    ``File -> Load file *.ele...`` the physical beam entries turn read-only
+    (n_mc/seed remain editable).
   * "Laser" panel (blue)      -- laser + relative-position parameters; the peak
     normalises vector potential a_0 is derived live from the laser parameters.
-  * "Compton photons" panel (yellow) -- collimation angles, Monte-Carlo sample
-    count, random seed and a Calculate button; after a run it prints the
-    estimated relative spectral width (and each term of the estimate), the
-    total and collimated flux, the mean photon number per electron and the
-    fractions of electrons emitting 0/1/2 photons.
+  * "Compton photons" panel (yellow) -- collimation angles, Calculate button,
+    and post-run statistics (fluxes, photon multiplicities, recoil parameter).
+  * "Model Parameters" panel (grey) -- model-specific numeric fields, rebuilt
+    whenever the active model changes.
+  * "Analytical Preview" panel (grey) -- always-on fast analytical estimate
+    running alongside the selected model.
+  RIGHT (results):
   * A tabbed plot area:
       1. Spectrum & Electron  -- full (4*pi) + collimated photon spectrum
-         (collimated to the Compton-photons panel's current theta_x,col/
-         theta_y,col window) + initial-vs-final electron energy
-         distribution (the original two-figure view).
+         + initial-vs-final electron energy distribution.
       2. Temporal Envelope    -- photon-emission rate/count vs. time.
       3. Spatial Distribution -- transverse (x, y) distribution of photons
          at emission.
-      4. Angular Distribution -- angle-only (theta_x, theta_y) photon density,
-         integrated over energy.
-
-    (A separate on-demand "Angular-Range Spectrum" tab, restricted to an
-    arbitrary user-picked sub-range independent of the Calculate run,
-    existed previously and was removed for now. ModelAdapter.
-    spectrum_in_angular_range isn't exposed as its own tab any more, but
-    IS used -- by _photon_fluxes/_render_spectrum_binned above, as the
-    "collimated" curve/flux source for the current theta_x,col/theta_y,col
-    window, on every collimation-field edit. That's a fresh on-demand
-    query sized for the actual requested window, not a re-integration of
-    the wider-range angular_spectrum cache the Angular Distribution tab
-    still uses for its own visualization -- reusing that cache here used
-    to badly overcount for tight windows on a coarse-grid model like
-    delta; see _photon_fluxes' own docstring.)
+      4. Angular Distribution -- angle-only (theta_x, theta_y) photon density.
 
 This GUI is model-agnostic: physics engines are plugged in through the
 ``model_api.ModelAdapter`` registry (see ``model_api.py``) instead of a
-hardcoded import. Two adapters are registered by ``models.discover_models()``:
-``kascade`` (the KASCADE engine, always available) and ``xigma-i``
-(``xigma_i.gui_adapter``, GPU/cupy-only -- shown disabled in the Model menu
-if unavailable). Model-specific controls (crossing angle, quantum toggle,
+hardcoded import. Model-specific controls (crossing angle, quantum toggle,
 .ele loading, new-observable tabs, ...) are greyed out per the active
 model's ``capabilities()``; see ``_apply_model_capabilities``.
 
@@ -241,19 +223,40 @@ class ComptonGuideApp(tk.Tk):
         # input fields, so we can flip their state when the panel switches
         # between input-mode and display-mode.
         self._electron_entries: list[tuple[tk.Entry, str]] = []
+        # n_mc / seed entries live in the Electrons panel but are tracked
+        # separately -- they must NOT be set read-only when a .ele file
+        # is loaded (they are sampling controls, not beam parameters).
+        self._sample_entries: list[tuple[tk.Entry, str]] = []
         # Trace ids we attach to electron-panel StringVars so we can detach
         # them while the panel is in display mode (otherwise the
         # ``_update_derived`` callback would clobber our output values).
         self._electron_traces: list[tuple[tk.StringVar, str]] = []
 
+        # --- build layout ---
         self._build_menu()
+
+        # Resizable split (PanedWindow must own its pane frames)
+        self._paned = tk.PanedWindow(self, orient="horizontal",
+                                     sashwidth=6, sashrelief="groove")
+        self._paned.pack(fill="both", expand=True)
+
+        # Left pane: all IO panels (electrons, laser, compton, model params, preview)
+        self._left_frame = tk.Frame(self._paned)
         self._build_trust_banner()
         self._build_electrons_panel()
         self._build_laser_panel()
         self._build_compton_panel()
         self._build_model_params_panel()
         self._build_preview_panel()
+
+        # Right pane: plot area
+        self._plot_frame = tk.Frame(self._paned)
         self._build_plot_area()
+
+        # Register panes with the PanedWindow
+        self._paned.add(self._left_frame, minsize=300, width=580)
+        self._paned.add(self._plot_frame, minsize=400)
+
         self._wire_live_updates()
         self._update_derived()
         self._apply_model_capabilities()
@@ -308,7 +311,7 @@ class ComptonGuideApp(tk.Tk):
         self.config(menu=menubar)
 
     def _build_trust_banner(self):
-        self.trust_lbl = tk.Label(self, text="", anchor="w",
+        self.trust_lbl = tk.Label(self._left_frame, text="", anchor="w",
                                    font=("TkDefaultFont", 9, "italic"))
         self.trust_lbl.pack(side="top", fill="x", padx=8, pady=(2, 0))
 
@@ -358,7 +361,7 @@ class ComptonGuideApp(tk.Tk):
 
         # shared sample-count field: grey out when the model sizes particles
         # from its own extra_params() field (xigma_i/delta have n_particles_01)
-        n_mc_entry = self._compton_entries.get("n_mc")
+        n_mc_entry = self._sample_entries[0][0] if self._sample_entries else None
         if n_mc_entry is not None:
             if caps.uses_shared_sample_count:
                 n_mc_entry.config(state="normal")
@@ -483,7 +486,7 @@ class ComptonGuideApp(tk.Tk):
 
     # ---- Electrons panel (blue) ----------------------------------------
     def _build_electrons_panel(self):
-        p = tk.LabelFrame(self, text="ELECTRONS", bg=BLUE, fg="#123",
+        p = tk.LabelFrame(self._left_frame, text="ELECTRONS", bg=BLUE, fg="#123",
                       font=("TkDefaultFont", 14, "bold"))
         p.pack(side="top", fill="x", padx=6, pady=(6, 3))
 
@@ -505,17 +508,30 @@ class ComptonGuideApp(tk.Tk):
 
         self.sigma_ey_lbl = tk.Label(p, text="sigma_y = --", bg=BLUE, anchor="w")
         self.sigma_ey_lbl.grid(row=1, column=8, sticky="w", padx=(15, 5), pady=3)
+
+        # MC sample count & seed (row 2, below the sigma labels)
+        for col, (label, default, key) in enumerate([
+                ("# electrons (MC)", 200000, "n_mc"),
+                ("Random seed", 1, "seed")]):
+            tk.Label(p, text=label, bg=BLUE, anchor="w").grid(
+                row=2, column=col * 2, sticky="w", padx=(8, 3), pady=3)
+            var = tk.StringVar(value=str(default))
+            ent = tk.Entry(p, textvariable=var, width=11, justify="right")
+            ent.grid(row=2, column=col * 2 + 1, padx=(0, 10), pady=3)
+            self.fields[key] = var
+            self._sample_entries.append((ent, key))
+
         # hint that flips between "input" and "loaded from <file>" in display mode
         self.electron_mode_lbl = tk.Label(
             p, text="(input mode - edit the fields above to define the bunch)",
             bg=BLUE, anchor="w", fg="#234",
             font=("TkDefaultFont", 9, "italic"))
-        self.electron_mode_lbl.grid(row=2, column=0, columnspan=9, sticky="w",
+        self.electron_mode_lbl.grid(row=3, column=0, columnspan=10, sticky="w",
                                     padx=10, pady=(2, 2))
 
     # ---- Laser panel (red) --------------------------------------------
     def _build_laser_panel(self):
-        p = tk.LabelFrame(self, text="LASER", bg=RED, fg="#123",
+        p = tk.LabelFrame(self._left_frame, text="LASER", bg=RED, fg="#123",
                           font=("TkDefaultFont", 14, "bold"))
         p.pack(side="top", fill="x", padx=6, pady=3)
         specs = [
@@ -550,18 +566,16 @@ class ComptonGuideApp(tk.Tk):
 
     # ---- Compton photons panel (yellow) --------------------------------
     def _build_compton_panel(self):
-        p = tk.LabelFrame(self, text="COMPTON PHOTONS", bg=YELLOW, fg="#432",
+        p = tk.LabelFrame(self._left_frame, text="COMPTON PHOTONS", bg=YELLOW, fg="#432",
                           font=("TkDefaultFont", 14, "bold"))
         p.pack(side="top", fill="x", padx=6, pady=3)
 
-        # inputs row
+        # inputs row (collimation angles + calculate button)
         inp = tk.Frame(p, bg=YELLOW)
         inp.grid(row=0, column=0, columnspan=2, sticky="w", padx=4, pady=(2, 6))
         specs = [
             ("theta_x,col [mrad]", 0.05, "theta_x_col_mrad"),
             ("theta_y,col [mrad]", 0.05, "theta_y_col_mrad"),
-            ("Number of macroelectrons", 200000, "n_mc"),
-            ("Random seed", 1, "seed"),
         ]
         self._compton_entries: dict[str, tk.Entry] = {}
         for i, (label, default, key) in enumerate(specs):
@@ -572,9 +586,9 @@ class ComptonGuideApp(tk.Tk):
             self.fields[key] = var
             self._compton_entries[key] = ent
         self.calc_btn = tk.Button(inp, text="Calculate", command=self.on_start)
-        self.calc_btn.grid(row=0, column=8, padx=12)
+        self.calc_btn.grid(row=0, column=4, padx=12)
         self.status_lbl = tk.Label(inp, text="idle", bg=YELLOW, width=10)
-        self.status_lbl.grid(row=0, column=9, padx=4)
+        self.status_lbl.grid(row=0, column=5, padx=4)
 
         # outputs: fluxes / statistics (the redundant duck-typed spread-estimate
         # box that used to live here was removed -- the preview panel's real
@@ -618,7 +632,7 @@ class ComptonGuideApp(tk.Tk):
     # rebuilt whenever the active model changes (see _on_model_selected).
     def _build_model_params_panel(self):
         self.model_params_frame = tk.LabelFrame(
-            self, text="MODEL PARAMETERS", bg=GREY, fg="#123",
+            self._left_frame, text="MODEL PARAMETERS", bg=GREY, fg="#123",
             font=("TkDefaultFont", 14, "bold"))
         self.model_params_frame.pack(side="top", fill="x", padx=6, pady=3)
         self._rebuild_model_params_panel()
@@ -656,7 +670,7 @@ class ComptonGuideApp(tk.Tk):
         selected (see on_start/_poll_queue) -- a real-time preview and base
         sanity check, not gated by the active model's tab-capabilities the
         way the plot-area tabs are (_apply_model_capabilities)."""
-        p = tk.LabelFrame(self, text="ANALYTICAL PREVIEW (always-on)", bg=GREY, fg="#123",
+        p = tk.LabelFrame(self._left_frame, text="ANALYTICAL PREVIEW (always-on)", bg=GREY, fg="#123",
                           font=("TkDefaultFont", 11, "bold"))
         p.pack(side="top", fill="x", padx=6, pady=3)
         mono = ("TkFixedFont", 10)
@@ -693,10 +707,8 @@ class ComptonGuideApp(tk.Tk):
 
     # ---- plots (tabbed notebook) ----------------------------------------
     def _build_plot_area(self):
-        outer = ttk.Frame(self)
-        outer.pack(side="top", fill="both", expand=True, padx=6, pady=(3, 6))
-        self.notebook = ttk.Notebook(outer)
-        self.notebook.pack(fill="both", expand=True)
+        self.notebook = ttk.Notebook(self._plot_frame)
+        self.notebook.pack(fill="both", expand=True, padx=6, pady=6)
 
         # Tab 1: Spectrum & Electron (the original two-figure view)
         tab1 = ttk.Frame(self.notebook)

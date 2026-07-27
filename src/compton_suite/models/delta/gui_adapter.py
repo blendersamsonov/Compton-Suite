@@ -307,9 +307,6 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
     if sigma0_l <= 0:
         warnings.append("Rayleigh length must be > 0; using a very small laser "
                         "waist as a fallback.")
-    warnings.append(
-        "delta: 'Number of macroelectrons' is ignored -- use this "
-        "model's own 'Stage 0 particles' field (Model Parameters panel) instead.")
 
     from compton_suite.io.bunch import beam_from_shared_fields
     from compton_suite.io.interaction import InteractionGeometry
@@ -594,6 +591,9 @@ class DeltaAdapter:
 
     def extra_params(self) -> list[tuple[str, float, str]]:
         return extra_params()
+
+    def extra_choices(self) -> dict[str, list[str]]:
+        return extra_choices()
 
     def params_to_config(self, fields: dict, quantum: bool = False):
         return params_to_config(fields, quantum)
