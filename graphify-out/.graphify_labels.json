@@ -52,5 +52,13 @@
   "50": "graphify.js",
   "51": "peak_a0",
   "52": "._load_ele",
-  "53": "ComptonSuite model-agnostic-core refactor: status"
+  "53": "ComptonSuite model-agnostic-core refactor: status",
+  "54": "models.py",
+  "55": "test_laser.py",
+  "56": "UnavailableAdapter",
+  "57": "AnalyticalAdapter",
+  "58": "detect_device",
+  "59": ".run",
+  "60": "beta_star_from_sigma_emit",
+  "61": "divergence_from_sigma_emit"
 }
