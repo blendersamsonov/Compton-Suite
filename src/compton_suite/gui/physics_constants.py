@@ -1,5 +1,6 @@
 """CODATA-style physical constants used by the GUI's local formula helpers
-(peak_a0, sigma_e, the spread-estimate box, ...).
+(peak_a0, sigma_e, the recoil-parameter/electron-energy stats in
+_update_outputs, ...).
 
 Re-exported from ``compton_io.constants`` (the shared, pint-derived
 source of truth also used by ``xigma_i``/``kascade``) rather than defined

@@ -15,10 +15,11 @@ Design notes:
     ``compton_io.bunch``/``compton_io.constants`` etc. are safe to import at
     module scope unconditionally (see below).
   * ``Config`` mirrors ``dfe5_compton_mc.Config``'s field names and SI units
-    wherever a physical mapping exists, so the GUI's model-agnostic
-    spread-estimate formula (which reads ``cfg.eps0``, ``cfg.sigma_eps_rel``,
-    ``cfg.omega_L``, ``cfg.emit_x/y``, ``cfg.beta_x/y``, ``cfg.sigma_par_L``)
-    keeps working unmodified regardless of which model is active.
+    wherever a physical mapping exists (``cfg.eps0``, ``cfg.sigma_eps_rel``,
+    ``cfg.omega_L``, ``cfg.emit_x/y``, ``cfg.beta_x/y``, ``cfg.sigma_par_L``,
+    ...), now derived from ``cfg.interaction`` (see class docstring) rather
+    than stored directly, so code reading those names by convention across
+    models keeps working unmodified regardless of which model is active.
   * xigma-i is head-on only and has no classical/quantum toggle -- see
     ``capabilities()``.
   * xigma-i computes a smooth, pre-integrated spectral density (``dN/dE``,
@@ -69,8 +70,6 @@ class Config:
     # spectrum grid in run_simulation (see _theta_grid); not a hard cut.
     Theta_x: float = 0.0
     Theta_y: float = 0.0
-    theta_onaxis_gamma: float = 0.2    # kept only so the GUI's spread-estimate
-                                        # formula box still has a value to read
 
     # xigma-i-only extras, no dfe5 analogue
     beta_ff: float = 0.0                # flying-focus factor: 0=static, 1=co-moving
