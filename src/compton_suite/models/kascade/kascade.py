@@ -58,16 +58,15 @@ A pure physics library: ``Config``/``run_simulation``/``Results`` and the
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 import numpy as np
 
 from compton_suite.io import constants as _io_constants
 from compton_suite.io.bunch import MacroBunch as _MacroBunch
-from compton_suite.io.bunch import beta_star_from_sigma_emit as _beta_star_from_sigma_emit
+from compton_suite.io.interaction import InteractionParameters as _InteractionParameters
 from compton_suite.io.io_formats.sdds import save_elegant_ele as _save_elegant_ele
-from compton_suite.io.laser import GaussianParaxialLaser as _GaussianParaxialLaser
 from compton_suite.io.laser_envelope import gaussian_pulse_envelope as _gaussian_pulse_envelope
 
 # ---------------------------------------------------------------------------
@@ -91,37 +90,16 @@ MEC2_J = MEC2_EV * E_CHARGE               # electron rest energy      [J]
 # ---------------------------------------------------------------------------
 @dataclass
 class Config:
-    """Physical parameters for the bunch, the laser and the interaction."""
+    """Physical parameters for the bunch, the laser and the interaction.
 
-    # ---- electron bunch -------------------------------------------------
-    # defaults mirror dfe4's current working point (NCPM ~2 GeV regime)
-    eps0: float = 1000.0
-    sigma_eps_rel: float = 0.0001
-    emit_x: float = 1.0e-14
-    emit_y: float = 1.0e-14
-    sigma0_x: float = 10.0e-6
-    sigma0_y: float = 10.0e-6
-    sigma_par_e: float = 50.0e-6
-    N_e: float = 1.0e9
+    ``interaction`` holds the shared (beam, laser, geometry, quantum) bundle
+    (:mod:`compton_suite.io.interaction`) -- every flat physics field this
+    class used to carry directly is now a property deriving from it, so
+    ``run_multiphoton_chain``/``laser_density``/etc. below keep reading
+    ``cfg.eps0``, ``cfg.beta_x``, ... by the same names as before.
+    """
 
-    # ---- laser pulse ----------------------------------------------------
-    lambda_L: float = 1.0e-6
-    sigma0_l: float = 20.0e-6
-    R_sf: float = 0.0
-    sigma_par_L: float = 1.0e-3
-    pulse_energy_J: float = 28e-3
-    N_L: float = 0.0
-
-    # ---- collision geometry (centres at maximum overlap, t = 0) ---------
-    delta_x: float = 0.0
-    delta_y: float = 0.0
-    delta_z: float = 0.0
-    crossing_angle: float = 0.0   # laser tilt from head-on [rad]; 0 = head-on
-    #                               laser propagates along (sin phi, 0, -cos phi)
-
-    # ---- quantum options ------------------------------------------------
-    quantum: bool = False         # True -> Klein-Nishina cross section + recoil
-    #                               False -> classical Thomson (dfe4)
+    interaction: _InteractionParameters
 
     # ---- output angular window (goal 3 of dfe4.lyx) ----------------------
     Theta_x: float = 0.0
@@ -136,39 +114,109 @@ class Config:
     max_photons: int = 30
     chunk: int = 5_000
 
-    # ---- derived (filled in __post_init__) ------------------------------
-    omega_L: float = field(init=False)
-    hbar_omega_L_J: float = field(init=False)
-    eps_L: float = field(init=False)
-    beta_x: float = field(init=False)
-    beta_y: float = field(init=False)
+    # ---- electron bunch (derived from self.interaction.beam) -------------
+    @property
+    def eps0(self) -> float:
+        return self.interaction.beam.gamma0
 
-    def __post_init__(self) -> None:
-        self.omega_L = 2.0 * np.pi * C_LIGHT / self.lambda_L
-        self.hbar_omega_L_J = HBAR * self.omega_L
-        self.eps_L = self.hbar_omega_L_J / MEC2_J
-        if self.N_L <= 0.0 or self.R_sf <= 0.0:
-            # N_L (pulse photon count) and R_sf (Rayleigh-range-like scale)
-            # are exactly compton_io.laser.GaussianParaxialLaser's
-            # n_photons/rayleigh_x_m -- read from there instead of
-            # re-deriving the same formulas locally (verified to agree to
-            # float precision). laser_density/laser_a0sq below evaluate the
-            # envelope at an arbitrary (x, y, z, t), including a nonzero
-            # crossing_angle, which GaussianParaxialLaser itself (head-on/
-            # on-axis only, see its own module docstring) doesn't support --
-            # they call compton_io.laser_envelope.gaussian_pulse_envelope
-            # instead, the shared evaluator that does support this.
-            _laser = _GaussianParaxialLaser(
-                pulse_energy_J=self.pulse_energy_J, wavelength_m=self.lambda_L,
-                waist_rms_x_m=self.sigma0_l, waist_rms_y_m=self.sigma0_l,
-                duration_rms_s=self.sigma_par_L / C_LIGHT,
-            )
-            if self.N_L <= 0.0:
-                self.N_L = _laser.n_photons
-            if self.R_sf <= 0.0:
-                self.R_sf = _laser.rayleigh_x_m
-        self.beta_x = _beta_star_from_sigma_emit(self.sigma0_x, self.emit_x)
-        self.beta_y = _beta_star_from_sigma_emit(self.sigma0_y, self.emit_y)
+    @property
+    def sigma_eps_rel(self) -> float:
+        return self.interaction.beam.sigma_gamma_over_gamma0
+
+    @property
+    def emit_x(self) -> float:
+        return self.interaction.beam.emit_geom_x_m
+
+    @property
+    def emit_y(self) -> float:
+        return self.interaction.beam.emit_geom_y_m
+
+    @property
+    def sigma0_x(self) -> float:
+        return self.interaction.beam.sigma_x_m
+
+    @property
+    def sigma0_y(self) -> float:
+        return self.interaction.beam.sigma_y_m
+
+    @property
+    def sigma_par_e(self) -> float:
+        return self.interaction.beam.sigma_z_m
+
+    @property
+    def N_e(self) -> float:
+        return self.interaction.beam.N_e
+
+    @property
+    def beta_x(self) -> float:
+        return self.interaction.beam.beta_star_x_m
+
+    @property
+    def beta_y(self) -> float:
+        return self.interaction.beam.beta_star_y_m
+
+    # ---- laser pulse (derived from self.interaction.laser) ---------------
+    @property
+    def lambda_L(self) -> float:
+        return self.interaction.laser.wavelength_m
+
+    @property
+    def sigma0_l(self) -> float:
+        return self.interaction.laser.waist_rms_x_m
+
+    @property
+    def sigma_par_L(self) -> float:
+        return self.interaction.laser.duration_rms_s * C_LIGHT
+
+    @property
+    def pulse_energy_J(self) -> float:
+        return self.interaction.laser.pulse_energy_J
+
+    @property
+    def N_L(self) -> float:
+        return self.interaction.laser.n_photons
+
+    @property
+    def R_sf(self) -> float:
+        return self.interaction.laser.rayleigh_x_m
+
+    @property
+    def omega_L(self) -> float:
+        return 2.0 * np.pi * C_LIGHT / self.lambda_L
+
+    @property
+    def hbar_omega_L_J(self) -> float:
+        return HBAR * self.omega_L
+
+    @property
+    def eps_L(self) -> float:
+        return self.hbar_omega_L_J / MEC2_J
+
+    # ---- collision geometry (derived from self.interaction.geometry) -----
+    @property
+    def delta_x(self) -> float:
+        return self.interaction.geometry.delta_x_m
+
+    @property
+    def delta_y(self) -> float:
+        return self.interaction.geometry.delta_y_m
+
+    @property
+    def delta_z(self) -> float:
+        return self.interaction.geometry.delta_z_m
+
+    @property
+    def crossing_angle(self) -> float:
+        # laser tilt from head-on [rad]; 0 = head-on; laser propagates
+        # along (sin phi, 0, -cos phi)
+        return self.interaction.geometry.crossing_angle_rad
+
+    # ---- quantum options ---------------------------------------------
+    @property
+    def quantum(self) -> bool:
+        # True -> Klein-Nishina cross section + recoil; False -> classical
+        # Thomson (dfe4)
+        return self.interaction.quantum
 
     @property
     def sigma_eps(self) -> float:

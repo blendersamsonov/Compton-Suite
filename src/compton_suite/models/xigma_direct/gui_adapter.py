@@ -26,12 +26,13 @@ either.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
-from compton_suite.io.bunch import MacroBunch, beta_star_from_sigma_emit, fit_gaussian
-from compton_suite.io.constants import E_CHARGE as _ELEMENTARY_CHARGE_C, M_TO_CM as _M_TO_CM
+from compton_suite.io.bunch import MacroBunch, fit_gaussian
+from compton_suite.io.constants import C_LIGHT as _C_LIGHT_M, E_CHARGE as _ELEMENTARY_CHARGE_C, M_TO_CM as _M_TO_CM
+from compton_suite.io.interaction import InteractionParameters as _InteractionParameters
 from compton_suite.io.io_formats.sdds import load_elegant_ele
 from compton_suite.io.photons import (
     AngularRangeSpectrumResult,
@@ -71,26 +72,7 @@ class DirectConfig:
     a0_max: a0 is retargeted exactly per-particle, not via a table, so
     there's no a0-range/binning choice to make)."""
 
-    eps0: float = 1000.0
-    sigma_eps_rel: float = 0.0001
-    emit_x: float = 1.0e-14
-    emit_y: float = 1.0e-14
-    sigma0_x: float = 10.0e-6
-    sigma0_y: float = 10.0e-6
-    sigma_par_e: float = 50.0e-6
-    N_e: float = 1.0e9
-
-    lambda_L: float = 1.0e-6
-    sigma0_l: float = 20.0e-6
-    sigma_par_L: float = 1.0e-3
-    pulse_energy_J: float = 28e-3
-
-    delta_x: float = 0.0
-    delta_y: float = 0.0
-    delta_z: float = 0.0
-    crossing_angle: float = 0.0   # must be 0.0 -- head-on only, shares xigma_i's Stage 0
-
-    quantum: bool = False           # accepted, no effect (Stage 0 has no quantum/classical switch)
+    interaction: _InteractionParameters
 
     Theta_x: float = 0.0            # angular window for angular_spectrum, mrad-derived
     Theta_y: float = 0.0
@@ -103,18 +85,90 @@ class DirectConfig:
     n_steps_0: float = 64.0
     n_theta_grid: float = 9.0       # angular_spectrum grid resolution per axis
 
-    # Derived in __post_init__, mirroring xigma_i.gui_adapter.Config exactly
-    # -- app.py's model-agnostic spread-estimate formula box (Compton
-    # panel) reads cfg.omega_L/cfg.beta_x/cfg.beta_y off whatever model's
-    # cfg is currently active, regardless of which model that is.
-    omega_L: float = field(init=False)
-    beta_x: float = field(init=False)
-    beta_y: float = field(init=False)
+    # ---- flat fields, now derived from self.interaction, kept as
+    # properties so run_simulation/_theta_grid/etc. below keep reading
+    # cfg.<name> by the same names as before ----------------------------
+    @property
+    def eps0(self) -> float:
+        return self.interaction.beam.gamma0
 
-    def __post_init__(self) -> None:
-        self.omega_L = 2.0 * np.pi * 2.99792458e8 / self.lambda_L
-        self.beta_x = beta_star_from_sigma_emit(self.sigma0_x, self.emit_x)
-        self.beta_y = beta_star_from_sigma_emit(self.sigma0_y, self.emit_y)
+    @property
+    def sigma_eps_rel(self) -> float:
+        return self.interaction.beam.sigma_gamma_over_gamma0
+
+    @property
+    def emit_x(self) -> float:
+        return self.interaction.beam.emit_geom_x_m
+
+    @property
+    def emit_y(self) -> float:
+        return self.interaction.beam.emit_geom_y_m
+
+    @property
+    def sigma0_x(self) -> float:
+        return self.interaction.beam.sigma_x_m
+
+    @property
+    def sigma0_y(self) -> float:
+        return self.interaction.beam.sigma_y_m
+
+    @property
+    def sigma_par_e(self) -> float:
+        return self.interaction.beam.sigma_z_m
+
+    @property
+    def N_e(self) -> float:
+        return self.interaction.beam.N_e
+
+    @property
+    def beta_x(self) -> float:
+        return self.interaction.beam.beta_star_x_m
+
+    @property
+    def beta_y(self) -> float:
+        return self.interaction.beam.beta_star_y_m
+
+    @property
+    def lambda_L(self) -> float:
+        return self.interaction.laser.wavelength_m
+
+    @property
+    def sigma0_l(self) -> float:
+        return self.interaction.laser.waist_rms_x_m
+
+    @property
+    def sigma_par_L(self) -> float:
+        return self.interaction.laser.duration_rms_s * _C_LIGHT_M
+
+    @property
+    def pulse_energy_J(self) -> float:
+        return self.interaction.laser.pulse_energy_J
+
+    @property
+    def omega_L(self) -> float:
+        return 2.0 * np.pi * _C_LIGHT_M / self.lambda_L
+
+    @property
+    def delta_x(self) -> float:
+        return self.interaction.geometry.delta_x_m
+
+    @property
+    def delta_y(self) -> float:
+        return self.interaction.geometry.delta_y_m
+
+    @property
+    def delta_z(self) -> float:
+        return self.interaction.geometry.delta_z_m
+
+    @property
+    def crossing_angle(self) -> float:
+        # must be 0.0 -- head-on only, shares xigma_i's Stage 0
+        return self.interaction.geometry.crossing_angle_rad
+
+    @property
+    def quantum(self) -> bool:
+        # accepted, no effect (Stage 0 has no quantum/classical switch)
+        return self.interaction.quantum
 
     @property
     def sigma_eps(self) -> float:
@@ -227,16 +281,28 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
         "xigma-i-direct: 'Number of macroelectrons' is ignored -- use this "
         "model's own 'Stage 0 particles' field (Model Parameters panel) instead.")
 
-    cfg = DirectConfig(
+    from compton_suite.io.bunch import beam_from_shared_fields
+    from compton_suite.io.interaction import InteractionGeometry
+    from compton_suite.io.laser import laser_from_shared_fields
+
+    beam = beam_from_shared_fields(
         eps0=eps0, sigma_eps_rel=sigma_eps_rel,
         emit_x=max(emit_x, 1e-30), emit_y=max(emit_y, 1e-30),
         sigma0_x=max(sigma0_x, 1e-12), sigma0_y=max(sigma0_y, 1e-12),
         sigma_par_e=max(sigma_par_e, 1e-12), N_e=N_e,
+    )
+    laser = laser_from_shared_fields(
         lambda_L=lambda_L, sigma0_l=max(sigma0_l, 1e-9),
-        sigma_par_L=max(sigma_par_L, 1e-9),
-        pulse_energy_J=pulse_energy_J,
-        delta_x=delta_x, delta_y=delta_y, delta_z=delta_z,
-        crossing_angle=crossing_angle, quantum=quantum,
+        sigma_par_L=max(sigma_par_L, 1e-9), pulse_energy_J=pulse_energy_J,
+    )
+    geometry = InteractionGeometry(
+        delta_x_m=delta_x, delta_y_m=delta_y, delta_z_m=delta_z,
+        crossing_angle_rad=crossing_angle,
+    )
+    cfg = DirectConfig(
+        interaction=_InteractionParameters(
+            beam=beam, laser=laser, geometry=geometry, quantum=quantum,
+        ),
         Theta_x=theta_x_col, Theta_y=theta_y_col,
         beta_ff=g("beta_ff"), phi_pol=g("phi_pol"),
         n_particles_01=max(1, int(round(g("n_particles_01")))),
@@ -294,10 +360,7 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
         raise ValueError(
             f"xigma-i-direct: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
-    from compton_suite.io.bunch import beam_from_shared_fields
     from compton_suite.io.collision import build_params, detect_device
-    from compton_suite.io.interaction import InteractionGeometry
-    from compton_suite.io.laser import laser_from_shared_fields
     from compton_suite.models.xigma_i import particles, spectrum_from_particles
 
     # Resolve device preference: "auto" (default), "gpu", or "cpu"
@@ -318,18 +381,8 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     # ``seed`` is unused here: electron sampling is the caller's job (see
     # this function's docstring), so there's no RNG left for this function
     # to own. Kept in the signature for ModelAdapter interface compatibility.
-    beam = beam_from_shared_fields(
-        eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
-        emit_x=cfg.emit_x, emit_y=cfg.emit_y,
-        sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
-        sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
-    )
-    laser = laser_from_shared_fields(
-        lambda_L=cfg.lambda_L, sigma0_l=cfg.sigma0_l,
-        sigma_par_L=cfg.sigma_par_L, pulse_energy_J=cfg.pulse_energy_J,
-    )
-    geometry = InteractionGeometry(delta_x_m=cfg.delta_x, delta_y_m=cfg.delta_y,
-                                    delta_z_m=cfg.delta_z)
+    beam, laser, geometry = (cfg.interaction.beam, cfg.interaction.laser,
+                             cfg.interaction.geometry)
     params = build_params(beam, laser, geometry, beta_ff=cfg.beta_ff, device=device)
 
     gamma_0, sigma_gamma_0 = cfg.eps0, cfg.sigma_eps

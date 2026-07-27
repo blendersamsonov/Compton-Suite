@@ -6,13 +6,10 @@ convenience, not physically meaningful; skipping it removes a source of
 avoidable float-formatting noise from cross-model comparisons).
 
 kascade.Config, xigma_i.gui_adapter.Config, and xigma_direct.DirectConfig
-already agree on field names/units (eps0, sigma_eps_rel, emit_x/y,
-sigma0_x/y, sigma_par_e, N_e, lambda_L, sigma0_l, sigma_par_L,
-pulse_energy_J -- confirmed by reading all three; two of them are already
-"machine-checked" by xigma_i.params.spec's KASCADE_SPEC/XIGMA_SPEC), so
-one shared field dict (scenario_to_shared_fields) feeds all three
-directly. AnalyticalConfig wraps (beam, pulse) natively, no conversion
-needed.
+each hold a single ``interaction: compton_io.interaction.InteractionParameters``
+field (see that module's docstring) instead of their own flat physics
+fields, so ``Scenario.interaction_parameters`` feeds all three directly.
+AnalyticalConfig wraps (beam, pulse) natively, no conversion needed.
 """
 
 from __future__ import annotations
@@ -20,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compton_suite.io.bunch import GaussianElectronBeam
-from compton_suite.io.constants import C_LIGHT, MEC2_EV
+from compton_suite.io.constants import MEC2_EV
 from compton_suite.io.interaction import InteractionGeometry, InteractionParameters
 from compton_suite.io.laser import GaussianParaxialLaser
 
@@ -41,7 +38,6 @@ __all__ = [
     "BASELINE",
     "LOW_A0",
     "NEAR_A0_MAX",
-    "scenario_to_shared_fields",
     "build_kascade_config",
     "build_xigma_config",
     "build_xigma_direct_config",
@@ -152,46 +148,26 @@ LOW_A0 = _scaled("low_a0", pulse_energy_J=2.0)          # a0 ~ 0.009
 NEAR_A0_MAX = _scaled("near_a0_max", pulse_energy_J=100.0)  # a0 ~ 0.46
 
 
-def scenario_to_shared_fields(scenario: Scenario) -> dict:
-    """The SI field set kascade.Config/xigma_i.gui_adapter.Config/
-    xigma_direct.DirectConfig already agree on."""
-    beam, pulse = scenario.beam, scenario.pulse
-    return dict(
-        eps0=beam.gamma0,
-        sigma_eps_rel=beam.sigma_gamma_over_gamma0,
-        emit_x=beam.emit_geom_x_m,
-        emit_y=beam.emit_geom_y_m,
-        sigma0_x=beam.sigma_x_m,
-        sigma0_y=beam.sigma_y_m,
-        sigma_par_e=beam.sigma_z_m,
-        N_e=beam.N_e,
-        lambda_L=pulse.wavelength_m,
-        sigma0_l=pulse.waist_rms_x_m,   # round-beam approximation, matching
-                                         # xigma_direct/analytical_adapter
-        sigma_par_L=pulse.duration_rms_s * C_LIGHT,
-        pulse_energy_J=pulse.pulse_energy_J,
-        delta_x=0.0, delta_y=0.0, delta_z=0.0,
-        crossing_angle=scenario.crossing_angle_rad,
-        quantum=scenario.quantum,
-    )
-
-
 def build_kascade_config(scenario: Scenario):
     from compton_suite.models.kascade import kascade
-    return kascade.Config(**scenario_to_shared_fields(scenario))
+    return kascade.Config(interaction=scenario.interaction_parameters)
 
 
 def build_xigma_config(scenario: Scenario):
     from compton_suite.models.xigma_i import gui_adapter
-    fields = scenario_to_shared_fields(scenario)
-    return gui_adapter.Config(**fields, beta_ff=scenario.beta_ff, phi_pol=scenario.phi_pol,
-                              a0_max=scenario.a0_max)
+    return gui_adapter.Config(
+        interaction=scenario.interaction_parameters,
+        beta_ff=scenario.beta_ff, phi_pol=scenario.phi_pol,
+        a0_max=scenario.a0_max,
+    )
 
 
 def build_xigma_direct_config(scenario: Scenario):
     from compton_suite.models.xigma_direct import gui_adapter
-    fields = scenario_to_shared_fields(scenario)
-    return gui_adapter.DirectConfig(**fields, beta_ff=scenario.beta_ff, phi_pol=scenario.phi_pol)
+    return gui_adapter.DirectConfig(
+        interaction=scenario.interaction_parameters,
+        beta_ff=scenario.beta_ff, phi_pol=scenario.phi_pol,
+    )
 
 
 def build_analytical_config(scenario: Scenario):
@@ -210,22 +186,8 @@ def build_params_for_xigma(cfg, device: str | None = None):
     (SI -> CGS at this boundary), so Tier 0/1 can read params.a0/.N_l/.N_e
     the same way the real run does, not a reimplementation that could
     silently drift out of sync."""
-    from compton_suite.io.bunch import beam_from_shared_fields
     from compton_suite.io.collision import build_params, detect_device
-    from compton_suite.io.interaction import InteractionGeometry
-    from compton_suite.io.laser import laser_from_shared_fields
 
     device = device or detect_device()
-    beam = beam_from_shared_fields(
-        eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
-        emit_x=cfg.emit_x, emit_y=cfg.emit_y,
-        sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
-        sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
-    )
-    laser = laser_from_shared_fields(
-        lambda_L=cfg.lambda_L, sigma0_l=cfg.sigma0_l,
-        sigma_par_L=cfg.sigma_par_L, pulse_energy_J=cfg.pulse_energy_J,
-    )
-    geometry = InteractionGeometry(delta_x_m=cfg.delta_x, delta_y_m=cfg.delta_y,
-                                    delta_z_m=cfg.delta_z)
-    return build_params(beam, laser, geometry, beta_ff=cfg.beta_ff, device=device)
+    return build_params(cfg.interaction.beam, cfg.interaction.laser,
+                         cfg.interaction.geometry, beta_ff=cfg.beta_ff, device=device)

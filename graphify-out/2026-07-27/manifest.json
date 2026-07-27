@@ -5,7 +5,7 @@
     "semantic_hash": ""
   },
   "src/compton_suite/__init__.py": {
-    "mtime": 1785095969.4667008,
+    "mtime": 1785102644.3119228,
     "ast_hash": "e7f8aaff01efd4dc3d57e914faedbda6",
     "semantic_hash": ""
   },
@@ -85,13 +85,13 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1785094712.2301748,
-    "ast_hash": "ab014edc5fcc86e5726e2525aea1f149",
+    "mtime": 1785102749.331225,
+    "ast_hash": "6f95b42f16a17c6d7a6df0ebc80fb569",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785094712.2301748,
-    "ast_hash": "ab014edc5fcc86e5726e2525aea1f149",
+    "mtime": 1785102749.331225,
+    "ast_hash": "6f95b42f16a17c6d7a6df0ebc80fb569",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
@@ -150,8 +150,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/io/__init__.py": {
-    "mtime": 1785095842.2713277,
-    "ast_hash": "99e1f58c795b2f20151298fe0469b645",
+    "mtime": 1785131569.4483948,
+    "ast_hash": "63f1659da01f4e094950f546bbd48dbf",
     "semantic_hash": ""
   },
   "src/compton_suite/io/adapter.py": {
@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/kascade.py": {
-    "mtime": 1785096108.65121,
-    "ast_hash": "f0c6692443fa0e9012f6dd8edb8568c7",
+    "mtime": 1785131569.449371,
+    "ast_hash": "78f41987621b1cf2c4e50e966c2f626a",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/kascade_adapter.py": {
@@ -325,8 +325,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/particles.py": {
-    "mtime": 1785096687.6254866,
-    "ast_hash": "8806c076a01051e9defc6a8965f94576",
+    "mtime": 1785131569.4495993,
+    "ast_hash": "e37220f9165cb157af9e32c169e5b430",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/reference.py": {
@@ -557,6 +557,21 @@
   "src/compton_suite/validation/plots/regime_boundary.png": {
     "mtime": 1785098223.9852953,
     "ast_hash": "01cee467ce0dfce7e094249e581b146c",
+    "semantic_hash": ""
+  },
+  "src/compton_suite/io/laser_envelope.py": {
+    "mtime": 1785131569.448668,
+    "ast_hash": "2b67e10888a70784d0683067dd25bcbe",
+    "semantic_hash": ""
+  },
+  "tests/io_tests/test_laser_envelope.py": {
+    "mtime": 1785131569.4501915,
+    "ast_hash": "2b64d827abbc2f262a2c0ab41b667d11",
+    "semantic_hash": ""
+  },
+  "docs/refactor/core-simulation-api.md": {
+    "mtime": 1785131569.4480076,
+    "ast_hash": "b8a96f4b28465d48586206d4c615b0c7",
     "semantic_hash": ""
   }
 }

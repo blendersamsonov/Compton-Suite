@@ -556,22 +556,9 @@ class ComptonGuideApp(tk.Tk):
         self.status_lbl = tk.Label(inp, text="idle", bg=YELLOW, width=10)
         self.status_lbl.grid(row=0, column=9, padx=4)
 
-        # relative-spread estimate formula (rendered with matplotlib mathtext)
-        self.spread_fig = plt.Figure(figsize=(9.6, 0.55))
-        self.spread_fig.patch.set_facecolor(YELLOW)
-        axf = self.spread_fig.add_axes([0, 0, 1, 1]); axf.axis("off")
-        axf.text(0.01, 0.5,
-                 r"$\frac{\Delta \hbar \omega_c}{\hbar \omega_c}\approx"
-                 r"\sqrt{(\gamma\theta_{col})^4+4\left(\frac{\Delta \gamma}{\gamma}\right)^2"
-                 r"+\left(\frac{\Delta \hbar \omega_L}{\hbar \omega_L}\right)^2"
-                 r"+\left(\frac{\epsilon}{\sigma}\right)^4"
-                 r"+\left(\frac{a_0^2}{2}\right)^2}$",
-                 ha="left", va="center", fontsize=13)
-        cf = FigureCanvasTkAgg(self.spread_fig, master=p)
-        cf.get_tk_widget().grid(row=1, column=0, columnspan=2, sticky="we", padx=6)
-        self.spread_canvas = cf
-
-        # outputs: left = spread terms, right = fluxes / statistics
+        # outputs: fluxes / statistics (the redundant duck-typed spread-estimate
+        # box that used to live here was removed -- the preview panel's real
+        # `analytical` model run already covers this, see _build_preview_panel)
         bottom_frame = tk.Frame(p, bg=YELLOW)
         bottom_frame.grid(row=3, column=0, columnspan=3, sticky="we", padx=6, pady=4)
         bottom_frame.columnconfigure(0, weight=0, minsize=120)
@@ -580,10 +567,6 @@ class ComptonGuideApp(tk.Tk):
 
         mono = ("TkFixedFont", 11)
 
-        left = tk.Frame(bottom_frame, bg=YELLOW, width=120, height=200)
-        left.propagate(False)
-        left.grid(row=0, column=0, sticky="nw", padx=10, pady=4)
-
         righta = tk.Frame(bottom_frame, bg=YELLOW, width=120, height=200)
         righta.propagate(False)
         righta.grid(row=0, column=1, sticky="nw", padx=50, pady=4)
@@ -591,22 +574,6 @@ class ComptonGuideApp(tk.Tk):
         rightb = tk.Frame(bottom_frame, bg=YELLOW, width=120, height=200)
         rightb.propagate(False)
         rightb.grid(row=0, column=2, sticky="nw", padx=5, pady=4)
-
-        self.term_lbls: dict[str, tk.Label] = {}
-        term_specs = [
-            ("coll", "(g*th_col)^4:"),
-            ("espread", "4(Dg/g)^2:"),
-            ("laser_bw", "(D*hw_L/hw_L)^2:"),
-            ("emit", "(eps/sig)^4:"),
-            ("a0", "(a0^2/2)^2:"),
-            ("total", "D*hw_c/hw_c:"),
-        ]
-        for r, (key, name) in enumerate(term_specs):
-            font = (mono[0], mono[1], "bold") if key == "total" else mono
-            tk.Label(left, text=name, bg=YELLOW, font=font, width=18, anchor="w").grid(row=r, column=0, sticky="w")
-            lab = tk.Label(left, text="--", bg=YELLOW, font=font, width=17, anchor="w")
-            lab.grid(row=r, column=1, sticky="w")
-            self.term_lbls[key] = lab
 
         self.stat_lbls: dict[str, tk.Label] = {}
         stat_specs = [
@@ -922,29 +889,8 @@ class ComptonGuideApp(tk.Tk):
         res, cfg = self.res, self.cfg_used
         tx, ty = self._collimation_rad()
 
-        # --- relative-spread estimate terms (model-agnostic: only needs the
-        # common Config fields every adapter's Config exposes) ---
+        # gamma is still needed below for the recoil-parameter stat
         gamma = cfg.eps0
-        theta_coll = np.hypot(tx or 0.0, ty or 0.0)          # rad (corner radius)
-        term_coll = (gamma * theta_coll) ** 4
-        term_espread = 4.0 * cfg.sigma_eps_rel ** 2
-        # laser relative bandwidth from the finite pulse duration: 1/(omega_L sigma_t)
-        sigma_t = cfg.sigma_par_L / C_LIGHT
-        dEph = 1.0 / (cfg.omega_L * sigma_t) if sigma_t > 0 else 0.0
-        term_laser = dEph ** 2
-        # emittance/divergence: gamma * combined rms divergence = eps_n/sigma
-        div2 = cfg.emit_x / cfg.beta_x + cfg.emit_y / cfg.beta_y
-        gdiv = gamma * np.sqrt(div2)
-        term_emit = gdiv ** 4
-        term_a0 = (self.a0_used ** 2 / 2.0) ** 2
-        spread = np.sqrt(term_coll + term_espread + term_laser + term_emit + term_a0)
-
-        self.term_lbls["coll"].config(text=f"{term_coll:.3e}")
-        self.term_lbls["espread"].config(text=f"{term_espread:.3e}")
-        self.term_lbls["laser_bw"].config(text=f"{term_laser:.3e}")
-        self.term_lbls["emit"].config(text=f"{term_emit:.3e}")
-        self.term_lbls["a0"].config(text=f"{term_a0:.3e}")
-        self.term_lbls["total"].config(text=f"{spread*100:.3f} %")
 
         # --- fluxes and statistics (branch on result shape) ---
         total_flux, coll_flux, cmask = self._photon_fluxes(res, tx, ty)

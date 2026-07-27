@@ -14,8 +14,12 @@ import numpy as np
 from . import kascade as _kascade
 from compton_suite.io import constants as _io_constants
 from compton_suite.io.bunch import MacroBunch
+from compton_suite.io.bunch import beam_from_shared_fields as _beam_from_shared_fields
 from compton_suite.io.bunch import fit_gaussian as _fit_gaussian
+from compton_suite.io.interaction import InteractionGeometry as _InteractionGeometry
+from compton_suite.io.interaction import InteractionParameters as _InteractionParameters
 from compton_suite.io.io_formats.sdds import load_elegant_ele as _load_elegant_ele
+from compton_suite.io.laser import laser_from_shared_fields as _laser_from_shared_fields
 from compton_suite.gui.model_api import (
     AngularRangeSpectrumResult,
     CommonResults,
@@ -130,17 +134,24 @@ class KascadeAdapter:
             warnings.append("Rayleigh length must be > 0; using a very small laser "
                             "waist as a fallback.")
 
-        cfg = _kascade.Config(
+        beam = _beam_from_shared_fields(
             eps0=eps0, sigma_eps_rel=sigma_eps_rel,
             emit_x=max(emit_x, 1e-30), emit_y=max(emit_y, 1e-30),
             sigma0_x=max(sigma0_x, 1e-12), sigma0_y=max(sigma0_y, 1e-12),
             sigma_par_e=max(sigma_par_e, 1e-12), N_e=N_e,
+        )
+        laser = _laser_from_shared_fields(
             lambda_L=lambda_L, sigma0_l=max(sigma0_l, 1e-9),
-            R_sf=max(R_sf, 0.0), sigma_par_L=max(sigma_par_L, 1e-9),
-            pulse_energy_J=pulse_energy_J,
-            delta_x=delta_x, delta_y=delta_y, delta_z=delta_z,
-            crossing_angle=crossing_angle,
-            quantum=quantum,
+            sigma_par_L=max(sigma_par_L, 1e-9), pulse_energy_J=pulse_energy_J,
+        )
+        geometry = _InteractionGeometry(
+            delta_x_m=delta_x, delta_y_m=delta_y, delta_z_m=delta_z,
+            crossing_angle_rad=crossing_angle,
+        )
+        cfg = _kascade.Config(
+            interaction=_InteractionParameters(
+                beam=beam, laser=laser, geometry=geometry, quantum=quantum,
+            ),
         )
         extra = dict(n_mc=int(g("n_mc")), seed=int(g("seed")),
                      rep_rate_hz=rep_rate_hz, warnings=warnings)

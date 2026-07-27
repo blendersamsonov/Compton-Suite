@@ -43,6 +43,15 @@
   "41": "Compton-GUIde",
   "42": "New GUI observables: status per model",
   "43": "KASCADE",
+  "44": "propagation.py",
+  "45": "UnavailableAdapter",
   "46": "opencode.json",
-  "50": "graphify.js"
+  "47": "AnalyticalAdapter",
+  "48": "Grid4D",
+  "49": "spectrum_in_angular_range",
+  "50": "graphify.js",
+  "51": "build_table_streaming",
+  "52": "_interp4d",
+  "53": "ComptonSuite model-agnostic-core refactor: status",
+  "54": "beta_star_from_sigma_emit"
 }
