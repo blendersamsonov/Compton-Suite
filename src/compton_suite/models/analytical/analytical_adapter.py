@@ -40,12 +40,12 @@ def _float(fields: dict, key: str) -> float:
 
 @dataclass
 class AnalyticalConfig:
-    """Wraps beam/pulse, but ALSO exposes the flat SI fields every other
-    model's Config carries (eps0, sigma_eps_rel, emit_x/y, beta_x/y,
-    sigma_par_L, omega_L, lambda_L) -- app.py's model-agnostic
-    spread-estimate formula box (_update_outputs) reads these off
-    whichever model's cfg is currently active, regardless of which model
-    that is (see DirectConfig in xigma_direct for the same requirement)."""
+    """Wraps beam/pulse, but ALSO exposes a handful of flat SI fields every
+    other model's Config carries (eps0, beta_x/y, lambda_L) -- these are
+    read by validation/tier0_wiring.py's cross-model wiring/units sanity
+    checks (gamma0/beta_x/beta_y/lambda_L must agree exactly across all
+    four models), not by this model's own run() (which reads .beam/.pulse
+    directly)."""
 
     beam: GaussianElectronBeam
     pulse: GaussianParaxialLaser
@@ -58,24 +58,6 @@ class AnalyticalConfig:
         return self.beam.gamma0
 
     @property
-    def sigma_eps_rel(self) -> float:
-        # Relative to gamma/total energy, matching every other adapter's
-        # sigma_eps_rel convention (sigma_eps/eps0 with eps0=gamma) -- NOT
-        # GaussianElectronBeam.rel_energy_spread_rms, which the v0.1 spec
-        # defines relative to *kinetic* energy instead (a different,
-        # smaller quantity at low gamma, though numerically indistinguishable
-        # once gamma >> 1). sigma_gamma_over_gamma0 is the right property.
-        return self.beam.sigma_gamma_over_gamma0
-
-    @property
-    def emit_x(self) -> float:
-        return self.beam.emit_geom_x_m
-
-    @property
-    def emit_y(self) -> float:
-        return self.beam.emit_geom_y_m
-
-    @property
     def beta_x(self) -> float:
         return self.beam.beta_star_x_m
 
@@ -84,17 +66,8 @@ class AnalyticalConfig:
         return self.beam.beta_star_y_m
 
     @property
-    def sigma_par_L(self) -> float:
-        return self.pulse.duration_rms_s * 2.99792458e8
-
-    @property
     def lambda_L(self) -> float:
         return self.pulse.wavelength_m
-
-    @property
-    def omega_L(self) -> float:
-        import numpy as _np
-        return 2.0 * _np.pi * 2.99792458e8 / self.pulse.wavelength_m
 
 
 class AnalyticalAdapter:

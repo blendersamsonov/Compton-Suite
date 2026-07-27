@@ -189,7 +189,13 @@ Resolved:
 - `models/xigma/src/xigma_i/params/spec.py`'s `XIGMA_SPEC`/
   `XIGMA_DIAGNOSTIC_SPEC` are still not wired into `params_to_config` --
   left as-is (still exercised by `gui/scripts/physics_params_demo.py`).
-  Finishing that wiring is real design work tied to item 5, still open.
+  Finishing that wiring is real design work tied to item 5, still open --
+  see `docs/refactor/parameter-framework-and-collision-params.md` for a
+  concrete plan (2026-07-27), including a real nuance about which fields
+  are genuinely convention-ambiguous versus already-derived. That doc's
+  Phase 1 (pruning `compton_io.collision.CollisionParams`'s dead
+  electron-statistics/geometry-offset fields) is unrelated but adjacent
+  and independently actionable.
 
 ### 2. Move `CollisionParams`/`build_params` into `compton_io`
 
@@ -328,16 +334,35 @@ instead of always auto-detecting. Same applies to `xigma_direct`'s
    UnavailableAdapter(...))` -- wrap in try/except so a missing optional
    dependency (e.g. no GPU) greys the model out instead of crashing GUI
    startup, matching every existing model.
-5. Extend `gui/scripts/headless_test.py`'s model loop to exercise the
+5. Extend `scripts/headless_test.py`'s model loop to exercise the
    new adapter, and add a `build_<name>_config`/`run_<name>` pair to
-   `validation/scenarios.py`/`validation/runners.py` if it should
-   participate in the cross-model validation suite.
+   `src/compton_suite/validation/scenarios.py`/`runners.py` if it should
+   participate in the cross-model validation suite. (The stale top-level
+   `validation/` directory duplicate has been deleted — this is the only
+   copy now.)
 
-### 8. Extract model-agnostic simulation core to `compton_suite.core`
+### 8. Model-agnostic simulation core — superseded by direct `io/` consolidation
 
-**Planned** — see `docs/refactor/core-simulation-api.md` for full design.
+**Status: the original `compton_suite.core` package plan below was never
+built and is explicitly dropped** — see `docs/refactor/core-simulation-api.md`
+for the full history and current status. Instead of a new package layer,
+shared logic (`CollisionParams`/`build_params`, `propagation.py`,
+`gaussian_pulse_envelope`, electron-beam-derivation formulas) has been moved
+directly into `io/` one piece at a time, as each piece gained a second
+consumer — `io/` (née `compton_io`) *is* the model-agnostic shared layer this
+item originally wanted `core/` to be.
 
-Move the `ModelAdapter` protocol and simulation entry point out of the GUI into a reusable `compton_suite.core` package:
+The doc's "Still open" list is what this item now tracks:
+- **GUI-as-thin-consumer** — still a real, largely unmet goal (`gui/app.py`
+  still carries its own physics-layer knowledge), just without the specific
+  `core/` package prescription below.
+- The `xigma_i` `a0`-formula discrepancy against `GaussianParaxialLaser.a0_focus`
+  (~49%, `validation/tier0_wiring.py`) — a physics investigation, not a
+  refactor.
+
+See `docs/refactor/core-simulation-api.md`'s "Explicitly dropped from the
+original plan" section for why the design below (quoted here only as a
+historical record, not a plan to execute) was abandoned:
 
 - New `core/protocol.py` — `ModelProtocol`, `ModelCapabilities`, `ModelParameter` (no GUI deps)
 - New `core/collision.py` — `CollisionParams` (SI pint quantities only; models convert to CGS internally)
@@ -346,12 +371,6 @@ Move the `ModelAdapter` protocol and simulation entry point out of the GUI into 
 - GUI (`gui/app.py`) becomes thin consumer using `core.*` only; `gui/model_api.py` and `gui/adapters/` deleted
 - Validation suite updated to use `core.run_simulation`
 - `xigma_i.config.build_params` removed (moved to `core.collision.build_collision_params`)
-
-This enables programmatic use without GUI:
-```python
-from compton_suite.core import run_simulation, SimulationConfig
-result = run_simulation(SimulationConfig(model_name="xigma", beam=beam, laser=laser, ...))
-```
 
 ---
 
