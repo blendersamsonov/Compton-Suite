@@ -25,13 +25,13 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1785132399.2774422,
-    "ast_hash": "5ab7e69b6c4854d4ab3fe2dcf3bc0f3b",
+    "mtime": 1785133907.7623796,
+    "ast_hash": "2659bbe2457686f137b6a4d444d38ba9",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785132399.2774422,
-    "ast_hash": "5ab7e69b6c4854d4ab3fe2dcf3bc0f3b",
+    "mtime": 1785133907.7623796,
+    "ast_hash": "2659bbe2457686f137b6a4d444d38ba9",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/gui/physics_constants.py": {
-    "mtime": 1785131637.7811782,
-    "ast_hash": "4b1c7855ab1e8ec0cc477c2f9f1a3ebf",
+    "mtime": 1785133387.45705,
+    "ast_hash": "2d6a7d227b088f3a13ae19cb35d664ba",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/physics_params/__init__.py": {
@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/analytical/analytical_adapter.py": {
-    "mtime": 1785131637.787618,
-    "ast_hash": "cea8280ed7200f00ca22e93fdd4095df",
+    "mtime": 1785133379.0415828,
+    "ast_hash": "c409b1a60240f416c77844426dbba079",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/__init__.py": {
@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/gui_adapter.py": {
-    "mtime": 1785132399.2814693,
-    "ast_hash": "941682f88e49fe113192ed599fc51719",
+    "mtime": 1785133366.6924105,
+    "ast_hash": "7f90d253c8da0de49400fa0fae06b69d",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/params/__init__.py": {
@@ -512,6 +512,11 @@
   "docs/refactor/core-simulation-api.md": {
     "mtime": 1785131637.7349758,
     "ast_hash": "b8a96f4b28465d48586206d4c615b0c7",
+    "semantic_hash": ""
+  },
+  "docs/refactor/parameter-framework-and-collision-params.md": {
+    "mtime": 1785133888.7003465,
+    "ast_hash": "5317a5f32b4480ae0de7ff86a10ef6ab",
     "semantic_hash": ""
   }
 }
