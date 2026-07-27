@@ -348,6 +348,15 @@ class ComptonGuideApp(tk.Tk):
                 "clearing the loaded file.")
             self._clear_loaded_ele()
 
+        # shared sample-count field: grey out when the model sizes particles
+        # from its own extra_params() field (xigma_i/delta have n_particles_01)
+        n_mc_entry = self._compton_entries.get("n_mc")
+        if n_mc_entry is not None:
+            if caps.uses_shared_sample_count:
+                n_mc_entry.config(state="normal")
+            else:
+                n_mc_entry.config(state="disabled")
+
         # new-observable tabs
         for tab, supported in (
                 (self.tab_temporal, caps.supports_temporal_envelope),
@@ -546,11 +555,14 @@ class ComptonGuideApp(tk.Tk):
             ("Number of macroelectrons", 200000, "n_mc"),
             ("Random seed", 1, "seed"),
         ]
+        self._compton_entries: dict[str, tk.Entry] = {}
         for i, (label, default, key) in enumerate(specs):
             tk.Label(inp, text=label, bg=YELLOW).grid(row=0, column=2 * i, sticky="w", padx=(8, 3))
             var = tk.StringVar(value=str(default))
-            tk.Entry(inp, textvariable=var, width=11, justify="right").grid(row=0, column=2 * i + 1, padx=(0, 6))
+            ent = tk.Entry(inp, textvariable=var, width=11, justify="right")
+            ent.grid(row=0, column=2 * i + 1, padx=(0, 6))
             self.fields[key] = var
+            self._compton_entries[key] = ent
         self.calc_btn = tk.Button(inp, text="Calculate", command=self.on_start)
         self.calc_btn.grid(row=0, column=8, padx=12)
         self.status_lbl = tk.Label(inp, text="idle", bg=YELLOW, width=10)

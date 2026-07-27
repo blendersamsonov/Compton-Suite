@@ -200,6 +200,7 @@ def capabilities() -> dict:
         supports_spatial_distribution=True,
         supports_angular_distribution=True,
         supports_angular_range_spectrum=True,
+        uses_shared_sample_count=False,  # sizes Stage 0 from its own n_particles_01
         trust_level="production",
         trust_note=_TRUST_NOTE,
     )

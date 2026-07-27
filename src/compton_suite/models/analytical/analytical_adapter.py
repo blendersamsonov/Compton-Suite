@@ -99,6 +99,7 @@ class AnalyticalAdapter:
                        "no crossing angle, no quantum recoil). Fast preview / base "
                        "validation, not a substitute for a real per-particle model.",
             is_fast_preview=True,
+            uses_shared_sample_count=False,  # analytical model doesn't run electrons
         )
 
     def available(self) -> tuple[bool, str]:

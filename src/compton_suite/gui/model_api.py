@@ -100,7 +100,12 @@ class ModelCapabilities:
     supports_angular_distribution: bool = False
     supports_angular_range_spectrum: bool = False
     is_fast_preview: bool = False   # True only for the always-on analytical
-                                     # model (models/analytical/analytical_adapter.py)
+                                      # model (models/analytical/analytical_adapter.py)
+    uses_shared_sample_count: bool = True  # False for models with their own
+                                              # particle-count field (xigma_i,
+                                              # delta) -- the shared "Number of
+                                              # macroelectrons" field is then
+                                              # greyed out in the GUI.
 
 
 class ModelAdapter(Protocol):

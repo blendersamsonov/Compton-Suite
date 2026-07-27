@@ -253,17 +253,14 @@ owns that document, not something to auto-edit.
 
 ### 4. GUI: per-model sample count instead of a misleading global field
 
-`app.py`'s shared "Number of macroelectrons" field (`n_mc`, ~line 534) is
-silently ignored by xigma-i/delta, which size Stage 0/1 from
-their own `extra_params()` field (`n_particles_01`) instead --
-`params_to_config` already raises a warning about this (see `models/xigma_i/AGENTS.md`'s "GUI integration"), but the GUI still shows the shared field
-as if it mattered for every model, which is exactly the kind of "annoying"
-inconsistency worth fixing properly: either grey out/hide "Number of
-macroelectrons" when the active model doesn't use it (`ModelCapabilities`
-would need a new flag, e.g. `uses_shared_sample_count`), or fold sample
-count into each model's own `extra_params()` uniformly and remove the
-shared field entirely, so there's one obvious place per model to control
-"how many particles", not a shared field that's a no-op half the time.
+**Done (2026-07-27).** Added `uses_shared_sample_count: bool = True` to
+`ModelCapabilities` (`model_api.py`). Set to `False` in `xigma_i`/`delta`
+(both size Stage 0 from their own `n_particles_01` field) and `analytical`
+(doesn't run electrons at all); defaults to `True` for `kascade` (which
+actually uses `n_mc`). The shared "Number of macroelectrons" entry widget
+is greyed out (`state="disabled"`) in the GUI when the active model's
+`uses_shared_sample_count` is `False`, matching the existing crossing-angle
+grey-out pattern (`_apply_model_capabilities`).
 
 ### 5. Unify the `ModelAdapter` interface properly
 
@@ -284,10 +281,12 @@ just documenting as "not yet done":
   `compton_suite/models/kascade/params/spec.py`, matching `xigma_i.params`'s
   already-moved pattern, same asymmetry `compton_suite.io.results`/
   `compton_suite.io.photons` already fixed for results.
-- `extra_params()` only supports numeric fields (`list[tuple[str, float,
-  str]]`) -- item 6 below needs a choice/enum-typed field, which doesn't
-  fit this shape yet and would need a small protocol extension (or a
-  separate `extra_choices()` method) rather than overloading a float.
+- `extra_params()` only supported numeric fields (`list[tuple[str, float,
+  str]]`) -- **done (2026-07-27)**: extended to `list[tuple[str, float | str,
+  str]]` with a separate `extra_choices()` method for dropdown/enum fields.
+  Both `xigma_i` and `delta` now use this for `device_preference`
+  (`["auto", "gpu", "cpu"]`). Analytical's type annotation was also
+  updated to match the new protocol signature.
 
 ### 6. Manual CPU/GPU selection for xigma-i
 
@@ -296,15 +295,11 @@ device="cpu"|"gpu")` and `TabulatedEngine` take an explicit device, no
 code changes needed; `_detect_device()` is only the *default* when
 `device=None`.
 
-**In the GUI**: not wired up at all. `models/xigma_i/gui_adapter.py`'s
-`run_simulation` always calls `_detect_device()`
-unconditionally (~line 437), ignoring any user preference, and there's no
-GUI control for it. To fix: add a device choice somewhere in `Config`
-(e.g. `device_preference: str = "auto"`), surface it via a GUI control
-(needs the `extra_params()` extension from item 5, since this is a
-string/enum choice, not a float), and pass it through to `build_params`
-instead of always auto-detecting. Same applies to `delta`'s
-`gui_adapter.py`, which has the identical `_detect_device()` call.
+**In the GUI**: **done (2026-07-27)**. `device_preference` is now an
+`extra_params()` field in both `xigma_i` and `delta` adapters (with
+`extra_choices()` returning `["auto", "gpu", "cpu"]`). `run_simulation`
+checks `cfg.device_preference` before falling back to `_detect_device()`,
+and validates explicit "gpu" requests against actual hardware availability.
 
 ### 7. How to add a new model
 
