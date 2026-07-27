@@ -19,7 +19,7 @@ two genuinely separate, independently-actionable follow-ups fell out:
    (`io/quantities.py`, `io/schema.py`, `io/adapter.py`'s `adapt_to_model`/
    `params_to_floats`) is fully built, tested, and demonstrated
    end-to-end in `scripts/physics_params_demo.py` -- but no real GUI adapter
-   (`kascade_adapter.py`, `xigma_i/gui_adapter.py`, `xigma_direct/gui_adapter.py`)
+   (`kascade_adapter.py`, `xigma_i/gui_adapter.py`, `delta/gui_adapter.py`)
    actually calls it.** This is a known, tracked gap (root `AGENTS.md` roadmap
    items 1 and 5 both flag it explicitly), not something abandoned -- see
    Phase 2.
@@ -82,7 +82,7 @@ shape* parameters became fossils that nobody pruned.
 
 Do **not** remove `build_params`'s `geometry` parameter -- that would be a
 bigger, more disruptive signature change across 3 call sites
-(`xigma_i/gui_adapter.py::run_simulation`, `xigma_direct/gui_adapter.py::
+(`xigma_i/gui_adapter.py::run_simulation`, `delta/gui_adapter.py::
 run_simulation`, `validation/scenarios.py::build_params_for_xigma`) for a
 benefit (removing one unused parameter) that isn't really motivated by
 dead-field pruning alone, and a future crossing-offset feature would need
@@ -112,7 +112,7 @@ Touches exactly one file, `src/compton_suite/io/collision.py`:
 ### Verification
 
 - `python3 scripts/headless_test.py` -- all 4 models ALL PASS (no changes
-  expected, `CollisionParams` is xigma_i/xigma_direct-internal).
+  expected, `CollisionParams` is xigma_i/delta-internal).
 - `python3 src/compton_suite/validation/run_cross_validation.py` -- diff
   full stdout before/after; expect byte-identical (same technique used to
   verify the config-unification PR: `git stash` the change, capture
@@ -154,7 +154,7 @@ how any real adapter's GUI fields work today:
   picoseconds off a GUI field (`bunch_duration_ps`/`pulse_duration_ps`) and
   converts it to a length via `C_LIGHT * duration_s`
   (`kascade_adapter.py:116-117`, `xigma_i/gui_adapter.py:342,352`,
-  `xigma_direct/gui_adapter.py:246,256` -- current line numbers, re-grep
+  `delta/gui_adapter.py:246,256` -- current line numbers, re-grep
   before executing since they will have shifted again). This is a
   mechanical, direct fit for wrapping the raw `*_ps` GUI value as
   `PhysicalQuantity(value, "picosecond", MEANING, TimeConvention.
@@ -224,7 +224,7 @@ symmetric ownership of their own parameter contracts.
 ### Steps (Option A scope)
 
 For each of `kascade_adapter.py`, `xigma_i/gui_adapter.py`,
-`xigma_direct/gui_adapter.py`'s `params_to_config`:
+`delta/gui_adapter.py`'s `params_to_config`:
 
 1. Replace the two-line hand conversion for `sigma_par_e`/`sigma_par_L`
    (`C_LIGHT * (g("..._ps") * 1e-12)`) with:

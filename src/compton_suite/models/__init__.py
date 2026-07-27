@@ -6,12 +6,12 @@ used independently or through the GUI.
 Available models:
 - kascade: Sequential multi-photon Monte Carlo (CPU, SI units)
 - xigma_i: Tabulated overlap table pipeline (GPU/CPU, CGS units)
-- xigma_direct: Brute-force per-macroparticle binning (GPU/CPU, CGS units)
+- delta: Brute-force per-macroparticle binning (GPU/CPU, CGS units)
 - analytical: Fast closed-form estimates (CPU, SI units)
 """
 
 from __future__ import annotations
 
-from . import kascade, xigma_i, xigma_direct, analytical
+from . import kascade, xigma_i, delta, analytical
 
-__all__ = ["kascade", "xigma_i", "xigma_direct", "analytical"]
+__all__ = ["kascade", "xigma_i", "delta", "analytical"]

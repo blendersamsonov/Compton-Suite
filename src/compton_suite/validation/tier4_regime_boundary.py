@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from .scenarios import LOW_A0, NEAR_A0_MAX  # noqa: E402
-from .runners import run_analytical, run_kascade, run_xigma, run_xigma_direct  # noqa: E402
+from .runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402
 from .tier1_yield import _rel, _total_yield_kascade  # noqa: E402
 from .tier2_spectrum import compton_edge_eV, to_dNdE_on_grid  # noqa: E402
 from .metrics import window_integrated_relative_error  # noqa: E402
@@ -33,15 +33,15 @@ import numpy as np  # noqa: E402
 def _yield_ratios(scenario) -> dict:
     res_kascade = run_kascade(scenario)
     res_xigma = run_xigma(scenario)
-    res_xigma_direct = run_xigma_direct(scenario)
+    res_delta = run_delta(scenario)
     y_k = _total_yield_kascade(res_kascade)
     y_x = float(res_xigma.total_yield)
-    y_xd = float(res_xigma_direct.total_yield)
+    y_xd = float(res_delta.total_yield)
     return dict(
         kascade_vs_xigma=_rel(y_k, y_x),
-        kascade_vs_xigma_direct=_rel(y_k, y_xd),
-        xigma_direct_vs_xigma=_rel(y_xd, y_x),
-        _results=(res_kascade, res_xigma, res_xigma_direct),
+        kascade_vs_delta=_rel(y_k, y_xd),
+        delta_vs_xigma=_rel(y_xd, y_x),
+        _results=(res_kascade, res_xigma, res_delta),
     )
 
 
@@ -66,10 +66,10 @@ def run() -> bool:
 
     print(f"  kascade/xigma-i yield rel diff:        low-a0={low['kascade_vs_xigma']:.3g}  "
           f"near-a0_max={high['kascade_vs_xigma']:.3g}")
-    print(f"  kascade/xigma-i-direct yield rel diff:  low-a0={low['kascade_vs_xigma_direct']:.3g}  "
-          f"near-a0_max={high['kascade_vs_xigma_direct']:.3g}")
-    print(f"  xigma-i-direct/xigma-i yield rel diff:  low-a0={low['xigma_direct_vs_xigma']:.3g}  "
-          f"near-a0_max={high['xigma_direct_vs_xigma']:.3g}")
+    print(f"  kascade/delta yield rel diff:           low-a0={low['kascade_vs_delta']:.3g}  "
+          f"near-a0_max={high['kascade_vs_delta']:.3g}")
+    print(f"  delta/xigma-i yield rel diff:           low-a0={low['delta_vs_xigma']:.3g}  "
+          f"near-a0_max={high['delta_vs_xigma']:.3g}")
 
     res_k_low, res_x_low, _ = low["_results"]
     res_k_high, res_x_high, _ = high["_results"]

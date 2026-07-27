@@ -13,7 +13,7 @@ Deliberately excludes anything with no cross-model meaning (grid/step/bin
 counts, per-model numerical-control knobs) -- those stay model-owned, see
 each model's own ``Config``. ``crossing_angle_rad``/``quantum`` are real
 physics, not numerics, but not every model supports a nonzero/True value
-(``xigma_i``/``xigma_direct`` are head-on-only with no quantum toggle) --
+(``xigma_i``/``delta`` are head-on-only with no quantum toggle) --
 included here anyway since they're still physically meaningful collision
 parameters, just sometimes unsupported by a particular model (that model's
 own ``params_to_config`` is responsible for rejecting what it can't do,

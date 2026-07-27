@@ -181,10 +181,10 @@ def laser_from_shared_fields(*, lambda_L: float, sigma0_l: float, sigma_par_L: f
 
     ``sigma0_l`` is a single round-beam transverse width, applied to both
     ``waist_rms_x_m`` and ``waist_rms_y_m`` -- every current consumer
-    (kascade, xigma_i, xigma_direct) models the laser spot as round, never
+    (kascade, xigma_i, delta) models the laser spot as round, never
     elliptical, at this shared-field boundary. ``sigma_par_L`` is a
     *length* (``duration_rms_s * C_LIGHT``, the same ``c*t`` convention
-    ``compton_io.bunch``'s ``sigma_par_e`` uses for the electron bunch),
+    ``compton_suite.io.bunch``'s ``sigma_par_e`` uses for the electron bunch),
     converted back to a duration here.
     """
     return GaussianParaxialLaser(

@@ -1,7 +1,7 @@
 """Visualization for the cross-model validation suite.
 
 Generates comparison plots (total yield, angle-integrated spectrum shape,
-angular collimated-fraction shape) across kascade/xigma-i/xigma-i-direct/
+angular collimated-fraction shape) across kascade/xigma-i/delta/
 analytical for a given scenario, saved as PNGs under validation/plots/
 (gitignored -- generated output, not source). Reuses tier1/tier2/tier3's
 own metric/grid functions rather than reimplementing them, so a plot and
@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
 from compton_suite.validation.scenarios import BASELINE, LOW_A0, NEAR_A0_MAX, Scenario  # noqa: E402
-from compton_suite.validation.runners import run_analytical, run_kascade, run_xigma, run_xigma_direct  # noqa: E402
+from compton_suite.validation.runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402
 from compton_suite.validation.tier1_yield import _total_yield_kascade  # noqa: E402
 from compton_suite.validation.tier2_spectrum import compton_edge_eV, to_dNdE_on_grid  # noqa: E402
 from compton_suite.validation.tier3_angular_shape import collimated_fraction  # noqa: E402
@@ -39,11 +39,11 @@ PLOTS_DIR = Path(__file__).resolve().parent / "plots"
 
 SCENARIOS = {"baseline": BASELINE, "low_a0": LOW_A0, "near_a0_max": NEAR_A0_MAX}
 
-MODEL_ORDER = ["kascade", "xigma_i", "xigma_direct", "analytical"]
+MODEL_ORDER = ["kascade", "xigma_i", "delta", "analytical"]
 MODEL_LABELS = {"kascade": "kascade", "xigma_i": "xigma-i",
-                "xigma_direct": "xigma-i-direct", "analytical": "analytical"}
+                "delta": "delta", "analytical": "analytical"}
 MODEL_COLORS = {"kascade": "0.3", "xigma_i": "tab:blue",
-                "xigma_direct": "tab:orange", "analytical": "tab:green"}
+                "delta": "tab:orange", "analytical": "tab:green"}
 
 
 def run_all_models(scenario: Scenario) -> dict:
@@ -53,7 +53,7 @@ def run_all_models(scenario: Scenario) -> dict:
     return dict(
         kascade=run_kascade(scenario),
         xigma_i=run_xigma(scenario),
-        xigma_direct=run_xigma_direct(scenario),
+        delta=run_delta(scenario),
         analytical=run_analytical(scenario),
     )
 
@@ -97,20 +97,20 @@ def plot_spectrum_comparison(scenario: Scenario, results: dict, out_path: Path) 
 
 
 def plot_angular_shape_comparison(scenario: Scenario, results: dict, out_path: Path) -> None:
-    """xigma-i vs xigma-i-direct's collimated fraction of total_yield, as a
+    """xigma-i vs delta's collimated fraction of total_yield, as a
     function of collimation half-angle -- the Tier 3 canary, plotted across
     a dense window sweep instead of tier3_angular_shape.py's fixed
     WINDOWS_MRAD spot-checks."""
     from compton_suite.models.xigma_i.gui_adapter import spectrum_in_angular_range as xigma_sar
-    from compton_suite.models.xigma_direct.gui_adapter import spectrum_in_angular_range as xdirect_sar
+    from compton_suite.models.delta.gui_adapter import spectrum_in_angular_range as delta_sar
 
     windows_mrad = np.geomspace(0.02, 2.0, 14)
     frac_x = [collimated_fraction(xigma_sar, results["xigma_i"], w * 1e-3) for w in windows_mrad]
-    frac_xd = [collimated_fraction(xdirect_sar, results["xigma_direct"], w * 1e-3) for w in windows_mrad]
+    frac_xd = [collimated_fraction(delta_sar, results["delta"], w * 1e-3) for w in windows_mrad]
 
     fig, ax = plt.subplots(figsize=(6, 4.5))
     ax.plot(windows_mrad, frac_x, "o-", label="xigma-i", color=MODEL_COLORS["xigma_i"])
-    ax.plot(windows_mrad, frac_xd, "s-", label="xigma-i-direct", color=MODEL_COLORS["xigma_direct"])
+    ax.plot(windows_mrad, frac_xd, "s-", label="delta", color=MODEL_COLORS["delta"])
     ax.set_xscale("log")
     ax.set_xlabel("collimation half-angle [mrad]")
     ax.set_ylabel("collimated fraction of total_yield")

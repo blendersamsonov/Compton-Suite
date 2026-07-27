@@ -4,7 +4,7 @@ Sequential multi-photon inverse-Compton Monte Carlo (event generator).
 Samples individual macro-electrons through a multi-photon emission chain
 and returns unbinned per-macro-photon/per-macro-electron arrays. This is
 one of two independent physics engines plugged into the `Compton-GUIde`
-project (sibling repo, Python package `compton_guide`) via its
+project (Python package `compton_suite.gui`) via its
 `ModelAdapter` contract — see "Relationship to sibling repos" below.
 
 The name: K stands for Klein-Nishina — the quantum recoil correction this
@@ -26,20 +26,20 @@ loading, no plotting. Call `run_simulation(cfg, n_mc, seed, electrons=...)`
 directly:
 
 ```python
-from kascade import Config, run_simulation
-from kascade_adapter import _macrobunch_to_kascade_electrons
-from compton_io.bunch import GaussianElectronBeam, sample_gaussian_bunch
+from compton_suite.models.kascade import kascade as _kascade
+from compton_suite.models.kascade.kascade_adapter import _macrobunch_to_kascade_electrons
+from compton_suite.io.bunch import GaussianElectronBeam, sample_gaussian_bunch
 
-cfg = Config()  # or construct with specific beam/laser/geometry fields
+cfg = _kascade.Config()  # or construct with specific beam/laser/geometry fields
 beam = GaussianElectronBeam(...)
 macrobunch = sample_gaussian_bunch(beam, n_particles=20_000)
 electrons = _macrobunch_to_kascade_electrons(macrobunch)
-results = run_simulation(cfg, n_mc=20_000, seed=0, electrons=electrons)
+results = _kascade.run_simulation(cfg, n_mc=20_000, seed=0, electrons=electrons)
 ```
 
 `electrons` (a dict of `eps`/`z0`/`x_w`/`y_w`/`thx`/`thy` per-particle
-arrays, converted from a `compton_io.bunch.MacroBunch`) is required —
-sampling the electron bunch is `compton_io`'s job, not this module's; see
+arrays, converted from a `compton_suite.io.bunch.MacroBunch`) is required —
+sampling the electron bunch is `compton_suite.io`'s job, not this module's; see
 "Relationship to other components" below and the root `CLAUDE.md`'s
 Architecture section.
 
@@ -51,26 +51,26 @@ narrative about earlier code generations, left as-is; only this engine's
 
 ## Units and conventions
 
-- Everything in `Config`/`Results` is **SI** (m, s, J, rad) — this is different from `xigma_i`'s CGS-like (cm, erg) convention. `compton_guide`'s `model_api.py`/adapters were designed around this engine's SI convention; `xigma_i/gui_adapter.py` converts to/from CGS at its own boundary.
+- Everything in `Config`/`Results` is **SI** (m, s, J, rad) — this is different from `xigma_i`'s CGS-like (cm, erg) convention. `compton_suite.gui`'s `model_api.py`/adapters were designed around this engine's SI convention; `xigma_i/gui_adapter.py` converts to/from CGS at its own boundary.
 - `cfg.quantum` toggles Thomson (classical) vs Klein-Nishina (quantum recoil) cross section — this is a genuine physics toggle; `xigma_i` accepts the same field for interface symmetry but its differential cross section has no classical/quantum switch, so it's a no-op there.
 - Supports arbitrary `crossing_angle` (unlike `xigma_i`, which is head-on only).
 
-## Physical constants (`compton_io`)
+## Physical constants (`compton_suite.io`)
 
 `kascade.py`'s "Physical constants (SI)" block (`C_LIGHT`/`E_CHARGE`/
-`HBAR`/`EPS0`/`SIGMA_T`/`MEC2_EV`/`MEC2_J`) comes from `compton_io.constants`
+`HBAR`/`EPS0`/`SIGMA_T`/`MEC2_EV`/`MEC2_J`) comes from `compton_suite.io.constants`
 (pint-derived, not hand-typed literals) instead of local literals. This was
 a **zero-numeric-change** dedup: this module's previous literals already
-agreed with `compton_io`'s canonical values to their quoted precision
+agreed with `compton_suite.io`'s canonical values to their quoted precision
 (unlike `xigma_i`'s config.py, whose hbar/electron-mass were on an older
 CODATA vintage and needed an actual, deliberate numeric update as part of
 the same migration).
 
 This package now owns its own `ModelSpec` -- `params/spec.py`'s
 `KASCADE_SPEC`/`KASCADE_DIAGNOSTIC_SPEC`, moved here from
-`compton_guide.physics_params.schemas.kascade` (GUI-owned) to match
+`compton_suite.gui.physics_params.schemas.kascade` (GUI-owned) to match
 `xigma_i.params`'s already-moved pattern (`params/__init__.py` re-exports
-`compton_io`'s framework unchanged, so `kascade.params.PhysicalQuantity` is
+`compton_suite.io`'s framework unchanged, so `kascade.params.PhysicalQuantity` is
 the same class as `xigma_i.params.PhysicalQuantity`, not a look-alike).
 `kascade_adapter.py::params_to_config` wires `sigma_par_e`/`sigma_par_L`
 (the two genuinely raw, convention-ambiguous duration inputs) through
@@ -86,21 +86,21 @@ Pure NumPy/CPU — no cupy needed. This is why `kascade` is always the available
 
 ## Testing
 
-No unit test suite lives in this repo. It's validated via `gui/`'s `scripts/headless_test.py`, which calls `params_to_config → run → validate_results` through `kascade_adapter.KascadeAdapter` and checks the temporal/spatial/angular-range fields too. Run that script (from `compton-gui`/`Compton-GUIde`) after changing anything here.
+No unit test suite lives in this package. It's validated via `scripts/headless_test.py`, which calls `params_to_config → run → validate_results` through `kascade_adapter.KascadeAdapter` and checks the temporal/spatial/angular-range fields too. Run that script after changing anything here.
 
 ## Relationship to other components
 
-- `gui/` (Python package `compton_guide`) — the Tkinter GUI. Consumes
+- `gui/` (Python package `compton_suite.gui`) — the Tkinter GUI. Consumes
   this engine exclusively through
-  `models/kaskade/kascade_adapter.py` — this package has
+  `models/kascade/kascade_adapter.py` — this package has
   zero knowledge of the GUI/adapter layer by design ("as little
   interruption as possible" was the explicit goal when the GUI was split
   out). If you add a new `Results` field the GUI should see, thread it
   through here additively, then read it from `kascade_adapter.py` on the
   other side.
-- `models/xigma/` — the other physics engine plugged into the same GUI,
+- `models/xigma_i/` — the other physics engine plugged into the same GUI,
   entirely independent of this code.
-- `IO/` (package `compton_io`) — shared physical constants/pint
+- `io/` (package `compton_suite.io`) — shared physical constants/pint
   registry/parameter-convention framework, depended on by this package
   (constants only, see above), the reverse direction from the gui
   relationship above.

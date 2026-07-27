@@ -4,7 +4,7 @@ Every model's spectrum field is duck-typed per this project's own
 established convention (never isinstance -- see GUIde/CLAUDE.md's "The
 ModelAdapter contract, and the bug it caused"): kascade returns an
 unbinned SampledSpectrum (per-macro-photon energies + a scalar weight),
-xigma-i/xigma-i-direct/analytical return an already-binned BinnedSpectrum
+xigma-i/delta/analytical return an already-binned BinnedSpectrum
 (E_eV, dNdE_per_eV). to_dNdE_on_grid() normalizes both shapes onto one
 common energy grid via metrics.resample_to (binned) or a weighted
 histogram (unbinned), then window_integrated_relative_error compares
@@ -27,7 +27,7 @@ import numpy as np
 from compton_suite.io.constants import HBAR, E_CHARGE, C_LIGHT
 from .metrics import resample_to, window_integrated_relative_error  # noqa: E402
 from .scenarios import BASELINE, Scenario  # noqa: E402
-from .runners import run_analytical, run_kascade, run_xigma, run_xigma_direct  # noqa: E402
+from .runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402
 
 # Same tolerance tiers as Tier 1, applied to the weighted-L1
 # window-integrated relative error instead of a single total-yield ratio.
@@ -57,7 +57,7 @@ def _weighted_histogram(E_eV: np.ndarray, weight: float, e_centers_eV: np.ndarra
 
 def to_dNdE_on_grid(result_or_spectrum, e_centers_eV: np.ndarray) -> np.ndarray:
     """dN/dE at e_centers_eV, from any of: a CommonResults-shaped object
-    with a .spectrum field (xigma-i/xigma-i-direct/analytical, via
+    with a .spectrum field (xigma-i/delta/analytical, via
     ModelAdapter.run()), the .spectrum field itself (BinnedSpectrum or
     SampledSpectrum), or kascade's raw Results (run via kascade.
     run_simulation directly, bypassing KascadeAdapter's CommonResults/
@@ -85,7 +85,7 @@ def run(scenario: Scenario = BASELINE, results: dict | None = None) -> bool:
     results = results or {}
     res_kascade = results.get("kascade") or run_kascade(scenario)
     res_xigma = results.get("xigma_i") or run_xigma(scenario)
-    res_xigma_direct = results.get("xigma_direct") or run_xigma_direct(scenario)
+    res_delta = results.get("delta") or run_delta(scenario)
     res_analytical = results.get("analytical") or run_analytical(scenario)
 
     e_max = compton_edge_eV(scenario)
@@ -94,19 +94,19 @@ def run(scenario: Scenario = BASELINE, results: dict | None = None) -> bool:
 
     dNdE_kascade = to_dNdE_on_grid(res_kascade, e_centers)
     dNdE_xigma = to_dNdE_on_grid(res_xigma, e_centers)
-    dNdE_xigma_direct = to_dNdE_on_grid(res_xigma_direct, e_centers)
+    dNdE_delta = to_dNdE_on_grid(res_delta, e_centers)
     dNdE_analytical = to_dNdE_on_grid(res_analytical, e_centers)
 
     ok = True
 
-    l1, mx, _ = window_integrated_relative_error(e_centers, dNdE_xigma_direct, dNdE_xigma, mu)
-    ok &= _report("xigma-i-direct vs xigma-i", l1, mx, TIGHT_TOL)
+    l1, mx, _ = window_integrated_relative_error(e_centers, dNdE_delta, dNdE_xigma, mu)
+    ok &= _report("delta vs xigma-i", l1, mx, TIGHT_TOL)
 
     l1, mx, _ = window_integrated_relative_error(e_centers, dNdE_kascade, dNdE_xigma, mu)
     ok &= _report("kascade vs xigma-i", l1, mx, LOOSE_TOL)
 
-    l1, mx, _ = window_integrated_relative_error(e_centers, dNdE_kascade, dNdE_xigma_direct, mu)
-    ok &= _report("kascade vs xigma-i-direct", l1, mx, LOOSE_TOL)
+    l1, mx, _ = window_integrated_relative_error(e_centers, dNdE_kascade, dNdE_delta, mu)
+    ok &= _report("kascade vs delta", l1, mx, LOOSE_TOL)
 
     l1, mx, _ = window_integrated_relative_error(e_centers, dNdE_analytical, dNdE_xigma, mu)
     ok &= _report("analytical vs xigma-i (order-of-magnitude bound)", l1, mx, ANALYTICAL_TOL)

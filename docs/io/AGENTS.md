@@ -1,10 +1,10 @@
-# compton_io
+# compton_suite.io
 
 Shared physical constants, pint unit registry, parameter-semantics/
 convention framework, and electron-bunch/laser-pulse representations for
-the ComptonSuite toolkit: `compton_guide` (`gui/`), `xigma_i`/
-`xigma_direct`/`analytical` (`models/`), and `kascade` (`models/kaskade/`).
-See `src/compton_io/__init__.py`'s module docstring for the full design
+the ComptonSuite toolkit: `compton_suite.gui` (`gui/`), `compton_suite.models.xigma_i`/
+`compton_suite.models.delta`/`compton_suite.models.analytical` (`models/`), and `compton_suite.models.kascade` (`models/kascade/`).
+See `src/compton_suite/io/__init__.py`'s module docstring for the full design
 rationale.
 
 ## Why this exists
@@ -22,11 +22,11 @@ copy of each, that every consumer imports directly.
 ## Layout
 
 ```
-src/compton_io/
+src/compton_suite/io/
   __init__.py     # aggregate re-export
   constants.py    # physical constants, derived from units.py's pint
                    # registry (not hand-typed literals) -- SI block for
-                   # compton_guide/kascade, CGS-Gaussian views for xigma_i
+                   # compton_suite.gui/kascade, CGS-Gaussian views for xigma_i
   units.py        # the one shared pint.UnitRegistry + "light_time" context
   enums.py        # PhysicalMeaning, WidthConvention, TimeConvention,
                    # AmplitudeConvention
@@ -70,8 +70,8 @@ owned by each model's own package, not shared framework.
 
 ## Naming
 
-Package is `compton_io` (import name) / `compton-io` (pyproject name).
-Note the difference from `compton_guide` (the GUI) -- easy to typo/
+Package is `compton_suite.io` (import name) / `compton-suite` (pyproject name).
+Note the difference from `compton_suite.gui` (the GUI) -- easy to typo/
 autocomplete-confuse; double-check import statements when working across
 both.
 
@@ -85,4 +85,4 @@ python3 tests/test_laser.py
 python3 tests/test_io_formats.py
 ```
 
-No cupy/GPU/tkinter needed -- pure `compton_io` + `pint` + `numpy` + `pyyaml`.
+No cupy/GPU/tkinter needed -- pure `compton_suite.io` + `pint` + `numpy` + `pyyaml`.

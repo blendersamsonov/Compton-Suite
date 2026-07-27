@@ -33,7 +33,7 @@ from compton_suite.gui.models import discover_models
 # ModelAdapter.run's docstring) -- this mirrors app.py's on_start(): build
 # one GaussianElectronBeam from whichever cfg is on hand and draw one
 # MacroBunch from it, sized to that model's own particle-count convention
-# (n_particles_01 for xigma-i/xigma-i-direct, the shared n_mc field
+# (n_particles_01 for xigma-i/delta, the shared n_mc field
 # otherwise). AnalyticalConfig carries its GaussianElectronBeam directly
 # (``cfg.beam``) rather than the flat eps0/sigma_eps_rel/... field set the
 # other three Configs expose (it has no sigma0_x/sigma0_y/sigma_par_e/N_e

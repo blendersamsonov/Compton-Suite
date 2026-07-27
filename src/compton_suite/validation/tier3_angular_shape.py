@@ -1,7 +1,7 @@
-"""Tier 3: angular shape canary (xigma-i vs xigma-i-direct), reported not
+"""Tier 3: angular shape canary (xigma-i vs delta), reported not
 gated.
 
-xigma-i and xigma-i-direct's angular_spectrum totals are already forced
+xigma-i and delta's angular_spectrum totals are already forced
 to agree by this session's rescale fix (see gui_adapter.py's "QUICK FIX,
 FLAGGED FOR FUTURE INVESTIGATION" comments in both repos) -- but that
 only fixes the FULL-RANGE integral, not necessarily point-by-point/
@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from compton_suite.validation.scenarios import BASELINE, Scenario  # noqa: E402
-from compton_suite.validation.runners import run_xigma, run_xigma_direct  # noqa: E402
+from compton_suite.validation.runners import run_xigma, run_delta  # noqa: E402
 
 WINDOWS_MRAD = (0.05, 0.2, 1.0)
 
@@ -38,21 +38,21 @@ def collimated_fraction(spectrum_in_angular_range_fn, res, theta_rad: float) -> 
 def run(scenario: Scenario = BASELINE, results: dict | None = None) -> bool:
     """Always returns True -- canary tier, reports findings, does not gate
     the suite (see module docstring)."""
-    print(f"=== Tier 3: angular shape canary, xigma-i vs xigma-i-direct ({scenario.name}) ===")
+    print(f"=== Tier 3: angular shape canary, xigma-i vs delta ({scenario.name}) ===")
     from compton_suite.models.xigma_i.gui_adapter import spectrum_in_angular_range as xigma_sar
-    from compton_suite.models.xigma_direct.gui_adapter import spectrum_in_angular_range as xdirect_sar
+    from compton_suite.models.delta.gui_adapter import spectrum_in_angular_range as delta_sar
 
     results = results or {}
     res_xigma = results.get("xigma_i") or run_xigma(scenario)
-    res_xigma_direct = results.get("xigma_direct") or run_xigma_direct(scenario)
+    res_delta = results.get("delta") or run_delta(scenario)
 
     for w in WINDOWS_MRAD:
         theta_rad = w * 1e-3
         frac_x = collimated_fraction(xigma_sar, res_xigma, theta_rad)
-        frac_xd = collimated_fraction(xdirect_sar, res_xigma_direct, theta_rad)
+        frac_xd = collimated_fraction(delta_sar, res_delta, theta_rad)
         rel = abs(frac_x - frac_xd) / max(frac_x, frac_xd, 1e-300)
         print(f"  window +/-{w:g} mrad: xigma-i collimated_fraction={frac_x:.4g}, "
-              f"xigma-i-direct={frac_xd:.4g}, rel diff={rel:.3g}")
+              f"delta={frac_xd:.4g}, rel diff={rel:.3g}")
 
     print("-> Tier 3: reported (canary, not a pass/fail gate -- see numbers above)")
     return True

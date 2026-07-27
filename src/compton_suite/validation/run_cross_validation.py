@@ -1,6 +1,6 @@
 """Cross-model validation suite -- entry point.
 
-Runs kascade/xigma-i/xigma-i-direct/analytical once each per scenario (via
+Runs kascade/xigma-i/delta/analytical once each per scenario (via
 runners.py) and shares the results across Tiers 0-3, instead of every tier
 re-running an expensive GPU/MC computation independently.
 
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from compton_suite.validation import tier0_wiring, tier1_yield, tier2_spectrum, tier3_angular_shape, tier4_regime_boundary
 from compton_suite.validation.scenarios import BASELINE, LOW_A0
-from compton_suite.validation.runners import run_analytical, run_kascade, run_xigma, run_xigma_direct
+from compton_suite.validation.runners import run_analytical, run_kascade, run_xigma, run_delta
 
 
 def _run_gated_scenario(scenario) -> bool:
@@ -33,7 +33,7 @@ def _run_gated_scenario(scenario) -> bool:
     results = dict(
         kascade=run_kascade(scenario),
         xigma_i=run_xigma(scenario),
-        xigma_direct=run_xigma_direct(scenario),
+        delta=run_delta(scenario),
         analytical=run_analytical(scenario),
     )
 

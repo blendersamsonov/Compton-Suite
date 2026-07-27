@@ -1,7 +1,7 @@
 """Shared physical constants, pint unit registry, parameter-semantics/
 convention framework, and electron-bunch/laser-pulse representations for
-the ComptonSuite toolkit (``compton_suite``, ``compton_guide``, ``xigma_i``,
-``xigma_direct``, ``kascade``).
+the ComptonSuite toolkit (``compton_suite``, ``compton_suite.gui``, ``xigma_i``,
+``delta``, ``kascade``).
 
 Sibling repos plug physics engines into a shared GUI through a duck-typed
 ``ModelAdapter`` contract, and previously each hand-maintained its own copy
@@ -47,7 +47,7 @@ each, that every consumer imports directly (never vendors or re-derives):
 8. **CGS collision-parameters bundle** -- ``collision.py``:
    ``CollisionParams``/``build_params``, the CGS/``k0_las``-normalised
    scalar bundle tabulated-overlap-style GPU/CPU pipelines (``xigma_i``,
-   ``xigma_direct``) need, derived from this package's own SI beam/laser/
+   ``delta``) need, derived from this package's own SI beam/laser/
    geometry description. Not needed by every model (``kascade`` works
    directly in SI) -- shared here so it isn't re-derived per pipeline.
 9. **Spatiotemporal laser-pulse envelope** -- ``laser_envelope.py``:

@@ -28,13 +28,13 @@ scenario name, commit hash, timestamp -- human-inspectable without
 unpickling, and what ``list_cache_entries()`` reads). The whole directory
 is gitignored -- regenerate, don't commit. Pickling the result object
 as-is means any GPU-resident (cupy) arrays a result still carries (e.g.
-xigma-i/xigma-i-direct's private on-demand-recompute caches when run with
+xigma-i/delta's private on-demand-recompute caches when run with
 ``device='gpu'``) need the same cupy+CUDA environment to unpickle as to
 pickle -- fine for this single-machine dev cache, not intended to be
 portable across machines.
 
 Not yet wired into ``runners.py``'s ``run_kascade``/``run_xigma``/
-``run_xigma_direct``/``run_analytical`` -- wiring lands as a follow-up,
+``run_delta``/``run_analytical`` -- wiring lands as a follow-up,
 via the ``get_or_compute`` entry point below.
 """
 
@@ -146,7 +146,7 @@ def get_or_compute(model_name: str, scenario: Any,
     the result for next time.
 
     This is the intended integration point for runners.py's run_kascade/
-    run_xigma/run_xigma_direct/run_analytical: wrap each model's existing
+    run_xigma/run_delta/run_analytical: wrap each model's existing
     compute body in a zero-arg closure and call this instead of calling
     the model directly. Not wired in yet -- see module docstring.
     """

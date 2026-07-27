@@ -1,4 +1,4 @@
-"""xigma-i-direct: brute-force per-macroparticle resonance-binning model.
+"""delta: brute-force per-macroparticle resonance-binning model.
 
 Extracted from ``xigma_i.spectrum_from_particles.direct_binning_spectrum`` -- no table,
 no importance sampling, "assumption-free on both the deposition and the
@@ -11,6 +11,6 @@ requires an already-sampled ``electrons`` bunch) -- there is no internal
 sampler anywhere in this package.
 """
 
-from .gui_adapter import DirectConfig, XigmaDirectAdapter
+from .gui_adapter import DirectConfig, DeltaAdapter
 
-__all__ = ["DirectConfig", "XigmaDirectAdapter"]
+__all__ = ["DirectConfig", "DeltaAdapter"]

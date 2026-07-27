@@ -69,7 +69,7 @@ EL_STATC = E_CHARGE * C_CM_S / 10.0
 R_E_CM = _Q(1, "classical_electron_radius").to("centimeter").magnitude
 
 # Meter <-> centimeter, derived rather than a hand-typed 100.0 -- used by
-# every CGS-unit consumer (compton_io.collision, xigma_i/xigma_direct's
+# every CGS-unit consumer (compton_suite.io.collision, xigma_i/delta's
 # gui_adapter.py, particles.py) instead of each keeping its own local
 # `_M_TO_CM = 100.0`/`1.0e2` literal.
 M_TO_CM = _Q(1, "meter").to("centimeter").magnitude

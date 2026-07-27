@@ -1,7 +1,7 @@
 """The CGS "collision parameters" bundle for tabulated-overlap-style
-GPU/CPU pipelines (``xigma_i``, ``xigma_direct``) -- :class:`CollisionParams`
+GPU/CPU pipelines (``xigma_i``, ``delta``) -- :class:`CollisionParams`
 (immutable, CGS, ``k0_las``-normalised scalars) plus :func:`build_params`,
-the one function that derives it from ``compton_io``'s own SI beam/laser/
+the one function that derives it from ``compton_suite.io``'s own SI beam/laser/
 geometry description.
 
 Moved here from ``xigma_i/config.py`` (formerly the only consumer) so any

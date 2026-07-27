@@ -4,11 +4,11 @@ tabulated_engine.py, gui_adapter.py).
 
 The CGS "collision parameters" bundle this pipeline builds one of per run
 (``CollisionParams``/``build_params``) has moved to
-``compton_io.collision`` -- it turned out to have nothing xigma-specific
+``compton_suite.io.collision`` -- it turned out to have nothing xigma-specific
 about it beyond the CGS/``k0_las`` convention and the ``a0`` formula (see
 that module's own docstring for the still-unreconciled ~49% discrepancy
 against ``GaussianParaxialLaser.a0_focus``), so any model built on the same
-convention (currently ``xigma_direct``) can now reuse it directly instead
+convention (currently ``delta``) can now reuse it directly instead
 of importing it through this package. ``detect_device`` moved there too
 (``CollisionParams.xp``/``.asnumpy`` need it); ``_detect_device`` below is
 a thin re-export so this package's own internal callers

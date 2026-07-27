@@ -32,11 +32,11 @@ src/compton_suite/
 │   ├── collision.py                # CollisionParams / build_params (CGS/k0_las)
 │   ├── interaction.py, photons.py, results.py, constants.py, units.py, ...
 │   └── io_formats/                 # elegant .ele, YAML spec I/O
-├── gui/           # Tkinter GUI (compton_guide) — still a thick consumer, see "Still open" below
+├── gui/           # Tkinter GUI (compton_suite.gui) — still a thick consumer, see "Still open" below
 ├── models/
 │   ├── kascade/       # SI, sequential multi-photon MC, arbitrary crossing angle
 │   ├── xigma_i/        # CGS/k0_las-normalised, tabulated-overlap GPU/CPU pipeline
-│   ├── xigma_direct/   # brute-force per-macroparticle binning, reuses xigma_i's Stage 0
+│   ├── delta/          # brute-force per-macroparticle binning, reuses xigma_i's Stage 0
 │   └── analytical/     # closed-form yield/spectrum estimates
 └── validation/    # shared Scenarios, per-model runners, tiered cross-model comparisons
 ```
@@ -48,7 +48,7 @@ and got promoted to a shared, unit-convention-agnostic function in `io/`
 once a second consumer needed the same thing:
 
 - **`CollisionParams`/`build_params`** → `io/collision.py` (was
-  `xigma_i/config.py`, the only consumer at the time; `xigma_direct` now
+  `xigma_i/config.py`, the only consumer at the time; `delta` now
   reuses it directly too).
 - **`ballistic_position_simultaneous`/`ballistic_position_z0_reference`/
   `propagate`/`stream`/`laser_overlap_time_window`** → `io/propagation.py`
@@ -71,7 +71,7 @@ once a second consumer needed the same thing:
   functions in `io/bunch.py`, backing both `GaussianElectronBeam`'s own
   properties and `collision.build_params`, instead of four independent
   re-derivations (`xigma_i/config.py`, `xigma_i/gui_adapter.py`,
-  `xigma_direct/gui_adapter.py`, `models/kascade/kascade.py` all used to
+  `delta/gui_adapter.py`, `models/kascade/kascade.py` all used to
   have their own copy).
 
 ## Still open
@@ -105,7 +105,7 @@ once a second consumer needed the same thing:
   — no second package layer was introduced; each model's adapter
   (`models/*/gui_adapter.py` or `kascade_adapter.py`) still talks to the
   GUI's own `gui/model_api.py` directly.
-- The backward-compatibility section's "`compton_io.collision.build_params`
+- The backward-compatibility section's "`compton_suite.io.collision.build_params`
   kept (deprecated, delegates to core)" — not applicable; `build_params`
   in `io/collision.py` already *is* the landed target, not a shim around
   something else.

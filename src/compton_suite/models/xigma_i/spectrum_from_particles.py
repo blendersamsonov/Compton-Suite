@@ -6,9 +6,9 @@ not cross-checks:
 
   - `angle_integrated_spectrum` is `TabulatedEngine.spectrum(s)`'s actual
     implementation (`xigma-i`'s real dN/ds output, see `tabulated_engine.py`).
-  - `direct_binning_spectrum` is `xigma_direct`'s (`xigma-i-direct`) actual
+  - `direct_binning_spectrum` is `delta`'s actual
     total_yield/spectrum/angular_spectrum implementation (see
-    `xigma_direct/gui_adapter.py`).
+    `delta/gui_adapter.py`).
 
 `reference.py` keeps only what's left: `spectrum_from_table`, a genuinely
 validation-only brute-force table quadrature with no production caller,
@@ -63,7 +63,7 @@ def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy'):
 
 def direct_binning_spectrum(gamma, theta_x, theta_y, particle_weight, a0,
                              x0, y0, s_edges, phi_pol, backend='numpy'):
-    """`xigma-i-direct`'s actual computation: for each real macroparticle,
+    """`delta`'s actual computation: for each real macroparticle,
     compute the photon energy it resonates at when viewed from (x0, y0), and
     bin its weight into the s_edges histogram. No table, no importance
     sampling -- assumption-free on both the deposition and the lookup.

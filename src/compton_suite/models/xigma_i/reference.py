@@ -6,7 +6,7 @@ a Stage 1 `H` table into a spectrum, used to validate
 `angle_integrated_spectrum`/`direct_binning_spectrum` used to live in this
 module too; they were extracted to `spectrum_from_particles.py` because
 they turned out to be load-bearing for real model output (`xigma-i`'s
-`TabulatedEngine.spectrum(s)`, `xigma-i-direct`'s total_yield/spectrum/
+`TabulatedEngine.spectrum(s)`, `delta`'s total_yield/spectrum/
 angular_spectrum) rather than pure validation, and this module is expected
 to eventually leave this repo entirely (folded into a separate,
 standalone cross-validation project) -- kept here for now for ad hoc Stage

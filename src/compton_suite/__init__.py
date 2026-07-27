@@ -5,7 +5,7 @@ Subpackages:
 - compton_suite.gui: Tkinter GUI (compton_guide)
 - compton_suite.models.kascade: sequential multi-photon Monte Carlo engine
 - compton_suite.models.xigma_i: GPU/CPU tabulated overlap-table engine
-- compton_suite.models.xigma_direct: brute-force per-macroparticle binning engine
+- compton_suite.models.delta: brute-force per-macroparticle binning engine
 - compton_suite.models.analytical: fast closed-form estimates
 """
 

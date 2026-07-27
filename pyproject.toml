@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "compton-suite"
 version = "0.1.0"
-description = "Inverse-Compton scattering physics simulation toolkit: shared framework (io), GUI (gui), and models (kascade, xigma_i, xigma_direct, analytical)"
+description = "Inverse-Compton scattering physics simulation toolkit: shared framework (io), GUI (gui), and models (kascade, xigma_i, delta, analytical)"
 authors = [{name = "Alexander Samsonov", email = "asams@ipfran.ru"}]
 requires-python = ">=3.10"
 dependencies = [

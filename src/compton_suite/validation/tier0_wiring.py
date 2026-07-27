@@ -25,7 +25,8 @@ from compton_suite.validation.scenarios import (  # noqa: E402
     build_params_for_xigma,
     build_kascade_config,
     build_xigma_config,
-    build_xigma_direct_config,
+    build_delta_config,
+    build_analytical_config,
 )
 
 EXACT_TOL = 1e-9        # same-source floats -- should agree to float precision
@@ -39,9 +40,9 @@ def _rel(a: float, b: float) -> float:
 def check_gamma0_agreement(scenario: Scenario = BASELINE) -> bool:
     kcfg = build_kascade_config(scenario)
     xcfg = build_xigma_config(scenario)
-    xdcfg = build_xigma_direct_config(scenario)
+    dcfg = build_delta_config(scenario)
     acfg = build_analytical_config(scenario)
-    values = dict(kascade=kcfg.eps0, xigma_i=xcfg.eps0, xigma_direct=xdcfg.eps0, analytical=acfg.eps0)
+    values = dict(kascade=kcfg.eps0, xigma_i=xcfg.eps0, delta=dcfg.eps0, analytical=acfg.eps0)
     ref = scenario.beam.gamma0
     bad = {k: v for k, v in values.items() if _rel(v, ref) > EXACT_TOL}
     if bad:
@@ -54,9 +55,9 @@ def check_gamma0_agreement(scenario: Scenario = BASELINE) -> bool:
 def check_N_e_agreement(scenario: Scenario = BASELINE) -> bool:
     kcfg = build_kascade_config(scenario)
     xcfg = build_xigma_config(scenario)
-    xdcfg = build_xigma_direct_config(scenario)
+    dcfg = build_delta_config(scenario)
     acfg = build_analytical_config(scenario)
-    values = dict(kascade=kcfg.N_e, xigma_i=xcfg.N_e, xigma_direct=xdcfg.N_e, analytical=acfg.beam.N_e)
+    values = dict(kascade=kcfg.N_e, xigma_i=xcfg.N_e, delta=dcfg.N_e, analytical=acfg.beam.N_e)
     ref = scenario.beam.N_e
     bad = {k: v for k, v in values.items() if _rel(v, ref) > EXACT_TOL}
     if bad:
@@ -69,9 +70,9 @@ def check_N_e_agreement(scenario: Scenario = BASELINE) -> bool:
 def check_lambda_L_agreement(scenario: Scenario = BASELINE) -> bool:
     kcfg = build_kascade_config(scenario)
     xcfg = build_xigma_config(scenario)
-    xdcfg = build_xigma_direct_config(scenario)
+    dcfg = build_delta_config(scenario)
     acfg = build_analytical_config(scenario)
-    values = dict(kascade=kcfg.lambda_L, xigma_i=xcfg.lambda_L, xigma_direct=xdcfg.lambda_L, analytical=acfg.lambda_L)
+    values = dict(kascade=kcfg.lambda_L, xigma_i=xcfg.lambda_L, delta=dcfg.lambda_L, analytical=acfg.lambda_L)
     ref = scenario.pulse.wavelength_m
     bad = {k: v for k, v in values.items() if _rel(v, ref) > EXACT_TOL}
     if bad:
@@ -84,11 +85,11 @@ def check_lambda_L_agreement(scenario: Scenario = BASELINE) -> bool:
 def check_beta_xy_agreement(scenario: Scenario = BASELINE) -> bool:
     kcfg = build_kascade_config(scenario)
     xcfg = build_xigma_config(scenario)
-    xdcfg = build_xigma_direct_config(scenario)
+    dcfg = build_delta_config(scenario)
     acfg = build_analytical_config(scenario)
     ref_x, ref_y = scenario.beam.beta_star_x_m, scenario.beam.beta_star_y_m
     bad = []
-    for name, cfg in (("kascade", kcfg), ("xigma_i", xcfg), ("xigma_direct", xdcfg), ("analytical", acfg)):
+    for name, cfg in (("kascade", kcfg), ("xigma_i", xcfg), ("delta", dcfg), ("analytical", acfg)):
         if _rel(cfg.beta_x, ref_x) > EXACT_TOL or _rel(cfg.beta_y, ref_y) > EXACT_TOL:
             bad.append((name, cfg.beta_x, cfg.beta_y))
     if bad:

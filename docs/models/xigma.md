@@ -75,9 +75,9 @@ Four stages, plus shared config and validation/GUI layers.
 
 This package no longer samples its own electrons, and holds no separate
 "Bunch" class either: there is exactly one place electron bunches get
-drawn from a beam description (`compton_io.bunch.sample_gaussian_bunch`),
+drawn from a beam description (`compton_suite.io.bunch.sample_gaussian_bunch`),
 not one per model, and `push_and_sample(params, macrobunch, n_steps=,
-backend=)` takes a `compton_io.bunch.MacroBunch` (SI, engine-agnostic)
+backend=)` takes a `compton_suite.io.bunch.MacroBunch` (SI, engine-agnostic)
 directly, converting it to this pipeline's own CGS/`k0_las`-normalised
 positions inline (see `_normalise_bunch`) rather than via a separate,
 persistent class -- `gamma`/`theta_x`/`theta_y` pass through unchanged,
@@ -109,7 +109,7 @@ integral[a0_local(t)^2] dt` (Paper/xigma.tex eq. "ahattraj"), where
 *instantaneous* local field amplitude computed internally at each
 timestep, and `TrXi/2 = (1 + params.ellipticity**2) / 2` (eq. "Xi";
 `ellipticity=0` linear, `+-1` circular -- `CollisionParams.ellipticity`,
-set via `compton_io.collision.build_params`). This is a genuine, previously-made mistake, not a
+set via `compton_suite.io.collision.build_params`). This is a genuine, previously-made mistake, not a
 hypothetical one: an earlier version of this code deposited `a0_local(t)`
 itself into `H` once per timestep, i.e. treated `a0` the same way as
 `gamma`/`theta_x`/`theta_y` -- one distribution smeared over each
@@ -209,7 +209,7 @@ the module's own docstring for the full per-block algorithm. `coef = 1.5`,
 a pure numerical constant from eq. "main"/"Fmatrix" in the accompanying
 paper. `calculate_angular_spectrum_4d(table, s, theta_x, theta_y, phi_pol,
 samples_per_point=, device=None)` is the host driver; `device=None|'cpu'|
-'gpu'` auto-detects via `compton_io.collision.detect_device()` (re-exported
+'gpu'` auto-detects via `compton_suite.io.collision.detect_device()` (re-exported
 as `config._detect_device` for this package's own internal callers);
 callers pass
 `theta_x`/`theta_y`/`s` as `cp`/`np` arrays matching the chosen device
@@ -259,8 +259,8 @@ see that module's own docstring for why):
   "xsec" (`g**2`, not the ensemble-collapsed `g**5` of eq. "Fmatrix"),
   pure numerical coefficient `3` (no `Wph`/`pi**4`), no extra `1/s**2` --
   see this function's own docstring for the full derivation. This is
-  `xigma-i-direct`'s actual total_yield/spectrum/angular_spectrum
-  implementation (`models/xigma_direct`). A small, deliberately-deferred
+  `delta`'s actual total_yield/spectrum/angular_spectrum
+  implementation (`models/delta`). A small, deliberately-deferred
   `~2*pi` residual remains against `angle_integrated_spectrum` in
   grid-integrated comparisons.
 
@@ -282,7 +282,7 @@ project -- kept here for now, still needed.
 ### Shared config -- `config.py`
 
 Physical constants (`me`, `c`, `el`, `rel`, `sigma_T`, `PHI`) -- `me`/`c`/
-`el` come from `compton_io.constants` (see "Parameter semantics & units"
+`el` come from `compton_suite.io.constants` (see "Parameter semantics & units"
 below), not local literals; `rel`/`sigma_T` are still derived locally from
 those via this module's own CGS formula (`sigma_T`, the Thomson cross
 section, is the only thing left that still needs a local CGS derivation --
@@ -291,25 +291,25 @@ everything else that used to live here moved out, see below), and `PHI`
 constants `spectrum_kernel_4d` needs (`X_THREADS`, `MAX_RINGS`,
 `MAX_ARCS`, `PHI_EDGES`, `CDF_PHI_RESOLUTION`, ...; see "Sizing constants"
 in Conventions) also live here, plus `_detect_device` -- a thin re-export
-of `compton_io.collision.detect_device` kept so this package's own
+of `compton_suite.io.collision.detect_device` kept so this package's own
 internal callers (`spectrum4d.py`, `gui_adapter.py`) don't need to change
 their import path.
 
-**`CollisionParams`/`build_params` moved to `compton_io.collision`** (this
+**`CollisionParams`/`build_params` moved to `compton_suite.io.collision`** (this
 package was their only consumer, but the pipeline's CGS/`k0_las`
 convention has nothing xigma-specific about it beyond the `a0` formula --
 see that module's own docstring). `CollisionParams` is a plain, immutable
 (frozen) dataclass holding a laser-electron collision's physical
 parameters (`k0_las`, `Wph`, `a0`, `N_e`, `N_l`, `sigma_thx`/`sigma_thy`,
 `beta_ff`/`ellipticity`, ...); it runs no computation of its own.
-`compton_io.collision.build_params(beam, laser, geometry=None, *,
+`compton_suite.io.collision.build_params(beam, laser, geometry=None, *,
 beta_ff=0.0, ellipticity=0.0, device=None)` is the *only* way to construct
-one: a pure function taking `compton_io.bunch.GaussianElectronBeam`/
-`compton_io.laser.GaussianParaxialLaser`/`compton_io.interaction.
+one: a pure function taking `compton_suite.io.bunch.GaussianElectronBeam`/
+`compton_suite.io.laser.GaussianParaxialLaser`/`compton_suite.io.interaction.
 InteractionGeometry` directly (SI) and deriving this convention's CGS
 scalars in one call -- there is no `set_*`-mutated builder object to
 accumulate state across several calls. `device=None` auto-detects a
-backend via `compton_io.collision.detect_device()`: a real CUDA GPU via
+backend via `compton_suite.io.collision.detect_device()`: a real CUDA GPU via
 cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else CPU (requires
 `numba`), else raises -- there is no third backend. `.xp` (`cp` or `np`)
 and `.asnumpy(x)` (`.get()` on GPU, no-op on CPU) are a thin convenience
@@ -321,15 +321,15 @@ never used by the real computation, and `models/analytical/analytical.py`
 already has its own independent, SI-based reimplementation of the same
 estimates for the GUI's always-on preview).
 
-`particles.push_and_sample` takes a `compton_io.collision.CollisionParams`
+`particles.push_and_sample` takes a `compton_suite.io.collision.CollisionParams`
 instance as its parameter source, same as before the move.
 
 ### GUI-facing engine -- `tabulated_engine.py`
 
-`TabulatedEngine` wraps a `compton_io.collision.CollisionParams` instance
+`TabulatedEngine` wraps a `compton_suite.io.collision.CollisionParams` instance
 purely for its plain-data properties and drives Stages 0/1/2 for one
 collision config: `.run(n_steps=, n_bins=, scheme=, backend=, a0_max=0.5,
-n_time_bins=, n_spatial_bins=, bunch=)` (`bunch`, a `compton_io.bunch.
+n_time_bins=, n_spatial_bins=, bunch=)` (`bunch`, a `compton_suite.io.bunch.
 MacroBunch`, is required and keyword-only -- electron sampling is the
 caller's job, not this engine's) pushes and samples it (`a0_shape`
 output), builds an `a0_kind='shape'` table, and retargets it to this run's
@@ -396,8 +396,8 @@ Tooling for resolution/deposition-scheme scans exists; no scan has been run
 and recorded yet. Pattern:
 
     import numpy as np
-    from compton_io.bunch import sample_gaussian_bunch
-    from compton_io.collision import build_params
+    from compton_suite.io.bunch import sample_gaussian_bunch
+    from compton_suite.io.collision import build_params
     from xigma_i import particles, deposition, spectrum4d
 
     params = build_params(beam, laser)  # beam: GaussianElectronBeam, laser: GaussianParaxialLaser
@@ -425,7 +425,7 @@ enough"):
   other three are a memory/accuracy tradeoff (a 128×128×128×32 float32
   table is ~270 MB).
 - **Particle statistics**: `n_particles` (passed to
-  `compton_io.bunch.sample_gaussian_bunch`) sets how many
+  `compton_suite.io.bunch.sample_gaussian_bunch`) sets how many
   `(gamma, theta_x, theta_y, a0, weight)` rows land in the table --
   `push_and_sample` emits exactly one per particle. `n_steps`
   (`push_and_sample`) does *not* affect that count; it's purely the
@@ -510,7 +510,7 @@ devices default to float64, see Conventions).
 ## Environment
 
 CuPy with `cupyx.jit` rawkernels for the GPU path; `numba` for the CPU
-fallback (either is sufficient, see `compton_io.collision.detect_device`).
+fallback (either is sufficient, see `compton_suite.io.collision.detect_device`).
 No build system beyond `pyproject.toml` (setuptools), no repo-tracked test
 suite at present (validation lives in ad hoc scripts run against
 `reference.py`/`spectrum_from_particles.py`/`deposition.py`'s functions,
@@ -528,7 +528,7 @@ path.
 
 `src/xigma_i/gui_adapter.py` is the bridge that plugs this package into
 `gui/`'s Tkinter desktop GUI as one of several pluggable `ModelAdapter`s
-(the others being `kascade`, `xigma_direct`, and `analytical`). See
+(the others being `kascade`, `delta`, and `analytical`). See
 `passport.md` for the full physics "passport" this adapter reports
 through its `capabilities()`.
 
@@ -576,7 +576,7 @@ through its `capabilities()`.
   pipeline has no such axis (`a0` is a real table axis, not a
   phenomenological correction; see `capabilities()`'s
   `supports_nonlinearity_emulation=False`).
-- `XigmaAdapter` caches `self._last_results` (a `compton_io.results.
+- `XigmaAdapter` caches `self._last_results` (a `compton_suite.io.results.
   CommonResults` which itself carries private `_params`/`_gamma_0`/
   `_sigma_gamma_0`/`_engine`/`_device`, stashed as plain post-construction
   attributes by `run_simulation`'s `_attach_private_cache` helper) so
@@ -635,11 +635,11 @@ interpreter`).
 
 - `models/kaskade/` -- `kascade`, the other event-generator-style physics
   engine plugged into the same GUI. No dependency either direction.
-- `models/xigma_direct/` -- reuses this package's Stage 0 physics
+- `models/delta/` -- reuses this package's Stage 0 physics
   (`particles.push_and_sample`) directly as a library dependency.
 - `gui/` -- the shared Tkinter GUI. Depends on this package only through
   `gui_adapter.py`'s contract (never touches `deposition.py`/etc. directly).
-- `IO/` (package `compton_io`) -- shared physical constants, pint registry,
+- `IO/` (package `compton_suite.io`) -- shared physical constants, pint registry,
   and parameter-convention framework, depended on by this package
   (`config.py`, `params/`), the reverse direction from the `gui/`
 
@@ -651,10 +651,10 @@ cupy-cudaXXx` doesn't find a matching wheel, a conda/mamba env
 (conda-forge) is the more reliable install path -- confirmed working on
 this machine via the `core` env above.
 
-## Parameter semantics & units (`params/`), and `compton_io`
+## Parameter semantics & units (`params/`), and `compton_suite.io`
 
 `src/xigma_i/params/` is this model's own declaration of parameter
-semantics and units for values crossing the `compton_guide` boundary --
+semantics and units for values crossing the `compton_suite.gui` boundary --
 `spec.py`'s `XIGMA_SPEC` (the convention/unit contract for
 `gui_adapter.Config`'s own fields) and `XIGMA_DIAGNOSTIC_SPEC` (derived/
 read-only quantities, e.g. `a0`, that aren't GUI inputs). The framework
@@ -663,19 +663,19 @@ those specs are built on -- `PhysicalQuantity` (value + unit +
 `TimeConvention`/`AmplitudeConvention`), canonical conversion
 (`to_canonical`/`from_canonical`), `ParameterSpec`/`ModelSpec`,
 `adapt_to_model` -- is **not defined here**; it's re-exported unchanged
-from `compton_io` (`IO/`), so `xigma_i.params.PhysicalQuantity` and (say)
-`compton_guide.physics_params.PhysicalQuantity` are the literal same
-Python class, not two independently-defined look-alikes. `compton_io`
+from `compton_suite.io` (`IO/`), so `xigma_i.params.PhysicalQuantity` and (say)
+`compton_suite.gui.physics_params.PhysicalQuantity` are the literal same
+Python class, not two independently-defined look-alikes. `compton_suite.io`
 also provides the shared `pint` unit registry (including a custom
 `"light_time"` context so a length can stand in for `c * duration` --
 `Config` stores pulse/bunch length that way).
 
-**`compton_io` is load-bearing, not optional.** `config.py` (see "Shared
+**`compton_suite.io` is load-bearing, not optional.** `config.py` (see "Shared
 config" above -- `hbar`/`me`/`c`/`el`/`elC` come from
-`compton_io.constants`) and `params/__init__.py` both import it directly.
+`compton_suite.io.constants`) and `params/__init__.py` both import it directly.
 Every caller that imports `xigma_i` (`gui_adapter.available()`,
-`compton_guide`'s model discovery) wraps the import in a broad
-`try/except Exception`, so a missing `compton_io` install surfaces as
+`compton_suite.gui`'s model discovery) wraps the import in a broad
+`try/except Exception`, so a missing `compton_suite.io` install surfaces as
 "model unavailable: <error>" exactly like a missing cupy/numba does,
 never a crash.
 
@@ -691,7 +691,7 @@ docstring and `docs/refactor/parameter-framework-and-collision-params.md`'s
 params.KASCADE_SPEC`.
 
 Needs `pint` (a hard dependency in `pyproject.toml`, transitively required
-by `compton_io` -- pure Python, no GPU/cupy involvement, so neither
-`compton_io` nor `xigma_i.params`/`config.py`'s use of it ever requires
+by `compton_suite.io` -- pure Python, no GPU/cupy involvement, so neither
+`compton_suite.io` nor `xigma_i.params`/`config.py`'s use of it ever requires
 cupy, even though `gui_adapter.py` itself stays cupy-optional throughout,
 see "GUI integration" above).

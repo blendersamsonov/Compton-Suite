@@ -10,14 +10,14 @@ docstring). Those two functions are load-bearing production code, not the
 package's validation-only ``reference.py`` (brute-force table quadrature,
 no production caller at all -- see that module's own docstring).
 
-Depends on both ``compton_io`` (bunch/laser representations, collision
-parameters via ``compton_io.collision.build_params``, and electron
-sampling via ``compton_io.bunch.sample_gaussian_bunch``) and ``xigma_i``
+Depends on both ``compton_suite.io`` (bunch/laser representations, collision
+parameters via ``compton_suite.io.collision.build_params``, and electron
+sampling via ``compton_suite.io.bunch.sample_gaussian_bunch``) and ``xigma_i``
 (Stage 0 push physics, spectrum_from_particles) -- not embedded in either.
-Duck-typed against ``compton_guide.model_api``, same decoupling discipline
+Duck-typed against ``compton_suite.gui.model_api``, same decoupling discipline
 every other adapter in this suite uses.
 
-Never imports ``cupy`` unconditionally -- ``compton_io.collision``/
+Never imports ``cupy`` unconditionally -- ``compton_suite.io.collision``/
 ``xigma_i.particles``/``spectrum_from_particles`` are themselves
 cupy-optional at import time (cupy only matters when actually running on
 ``device='gpu'``), so importing them here doesn't force a cupy dependency
@@ -185,8 +185,8 @@ class DirectConfig:
 
 def capabilities() -> dict:
     return dict(
-        name="xigma-i-direct",
-        display_name="XIGMA-I Direct (brute-force binning)",
+        name="delta",
+        display_name="Delta (brute-force binning)",
         requires_gpu=False,
         supports_crossing_angle=False,
         supports_quantum_toggle=False,
@@ -298,7 +298,7 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
     warnings = []
     if crossing_angle != 0.0:
         raise ParamError(
-            "xigma-i-direct: crossing_angle must be 0 (this model is head-on "
+            "delta: crossing_angle must be 0 (this model is head-on "
             f"only, shares xigma-i's Stage 0); got {crossing_angle} rad")
     if sigma0_x <= 0 or sigma0_y <= 0:
         warnings.append("Beta_x/Beta_y must be > 0 to define a finite beam size; "
@@ -307,7 +307,7 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
         warnings.append("Rayleigh length must be > 0; using a very small laser "
                         "waist as a fallback.")
     warnings.append(
-        "xigma-i-direct: 'Number of macroelectrons' is ignored -- use this "
+        "delta: 'Number of macroelectrons' is ignored -- use this "
         "model's own 'Stage 0 particles' field (Model Parameters panel) instead.")
 
     from compton_suite.io.bunch import beam_from_shared_fields
@@ -377,17 +377,17 @@ def _attach_private_cache(res: CommonResults, *, gamma, theta_x, theta_y, a0, we
 
 
 def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
-                   *, electrons: MacroBunch) -> CommonResults:
+                    *, electrons: MacroBunch) -> CommonResults:
     """``electrons`` is required: electron sampling is the caller's job,
     not this adapter's -- there's exactly one place electrons get drawn
-    from a beam description (``compton_io.bunch.sample_gaussian_bunch``),
+    from a beam description (``compton_suite.io.bunch.sample_gaussian_bunch``),
     not one per model. The caller is expected to size its sample to
     ``cfg.n_particles_01`` particles, mirroring xigma-i's own convention
-    (``compton_guide.app.py``'s ``on_start()`` and
+    (``compton_suite.gui.app.py``'s ``on_start()`` and
     ``ComptonSuite/validation/runners.py`` both already do this)."""
     if cfg.crossing_angle != 0.0:
         raise ValueError(
-            f"xigma-i-direct: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
+            f"delta: crossing_angle must be 0 (head-on only), got {cfg.crossing_angle}")
 
     from compton_suite.io.collision import build_params, detect_device
     from compton_suite.models.xigma_i import particles, spectrum_from_particles
@@ -509,7 +509,7 @@ def run_simulation(cfg: DirectConfig, n_mc: int = 20_000, seed: int = 0,
     )
 
     res = CommonResults(
-        model_name="xigma-i-direct",
+        model_name="delta",
         cfg=cfg,
         n_mc=n_particles_new,
         total_yield=total_yield,
@@ -580,7 +580,7 @@ def spectrum_in_angular_range(res: CommonResults, theta_x_range: tuple[float, fl
         n_photons_in_range=n_photons_in_range)
 
 
-class XigmaDirectAdapter:
+class DeltaAdapter:
     def __init__(self):
         self._last_results: CommonResults | None = None
 

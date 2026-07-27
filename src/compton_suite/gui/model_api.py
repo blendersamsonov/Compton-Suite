@@ -3,19 +3,19 @@
 This module knows nothing about ``kascade`` or ``xigma_i`` -- every adapter
 constructs its result (``CommonResults``, including fields like
 ``spectrum``/``angular_spectrum``) using the shared classes re-exported
-below from ``compton_io.results``/``compton_io.photons``, which every
+below from ``compton_suite.io.results``/``compton_suite.io.photons``, which every
 model already depends on (for units). This is why they can be the
 *literal same classes* everywhere rather than each adapter defining its
 own structurally-identical lookalikes: no physics package needs to import
-this GUI module or depend on it, only on ``compton_io``, which is a shared
+this GUI module or depend on it, only on ``compton_suite.io``, which is a shared
 dependency by design already. (An earlier version of this module defined
 these dataclasses locally, and ``xigma_i.gui_adapter``/
-``xigma_direct.gui_adapter`` each kept their own separately-defined,
+``delta.gui_adapter`` each kept their own separately-defined,
 structurally-identical ``CommonResults`` copies specifically to avoid
-depending on this module -- see git history / ``GUIde/CLAUDE.md``'s "The
+depending on this module -- see git history / ``ComptonSuite/AGENTS.md``'s "The
 ModelAdapter contract, and the bug it caused" for the isinstance-vs-duck-
 typing bug that caused. That workaround is obsolete now that these types
-live in ``compton_io`` instead.)
+live in ``compton_suite.io`` instead.)
 
 Two physics engines currently target this contract:
 

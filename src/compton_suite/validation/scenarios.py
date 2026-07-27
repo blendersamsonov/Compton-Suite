@@ -5,8 +5,8 @@ parsing params_to_config/GUI-field layer entirely (that layer is a UI
 convenience, not physically meaningful; skipping it removes a source of
 avoidable float-formatting noise from cross-model comparisons).
 
-kascade.Config, xigma_i.gui_adapter.Config, and xigma_direct.DirectConfig
-each hold a single ``interaction: compton_io.interaction.InteractionParameters``
+kascade.Config, xigma_i.gui_adapter.Config, and delta.DirectConfig
+each hold a single ``interaction: compton_suite.io.interaction.InteractionParameters``
 field (see that module's docstring) instead of their own flat physics
 fields, so ``Scenario.interaction_parameters`` feeds all three directly.
 AnalyticalConfig wraps (beam, pulse) natively, no conversion needed.
@@ -26,7 +26,7 @@ from compton_suite.io.laser import GaussianParaxialLaser
 DEFAULT_SEED = 20260721
 
 # Default macro-particle/electron count for models whose n_mc argument is
-# actually used (kascade -- xigma_i/xigma_direct ignore it, sizing Stage 0
+# actually used (kascade -- xigma_i/delta ignore it, sizing Stage 0
 # from their own Config.n_particles_01 instead, already defaulted on their
 # Config dataclasses).
 DEFAULT_N_MC = 100_000
@@ -40,7 +40,7 @@ __all__ = [
     "NEAR_A0_MAX",
     "build_kascade_config",
     "build_xigma_config",
-    "build_xigma_direct_config",
+    "build_delta_config",
     "build_analytical_config",
 ]
 
@@ -48,7 +48,7 @@ __all__ = [
 @dataclass(frozen=True)
 class Scenario:
     """One canonical physical scenario. crossing_angle_rad/quantum stay
-    outside (beam, pulse) -- deliberately excluded from compton_io's
+    outside (beam, pulse) -- deliberately excluded from compton_suite.io's
     shared representation since only kascade supports non-zero/quantum;
     0.0/False here means "cross-model comparable", non-zero/True means
     "kascade-only, no cross-check partner"."""
@@ -58,15 +58,15 @@ class Scenario:
     pulse: GaussianParaxialLaser
     crossing_angle_rad: float = 0.0
     quantum: bool = False
-    beta_ff: float = 0.0          # xigma-i/xigma-i-direct-only extra
-    phi_pol: float = 0.0          # xigma-i/xigma-i-direct-only extra
+    beta_ff: float = 0.0          # xigma-i/delta-only extra
+    phi_pol: float = 0.0          # xigma-i/delta-only extra
     a0_max: float = 0.5           # xigma-i-only Stage 1/2 table sizing knob
     theta_col_rad: float = 1.0e-3  # collimation half-angle, for analytical's estimate_spectrum_width
 
     @property
     def interaction_parameters(self) -> InteractionParameters:
         """This scenario's (beam, pulse, geometry) as one shared
-        compton_io.interaction.InteractionParameters bundle -- the
+        compton_suite.io.interaction.InteractionParameters bundle -- the
         physics-parameter subset every model's Config should ultimately be
         built from (see that module's docstring)."""
         return InteractionParameters(
@@ -162,8 +162,8 @@ def build_xigma_config(scenario: Scenario):
     )
 
 
-def build_xigma_direct_config(scenario: Scenario):
-    from compton_suite.models.xigma_direct import gui_adapter
+def build_delta_config(scenario: Scenario):
+    from compton_suite.models.delta import gui_adapter
     return gui_adapter.DirectConfig(
         interaction=scenario.interaction_parameters,
         beta_ff=scenario.beta_ff, phi_pol=scenario.phi_pol,
@@ -180,8 +180,8 @@ def build_analytical_config(scenario: Scenario):
 
 
 def build_params_for_xigma(cfg, device: str | None = None):
-    """A compton_io.collision.CollisionParams instance from an xigma_i/
-    xigma_direct Config -- exactly the beam/laser/geometry ->
+    """A compton_suite.io.collision.CollisionParams instance from an xigma_i/
+    delta Config -- exactly the beam/laser/geometry ->
     build_params() call xigma_i.gui_adapter.run_simulation itself makes
     (SI -> CGS at this boundary), so Tier 0/1 can read params.a0/.N_l/.N_e
     the same way the real run does, not a reimplementation that could

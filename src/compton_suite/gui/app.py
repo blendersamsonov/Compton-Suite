@@ -42,7 +42,7 @@ Layout (top -> bottom):
     the wider-range angular_spectrum cache the Angular Distribution tab
     still uses for its own visualization -- reusing that cache here used
     to badly overcount for tight windows on a coarse-grid model like
-    xigma-i-direct; see _photon_fluxes' own docstring.)
+    delta; see _photon_fluxes' own docstring.)
 
 This GUI is model-agnostic: physics engines are plugged in through the
 ``model_api.ModelAdapter`` registry (see ``model_api.py``) instead of a
@@ -780,10 +780,10 @@ class ComptonGuideApp(tk.Tk):
             messagebox.showwarning("Model note", "\n\n".join(extra["warnings"]))
 
         # Electron sampling is the IO layer's job, not each model's own --
-        # the GUI draws ONE canonical MacroBunch here (via compton_io) and
+        # the GUI draws ONE canonical MacroBunch here (via compton_suite.io) and
         # passes it to every model uniformly. Every adapter's run() now
         # *requires* ``electrons`` (kascade's own sample_initial_electrons
-        # and xigma_i/xigma_direct's own gui_adapter-level self-sampling
+        # and xigma_i/delta's own gui_adapter-level self-sampling
         # were deleted -- the "should not be responsible for that" cross-
         # repo cleanup), so this can no longer be skipped or left None.
         # If a 6-D .ele file was loaded, that takes precedence and IS the
@@ -794,7 +794,7 @@ class ComptonGuideApp(tk.Tk):
             electrons = self.loaded_bunch
             n_mc = self.loaded_bunch.n_particles
         else:
-            # xigma-i/xigma-i-direct size their own Stage 0 sample from
+            # xigma-i/delta size their own Stage 0 sample from
             # their model-specific "Stage 0/1 particles"/n_particles_01
             # field, not the shared "Number of macroelectrons" field (see
             # their own params_to_config warning) -- sample that many
@@ -926,7 +926,7 @@ class ComptonGuideApp(tk.Tk):
         the cached, wide-range res.angular_spectrum grid (used only by the
         Angular Distribution tab's visualization). That used to double as
         the "collimated flux" source here too, but its grid is sized for a
-        4*pi overview, not a tight collimation window: e.g. xigma-i-direct's
+        4*pi overview, not a tight collimation window: e.g. delta's
         default 9x9 cache captures just 1 grid point inside the GUI's own
         default 0.05 mrad window, and reusing that point's full (much wider)
         cache-grid cell as its effective solid angle overcounts badly --

@@ -4,19 +4,19 @@ Standalone, model-agnostic Tkinter GUI for Compton-scattering physics
 engines. Plugs in physics packages through a shared `ModelAdapter`
 contract (`model_api.py`) instead of a hardcoded import, so this project
 and the physics packages it drives don't depend on each other's
-internals — only on the adapter shape. Python package name: `compton_guide`
+internals — only on the adapter shape. Python package name: `compton_suite.gui`
 (repo/brand name stylized `Compton-GUIde` — "GUI" capitalized on purpose).
 
-Four models are currently registered (`compton_guide/models.py`):
-- `kascade` (`models/kaskade/kascade.py`), an event-generator MC, always available (CPU only).
-- `xigma-i` (the `xigma_i` package, GPU/cupy-only `Compton` class), shown greyed-out in the Model menu if cupy/CUDA isn't usable.
-- `xigma-i-direct` (the `xigma_direct` package), brute-force per-particle binning, same GPU/cupy availability story as `xigma-i`.
+Four models are currently registered (`compton_suite.gui.models.py`):
+- `kascade` (`models/kascade/kascade.py`), an event-generator MC, always available (CPU only).
+- `xigma-i` (the `compton_suite.models.xigma_i` package, GPU/cupy-only `Compton` class), shown greyed-out in the Model menu if cupy/CUDA isn't usable.
+- `delta` (the `compton_suite.models.delta` package), brute-force per-particle binning, same GPU/cupy availability story as `xigma-i`.
 - `analytical` (`models/analytical/`), a fast closed-form estimate, always available; also runs automatically as a preview alongside whichever other model is active.
 
 ## Layout
 
 ```
-src/compton_guide/
+src/compton_suite/gui/
   app.py              # ComptonGuideApp(tk.Tk) — the actual GUI. ~1180 lines.
   models.py           # discover_models() — model registry setup. Deliberately
                        # has NO tkinter/matplotlib import, so it (and anything
@@ -25,7 +25,7 @@ src/compton_guide/
                        # ModelAdapter protocol, SampledSpectrum/BinnedSpectrum
                        # and their temporal/spatial/angular-range counterparts,
                        # validate_results(), MODEL_REGISTRY.
-  physics_constants.py  # Re-export of compton_io.constants (C_LIGHT, HBAR,
+  physics_constants.py  # Re-export of compton_suite.io.constants (C_LIGHT, HBAR,
                          # MEC2_EV, ...) for the GUI's local formula helpers.
   adapters/kascade_adapter.py  # KascadeAdapter — wraps kascade.py with zero
                                 # changes to that package's own code.
@@ -37,19 +37,19 @@ docs/new-features-plan.md  # Status table of which observable is ready /
                             # model. Keep updated when adding new observables.
 ```
 
-Note: `xigma_i`'s adapter (`gui_adapter.py`) lives in the `xigma_i` repo itself,
+Note: `xigma_i`'s adapter (`gui_adapter.py`) lives in the `xigma_i` package itself,
 not here — it was already-completed integration work at the time this repo
-was split out, and moving it would have touched that repo more than
-necessary. `compton_guide` only ever does `from xigma_i import gui_adapter`;
+was split out, and moving it would have touched that package more than
+necessary. `compton_suite.gui` only ever does `from compton_suite.models.xigma_i import gui_adapter`;
 decoupling is achieved without relocating that file.
 
 ## The ModelAdapter contract, and the bug it caused
 
 `model_api.py` defines `SampledSpectrum`/`BinnedSpectrum`/`BinnedTemporalEnvelope`/
-etc. `xigma_i/gui_adapter.py` (in the *other* repo) deliberately defines its
+etc. `xigma_i/gui_adapter.py` (in the *other* package) deliberately defines its
 own **structurally-identical but not-the-same-class** local dataclasses,
 rather than importing these — so that `xigma_i` doesn't have to depend on
-this GUI project. This is intentional and documented in both files.
+this GUI package. This is intentional and documented in both files.
 
 **Consequence: never use `isinstance(x, SampledSpectrum)` / `isinstance(x, BinnedSpectrum)`
 etc. to distinguish "sampled" from "binned" results if both branches check a
@@ -77,28 +77,28 @@ resulting values into the same flat `fields` dict passed to
 declares `beta_ff`/`phi_pol` (its own extras with no `kascade` analogue).
 Return `[]` if a model has nothing extra to add.
 
-## Parameter semantics & units (`physics_params/`), and `compton_io`
+## Parameter semantics & units (`physics_params/`), and `compton_suite.io`
 
-`src/compton_guide/physics_params/` implements `Conventions-and-units.md`'s
-design, but **the framework itself lives in `IO/` (package `compton_io`),
+`src/compton_suite/gui/physics_params/` implements `Conventions-and-units.md`'s
+design, but **the framework itself lives in `compton_suite.io` (sub-package `compton_suite.io`),
 not here** — this package is a thin re-export
-(`physics_params/__init__.py` imports `compton_io`'s `PhysicalQuantity`,
+(`physics_params/__init__.py` imports `compton_suite.io`'s `PhysicalQuantity`,
 the `PhysicalMeaning`/`WidthConvention`/`TimeConvention`/
 `AmplitudeConvention` enums, `canonical.py`'s conversion machinery,
 `ParameterSpec`/`ModelSpec`, `adapt_to_model`, verbatim, so
-`compton_guide.physics_params.PhysicalQuantity` is the literal same class
-as `xigma_i.params.PhysicalQuantity`, not an independently-defined
+`compton_suite.gui.physics_params.PhysicalQuantity` is the literal same class
+as `compton_suite.models.xigma_i.params.PhysicalQuantity`, not an independently-defined
 look-alike). An earlier version of this gave each consumer its own copy
 of the framework — structurally identical, not the same Python classes, so
 a `PhysicalQuantity` built with one copy's enums failed
 `validate_against_spec`'s `meaning` check against the other's `ModelSpec`.
-`compton_io` exists specifically to eliminate that; see its own
+`compton_suite.io` exists specifically to eliminate that; see its own
 `CLAUDE.md`.
 
 Physical constants also moved: `physics_constants.py` is a thin re-export
-of `compton_io.constants` (was its own hand-typed literal block before).
+of `compton_suite.io.constants` (was its own hand-typed literal block before).
 `adapters/kascade_adapter.py`'s `params_to_config` reads
-`compton_io.constants.MEC2_EV`/`E_CHARGE`/`C_LIGHT` directly too, rather
+`compton_suite.io.constants.MEC2_EV`/`E_CHARGE`/`C_LIGHT` directly too, rather
 than the live `kascade` module's own copies — one less independent
 representation of `c` floating around this codebase.
 
@@ -142,7 +142,7 @@ into independent copies again.
 python3 scripts/physics_params_demo.py
 ```
 
-Needs the dev-install (see root `CLAUDE.md`) so `xigma_i` and `compton_io`
+Needs the dev-install (see root `CLAUDE.md`) so `xigma_i` and `compton_suite.io`
 are importable; needs neither cupy nor a GPU.
 
 ## Running it
@@ -152,7 +152,7 @@ python3 scripts/run_gui.py
 ```
 
 Needs `numpy`, `matplotlib`, system Tk (`tkinter`), `pint` (for
-`compton_io`), and — only if you want `xigma-i`/`xigma-i-direct` enabled
+`compton_suite.io`), and — only if you want `xigma-i`/`delta` enabled
 rather than greyed-out — `cupy` + a working CUDA setup.
 
 On this dev machine specifically: system Python has no pip/cupy/matplotlib.
@@ -204,16 +204,16 @@ distribution, angular distribution, angular-range spectrum):
 
 - `xigma_i`'s spatial-distribution normalization is self-consistently
   rescaled against `calculate_total()` rather than derived from first
-  principles (see that repo's CLAUDE.md) — fine for visualization, not
+  principles (see that package's CLAUDE.md) — fine for visualization, not
   independently validated as an absolute physical calibration.
 - No automated test for `app.py`'s actual Tkinter rendering (only the
   adapter/model layer is covered by `headless_test.py`) — testing the real
   widget tree needs a display (or Xvfb), which hasn't been set up.
-- `Conventions-and-units.md` in this directory is implemented as `IO/`
+- `Conventions-and-units.md` in this directory is implemented as `compton_suite.io/`
   (framework + constants), re-exported here as
   `physics_params/`/`physics_constants.py`, plus, for xigma-i
   specifically, `xigma_i.params` (its own `XIGMA_SPEC`, built on
-  `compton_io`) in that model's own package — but not yet wired into
+  `compton_suite.io`) in that model's own package — but not yet wired into
   either adapter's `params_to_config`, so it doesn't change any current
   behavior yet. `kascade`'s own schema (`KASCADE_SPEC`) hasn't had the
   same schema-ownership move as xigma-i's, and still lives here.

@@ -209,7 +209,7 @@ class AnalyticalAdapter:
         # estimate_yield() actually computes (confirmed: this raw integral is
         # bit-identical across scenarios that only change pulse_energy_J).
         # Same self-consistent-rescale pattern already applied this session to
-        # xigma-i/xigma-i-direct's angular_spectrum vs total_yield mismatch:
+        # xigma-i/delta's angular_spectrum vs total_yield mismatch:
         # force the spectrum shape to integrate to the trusted total_yield,
         # rather than trust its own absolute normalization.
         _raw_integral = float(np.trapezoid(dNdE_per_eV, E_eV))

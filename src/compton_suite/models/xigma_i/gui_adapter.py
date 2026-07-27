@@ -219,12 +219,12 @@ def _attach_private_cache(res: CommonResults, *, params, gamma_0, sigma_gamma_0,
 # Capabilities / availability
 # ---------------------------------------------------------------------------
 _TRUST_NOTE = (
-    "Cross-validated against kascade and xigma-i-direct: total_yield agrees "
+    "Cross-validated against kascade and delta: total_yield agrees "
     "to <1% across both, angle-integrated spectrum shape to within a few "
     "percent (weighted-L1) at baseline configs (validation/"
     "run_cross_validation.py). Two open items remain, both flagged rather "
     "than silently reconciled: (1) this pipeline's own a0 formula disagrees "
-    "with compton_io.laser.GaussianParaxialLaser.a0_focus by ~49% relative "
+    "with compton_suite.io.laser.GaussianParaxialLaser.a0_focus by ~49% relative "
     "(validation/tier0_wiring.py's check_a0_formula_agreement) -- not yet "
     "resolved, xigma-i's own convention is used as-is; (2) angular_spectrum "
     "carries a known, deliberately-deferred ~2*pi normalisation residual "
