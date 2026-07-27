@@ -189,7 +189,13 @@ Resolved:
 - `models/xigma/src/xigma_i/params/spec.py`'s `XIGMA_SPEC`/
   `XIGMA_DIAGNOSTIC_SPEC` are still not wired into `params_to_config` --
   left as-is (still exercised by `gui/scripts/physics_params_demo.py`).
-  Finishing that wiring is real design work tied to item 5, still open.
+  Finishing that wiring is real design work tied to item 5, still open --
+  see `docs/refactor/parameter-framework-and-collision-params.md` for a
+  concrete plan (2026-07-27), including a real nuance about which fields
+  are genuinely convention-ambiguous versus already-derived. That doc's
+  Phase 1 (pruning `compton_io.collision.CollisionParams`'s dead
+  electron-statistics/geometry-offset fields) is unrelated but adjacent
+  and independently actionable.
 
 ### 2. Move `CollisionParams`/`build_params` into `compton_io`
 
