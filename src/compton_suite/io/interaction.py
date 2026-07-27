@@ -24,10 +24,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
 from .bunch import GaussianElectronBeam
+from .constants import C_LIGHT, E_CHARGE, HBAR, MEC2_EV
 from .laser import GaussianParaxialLaser
 
-__all__ = ["InteractionGeometry", "InteractionParameters"]
+__all__ = ["InteractionGeometry", "InteractionParameters", "recoil_parameter"]
 
 
 @dataclass(frozen=True)
@@ -50,3 +53,14 @@ class InteractionParameters:
     laser: GaussianParaxialLaser
     geometry: InteractionGeometry = InteractionGeometry()
     quantum: bool = False
+
+
+def recoil_parameter(gamma: float, wavelength_m: float) -> float:
+    """Quantum recoil parameter ``q = 4 * gamma * hbar * omega / (m_e * c^2)``.
+
+    Dimensionless; ``q << 1`` is the classical (Thomson) regime,
+    ``q ~ 1`` is the quantum (Klein-Nishina) regime.  Used by the GUI's
+    status bar and by kascade's classical/quantum cross-section toggle.
+    """
+    omega = 2.0 * np.pi * C_LIGHT / wavelength_m
+    return 4.0 * gamma * HBAR * omega / (MEC2_EV * E_CHARGE)

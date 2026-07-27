@@ -72,7 +72,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-from compton_suite.gui.physics_constants import C_LIGHT, E_CHARGE, HBAR, EPS0, MEC2_EV, MEC2_J
+from compton_suite.gui.physics_constants import C_LIGHT, MEC2_EV
+
+from compton_suite.io.laser import a0_from_fields, focal_radii_m
+from compton_suite.io.bunch import sigma_from_emittance
+from compton_suite.io.interaction import recoil_parameter
 
 from compton_suite.gui.model_api import ModelAdapter, SampledSpectrum, validate_results
 from compton_suite.gui.models import discover_models
@@ -97,45 +101,49 @@ def _float_or_none(var: tk.StringVar):
 
 
 def peak_a0(fields: dict):
-    """Peak normalised vector potential a_0 from the laser fields (or None)."""
+    """Peak normalised vector potential a_0 from the laser fields (or None).
+
+    Delegates to :func:`compton_suite.io.laser.a0_from_fields` -- the
+    single source of truth for a0 computation.
+    """
     lam_nm = _float_or_none(fields["laser_wavelength_nm"])
     e_mJ = _float_or_none(fields["laser_energy_mJ"])
     dur_ps = _float_or_none(fields["pulse_duration_ps"])
     R_m = _float_or_none(fields["rayleigh_length_m"])
     if None in (lam_nm, e_mJ, dur_ps, R_m) or min(lam_nm, e_mJ, dur_ps, R_m) <= 0:
         return None
-    lambda_L = lam_nm * 1e-9
-    omega_L = 2.0 * np.pi * C_LIGHT / lambda_L
-    N_L = (e_mJ * 1e-3) / (HBAR * omega_L)
-    sigma0_l = 0.5 * np.sqrt(R_m * lambda_L / np.pi)
-    sigma_par_L = C_LIGHT * (dur_ps * 1e-12)
-    peak_fL = 1.0 / ((2.0 * np.pi) ** 1.5 * sigma0_l ** 2 * sigma_par_L)
-    """my QED additions, recoil parameter recoil_q, Compton parameter X_quant"""
-    recoil_q = 4.0 * EPS0 * HBAR * omega_L / MEC2_J
-    """my QED additions, recoil parameter recoil_q, Compton parameter X_quant"""
-    k_a0 = (2.0 * E_CHARGE ** 2 * HBAR * C_LIGHT ** 2 * N_L
-            / (EPS0 * MEC2_J ** 2 * omega_L))
-    return float(np.sqrt(k_a0 * peak_fL))
+    sigma0_l = 0.5 * np.sqrt(R_m * lam_nm * 1e-9 / np.pi)
+    return float(a0_from_fields(
+        wavelength_m=lam_nm * 1e-9,
+        pulse_energy_J=e_mJ * 1e-3,
+        waist_rms_m=sigma0_l,
+        duration_rms_s=C_LIGHT * (dur_ps * 1e-12),
+    ))
 
 
 def sigma_e(emit_norm_mmmrad, beta_m, gamma):
-    """Transverse rms bunch size [m] from normalized emittance, beta [m] and gamma."""
-    if (emit_norm_mmmrad is None or beta_m is None or gamma is None
-            or emit_norm_mmmrad < 0 or beta_m <= 0 or gamma <= 0):
+    """Transverse rms bunch size [m] from normalized emittance, beta [m] and gamma.
+
+    Delegates to :func:`compton_suite.io.bunch.sigma_from_emittance`.
+    """
+    if emit_norm_mmmrad is None or beta_m is None or gamma is None:
         return None
-    emit_geom = emit_norm_mmmrad * 1e-6 / gamma
-    return float(np.sqrt(emit_geom * beta_m))
+    val = sigma_from_emittance(emit_norm_mmmrad * 1e-6, beta_m, gamma)
+    return val if val > 0 else None
 
 
 def laser_focal_radii(wavelength_nm, rayleigh_length_m):
-    """Return radial RMS, FWHM, and exp(-1/2) focal radii [m]."""
+    """Return radial RMS, FWHM, and exp(-1/2) focal radii [m].
+
+    Delegates to :func:`compton_suite.io.laser.focal_radii_m`.
+    """
     if (wavelength_nm is None or rayleigh_length_m is None
             or wavelength_nm <= 0 or rayleigh_length_m <= 0):
         return None
-    waist_1e2 = np.sqrt(rayleigh_length_m * wavelength_nm * 1e-9 / np.pi)
-    return (float(waist_1e2 / 2.0),
-        float(waist_1e2 * np.sqrt(np.log(2.0) / 2.0 )),
-        float(waist_1e2 / (2.0* np.sqrt(2.0))))
+    return focal_radii_m(
+        wavelength_m=wavelength_nm * 1e-9,
+        rayleigh_length_m=rayleigh_length_m,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -919,8 +927,7 @@ class ComptonGuideApp(tk.Tk):
             for key in ("nph_ne", "ne0", "ne1", "ne2"):
                 self.stat_lbls[key].config(text="N/A")
 
-        omega_L = 2.0 * np.pi * C_LIGHT / cfg.lambda_L
-        recoil_q = 4.0 * gamma * HBAR * omega_L / MEC2_J
+        recoil_q = recoil_parameter(cfg.eps0, cfg.lambda_L)
         self.stat_lbls["recoil_q"].config(text=f"{recoil_q:.6f}")
 
         self._render_plots(res, cmask)

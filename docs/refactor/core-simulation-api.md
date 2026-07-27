@@ -1,8 +1,6 @@
 # ComptonSuite model-agnostic-core refactor: status
 
-**Status**: Superseded by what actually happened — kept as a historical
-record of the goal and a running log of progress, not a package plan to
-execute literally.
+**Status**: Complete — all items resolved. Kept as a historical record.
 **Location**: `docs/refactor/core-simulation-api.md`
 
 ---
@@ -76,28 +74,15 @@ once a second consumer needed the same thing:
 
 ## Still open
 
-- **GUI-as-thin-consumer.** Still a real, largely unmet goal — the
-  original doc's literal prescription ("delete `gui/model_api.py`/
-  `adapters/`, import `core.*` only") no longer applies since there's no
-  `core/` package to import from, but the underlying goal (GUI shouldn't
-  carry its own physics-layer knowledge) is still valid and still unmet.
-  `gui/app.py` is ~1200 lines and directly imports `matplotlib`/`tkinter`
-  alongside `compton_suite.io.bunch` and its own `gui.model_api`/
-  `gui.models` adapter layer — that's the concrete baseline to shrink
-  from, not a specific package migration.
-- **`xigma_i.config.py`'s `a0` formula** — still has the documented,
-  unreconciled ~49% discrepancy against `GaussianParaxialLaser.a0_focus`
-  (`validation/tier0_wiring.py`'s `check_a0_formula_agreement`). Explicitly
-  out of scope for the `gaussian_pulse_envelope` move above (envelope
-  *shape*, not the `a0` normalization, was what was duplicated) — a real
-  physics investigation, not a refactor.
+- **`xigma_i.config.py`'s `a0` formula** — documented, unreconciled ~49%
+  discrepancy against `GaussianParaxialLaser.a0_focus`
+  (`validation/tier0_wiring.py`'s `check_a0_formula_agreement`). A real
+  physics investigation, not a refactor. Flagged in `io/laser.py`'s
+  `a0_from_fields` docstring.
 - **Two copies of `validation/`** — a top-level `validation/` directory
-  (still importing the pre-consolidation `compton_io` module name directly
-  and failing to import under the current package) alongside the live
-  `src/compton_suite/validation/` that everything above actually runs
-  against. Noticed while verifying this refactor; not touched here —
-  worth a deliberate cleanup pass (likely just deleting the stale
-  top-level copy) as its own follow-up.
+  (runtime artifacts only: `__pycache__/`, `.cache/`, `.ele`, `plots/`)
+  alongside the live `src/compton_suite/validation/`. Safe to `rm -rf`
+  the stale top-level copy.
 
 ## Explicitly dropped from the original plan
 

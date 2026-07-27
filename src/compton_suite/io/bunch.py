@@ -27,7 +27,8 @@ import numpy as np
 from .constants import C_LIGHT, E_CHARGE, MEC2_EV
 
 __all__ = ["MacroBunch", "GaussianElectronBeam", "validate", "sample_gaussian_bunch", "fit_gaussian",
-           "beam_from_shared_fields", "beta_star_from_sigma_emit", "divergence_from_sigma_emit"]
+           "beam_from_shared_fields", "beta_star_from_sigma_emit", "divergence_from_sigma_emit",
+           "sigma_from_emittance"]
 
 
 def beta_star_from_sigma_emit(sigma_m: float, emit_geom_m: float) -> float:
@@ -42,6 +43,25 @@ def divergence_from_sigma_emit(sigma_m: float, emit_geom_m: float) -> float:
     angle, unit-system-invariant (no conversion needed between SI and CGS
     callers)."""
     return emit_geom_m / sigma_m
+
+
+def sigma_from_emittance(emit_norm_m: float, beta_m: float, gamma: float) -> float:
+    """Transverse rms beam size [m] from normalised emittance, beta function,
+    and Lorentz gamma.
+
+    ``sigma = sqrt(emit_geom * beta)`` where
+    ``emit_geom = emit_norm / gamma``.
+
+    All inputs and the output are SI.  Returns 0.0 for non-physical
+    inputs (negative emittance, non-positive beta/gamma) rather than
+    raising, so the GUI can display "--" gracefully.
+    """
+    if emit_norm_m is None or beta_m is None or gamma is None:
+        return 0.0
+    if emit_norm_m < 0 or beta_m <= 0 or gamma <= 0:
+        return 0.0
+    emit_geom = emit_norm_m / gamma
+    return float(np.sqrt(emit_geom * beta_m))
 
 
 @dataclass

@@ -291,7 +291,7 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
 
     delta_x = g("x_mismatch_mm") * 1e-3
     delta_y = g("y_mismatch_mm") * 1e-3
-    delta_z = g("z_mismatch_mm") * 1e-3 + 2.99792458e8 * (g("time_mismatch_ps") * 1e-12)
+    delta_z = g("z_mismatch_mm") * 1e-3 + _C_LIGHT_M * (g("time_mismatch_ps") * 1e-12)
 
     theta_x_col = g("theta_x_col_mrad") * 1e-3
     theta_y_col = g("theta_y_col_mrad") * 1e-3

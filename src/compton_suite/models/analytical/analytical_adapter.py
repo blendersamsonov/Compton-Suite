@@ -21,10 +21,24 @@ import numpy as np
 from compton_suite.io.bunch import GaussianElectronBeam, MacroBunch, fit_gaussian
 from compton_suite.io.constants import C_LIGHT, E_CHARGE, HBAR
 from compton_suite.io.io_formats.sdds import load_elegant_ele
-from compton_suite.io.laser import GaussianParaxialLaser
 from compton_suite.io.photons import BinnedSpectrum
+from compton_suite.io import (
+    PhysicalMeaning as _PhysicalMeaning,
+    PhysicalQuantity as _PhysicalQuantity,
+    TimeConvention as _TimeConvention,
+    adapt_to_model as _adapt_to_model,
+    params_to_floats as _params_to_floats,
+)
+from compton_suite.io.bunch import beam_from_shared_fields as _beam_from_shared_fields
+from compton_suite.io.laser import laser_from_shared_fields as _laser_from_shared_fields
 
 from . import analytical
+
+# Analytical shares kascade's duration conventions (same raw GUI fields,
+# same sigma_par_e/sigma_par_L meaning) -- reuse its ModelSpec rather than
+# duplicating a spec that would be byte-identical.
+from compton_suite.models.kascade.params.spec import KASCADE_SPEC as _KASCADE_SPEC
+_DURATION_SPEC = {k: _KASCADE_SPEC[k] for k in ("sigma_par_e", "sigma_par_L")}
 
 
 class ParamError(Exception):
@@ -108,6 +122,9 @@ class AnalyticalAdapter:
     def extra_params(self) -> list[tuple[str, float, str]]:
         return [("Collimation half-angle (mrad)", 1.0, "theta_col_mrad")]
 
+    def extra_choices(self) -> dict[str, list[str]]:
+        return {}
+
     def params_to_config(self, fields: dict, quantum: bool = False):
         g = lambda k: _float(fields, k)
 
@@ -115,40 +132,47 @@ class AnalyticalAdapter:
         # Electrons-panel convention every other adapter already uses
         # (kascade_adapter.py: eps0 = mean_energy_MeV*1e6/MEC2_EV, i.e.
         # this field is used directly as total-energy/mec2 -- not a
-        # kinetic-energy field at the GUI-field level). Converted to
-        # GaussianElectronBeam's kinetic_energy_eV convention explicitly
-        # (kinetic = total - rest mass) so the two conventions don't get
-        # silently conflated.
+        # kinetic-energy field at the GUI-field level).
         from compton_suite.io.constants import MEC2_EV
         gamma0 = g("mean_energy_MeV") * 1e6 / MEC2_EV
-        kinetic_energy_eV = (gamma0 - 1.0) * MEC2_EV
+        sigma_eps_rel = g("rel_spread_pct") / 100.0
 
-        emit_geom_x_m = g("emit_x_mmmrad") * 1e-6 / gamma0
-        emit_geom_y_m = g("emit_y_mmmrad") * 1e-6 / gamma0
+        emit_x = g("emit_x_mmmrad") * 1e-6 / gamma0
+        emit_y = g("emit_y_mmmrad") * 1e-6 / gamma0
         beta_x_m, beta_y_m = g("beta_x_m"), g("beta_y_m")
-        sigma_x_m = np.sqrt(emit_geom_x_m * beta_x_m) if beta_x_m > 0 else 0.0
-        sigma_y_m = np.sqrt(emit_geom_y_m * beta_y_m) if beta_y_m > 0 else 0.0
+        sigma_x_m = np.sqrt(emit_x * beta_x_m) if beta_x_m > 0 else 0.0
+        sigma_y_m = np.sqrt(emit_y * beta_y_m) if beta_y_m > 0 else 0.0
 
-        beam = GaussianElectronBeam(
-            bunch_charge_C=g("charge_nC") * 1e-9,
-            kinetic_energy_eV=kinetic_energy_eV,
-            rel_energy_spread_rms=g("rel_spread_pct") / 100.0,
-            sigma_x_m=max(sigma_x_m, 1e-12),
-            sigma_y_m=max(sigma_y_m, 1e-12),
-            emit_geom_x_m=max(emit_geom_x_m, 1e-30),
-            emit_geom_y_m=max(emit_geom_y_m, 1e-30),
-            sigma_t_s=max(g("bunch_duration_ps") * 1e-12, 1e-15),
-        )
+        # --- duration conversion through the canonical framework ---
+        durations = _params_to_floats(_adapt_to_model({
+            "sigma_par_e": _PhysicalQuantity(
+                g("bunch_duration_ps"), "picosecond",
+                _PhysicalMeaning.BUNCH_LENGTH, _TimeConvention.SIGMA_INTENSITY_RMS,
+            ),
+            "sigma_par_L": _PhysicalQuantity(
+                g("pulse_duration_ps"), "picosecond",
+                _PhysicalMeaning.PULSE_DURATION, _TimeConvention.SIGMA_INTENSITY_RMS,
+            ),
+        }, _DURATION_SPEC))
+        sigma_par_e, sigma_par_L = durations["sigma_par_e"], durations["sigma_par_L"]
 
-        R_sf = g("rayleigh_length_m")
+        # --- laser ---
         lambda_L = g("laser_wavelength_nm") * 1e-9
-        waist_rms = 0.5 * np.sqrt(max(R_sf, 0.0) * lambda_L / np.pi) if R_sf > 0 else 1e-9
-        pulse = GaussianParaxialLaser(
-            pulse_energy_J=g("laser_energy_mJ") * 1e-3,
-            wavelength_m=lambda_L,
-            waist_rms_x_m=max(waist_rms, 1e-9),
-            waist_rms_y_m=max(waist_rms, 1e-9),
-            duration_rms_s=max(g("pulse_duration_ps") * 1e-12, 1e-15),
+        pulse_energy_J = g("laser_energy_mJ") * 1e-3
+        R_sf = g("rayleigh_length_m")
+        sigma0_l = 0.5 * np.sqrt(max(R_sf, 0.0) * lambda_L / np.pi) if R_sf > 0 else 1e-9
+
+        # --- build shared representations via io/ ---
+        beam = _beam_from_shared_fields(
+            eps0=gamma0, sigma_eps_rel=sigma_eps_rel,
+            emit_x=max(emit_x, 1e-30), emit_y=max(emit_y, 1e-30),
+            sigma0_x=max(sigma_x_m, 1e-12), sigma0_y=max(sigma_y_m, 1e-12),
+            sigma_par_e=max(sigma_par_e, 1e-12),
+            N_e=g("charge_nC") * 1e-9 / E_CHARGE,
+        )
+        pulse = _laser_from_shared_fields(
+            lambda_L=lambda_L, sigma0_l=max(sigma0_l, 1e-9),
+            sigma_par_L=max(sigma_par_L, 1e-9), pulse_energy_J=pulse_energy_J,
         )
 
         cfg = AnalyticalConfig(

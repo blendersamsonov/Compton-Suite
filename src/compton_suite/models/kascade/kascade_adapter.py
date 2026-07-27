@@ -110,6 +110,9 @@ class KascadeAdapter:
     def extra_params(self) -> list[tuple[str, float, str]]:
         return []
 
+    def extra_choices(self) -> dict[str, list[str]]:
+        return {}
+
     def params_to_config(self, fields: dict, quantum: bool = False):
         """Convert the GUI fields into a physics Config plus a driver dict.
 

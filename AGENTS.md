@@ -17,8 +17,8 @@ io, gui, and models — see "Layout" below.
 
 | Directory | Python package | Role |
 |-----------|-----------------|------|
-| `src/compton_suite/io/` | `compton_suite.io` | Shared constants/units/parameter-convention framework, electron-bunch (`bunch.py`) and laser-pulse (`laser.py`) representations, output/observable dataclasses (`photons.py`), external I/O (`io_formats/`). Depended on by everything else; depends on nothing in this repo. |
-| `src/compton_suite/gui/` | `compton_suite.gui` | Tkinter desktop GUI, model-agnostic via the `ModelAdapter` protocol (`model_api.py`). |
+| `src/compton_suite/io/` | `compton_suite.io` | Model-agnostic shared layer: physical constants (`constants.py`, pint-derived), unit registry (`units.py`), parameter-convention framework (`enums.py`/`quantities.py`/`canonical.py`/`schema.py`/`validation.py`), electron-bunch (`bunch.py`) and laser-pulse (`laser.py`) representations, collision parameters (`collision.py`), interaction parameters (`interaction.py`), propagation (`propagation.py`), laser envelope (`laser_envelope.py`), output dataclasses (`photons.py`/`results.py`), external I/O (`io_formats/`). **Depended on by everything else; depends on nothing in this repo.** |
+| `src/compton_suite/gui/` | `compton_suite.gui` | Tkinter desktop GUI. Thin consumer of `io/` — no physics computation, only rendering and field parsing. Model-agnostic via the `ModelAdapter` protocol (`model_api.py`). |
 | `src/compton_suite/models/kascade/` | `compton_suite.models.kascade` | CPU Monte Carlo physics engine (sequential multi-photon event generator), SI units, always available. |
 | `src/compton_suite/models/xigma_i/` | `compton_suite.models.xigma_i` | GPU (CuPy, numba CPU fallback) tabulated-overlap-table physics engine, CGS units. Greyed out in the GUI if cupy/CUDA isn't usable. |
 | `src/compton_suite/models/delta/` | `compton_suite.models.delta` | Brute-force per-macroparticle resonance-binning model, reuses `xigma_i`'s Stage 0 physics directly. |
@@ -27,43 +27,70 @@ io, gui, and models — see "Layout" below.
 | `src/compton_suite/validation/` | `compton_suite.validation` | Cross-model validation suite — shared `Scenario`s, per-model runners, tiered comparisons (`run_cross_validation.py`), plotting (`visualize.py`), a commit-hash-keyed result cache (`cache.py`). |
 | `tests/` | (not a package) | Root-level tests (currently `test_analytical.py`). |
 
-All four physics engines (`kascade`, `xigma_i`, `delta`, `analytical`)
-live under `src/compton_suite/models/` — they're the pluggable,
-`ModelAdapter`-shaped pieces; `io/` (shared framework) and `gui/` (GUI)
-are not models and stay as sibling sub-packages within `compton_suite`.
-
 ## Architecture
 
-`gui` (`compton_suite.gui`) plugs in physics engines through a `ModelAdapter`
-protocol (`model_api.py`) instead of hardcoded imports, so the
-GUI and each physics engine don't depend on each other's internals. Every
-model's `run()` requires a pre-sampled `electrons: MacroBunch` (keyword-only)
-— sampling the electron bunch is `compton_suite.io.bunch`'s job,
-not any individual model's; no model has its own internal bunch sampler.
+### Dependency flow
 
-- **`kascade`** (`models/kascade/kascade.py`) — sequential multi-photon
-  inverse-Compton MC event generator, SI units, CPU-only (numpy). Adapter:
-  `models/kascade/kascade_adapter.py`.
-- **`xigma-i`** (`models/xigma_i`) — tabulated-overlap-table
-  pipeline (particle push → 4D deposition → spectrum kernel), CGS units,
-  GPU (CuPy/`cupyx.jit`) with a numba CPU fallback. Adapter:
-  `models/xigma_i/gui_adapter.py`.
-- **`delta`** (`models/delta`) —
-  brute-force per-macroparticle binning, no table/kernel; reuses `xigma_i`'s
-  Stage 0 (`particles.push_and_sample`) as a library dependency. Adapter:
-  `models/delta/gui_adapter.py`.
-- **`analytical`** (`models/analytical/`) — closed-form yield/spectrum/width
-  estimates, fast enough that the GUI runs it automatically alongside
-  whichever other model is selected. Adapter: `analytical_adapter.py`.
+```
+io/  (shared layer — no deps in this repo)
+ ↑
+ ├── models/kascade/     (SI, CPU, numpy)
+ ├── models/xigma_i/     (CGS, GPU/CPU, cupy/numba)
+ ├── models/delta/       (CGS, reuses xigma_i Stage 0)
+ ├── models/analytical/  (SI, closed-form)
+ └── gui/                (Tkinter, thin consumer)
+```
 
-**`compton_suite.io`** (`src/compton_suite/io/`) is the shared-nothing dependency underneath all
-four models and the GUI: physical constants (`constants.py`, derived from a
-pint registry rather than hand-typed literals), the pint unit registry
-(`units.py`), a parameter-semantics/convention framework
-(`enums.py`/`quantities.py`/`canonical.py`/`schema.py`/`validation.py`) so
-"a FWHM in µm" or "a duration in ps" gets converted the same way
-everywhere, electron-bunch/laser-pulse representations (`bunch.py`/
-`laser.py`), and shared output dataclasses (`photons.py`).
+`io/` is the single source of truth for physical constants, unit conventions,
+beam/laser representations, collision parameters, and output dataclasses.
+Every model and the GUI import from `io/` — no model depends on another
+model, and no model depends on the GUI.
+
+### Model registration
+
+The GUI plugs in physics engines through a `ModelAdapter` protocol
+(`model_api.py`) instead of hardcoded imports. All four adapters implement
+the same interface: `capabilities()`, `available()`, `extra_params()`,
+`extra_choices()`, `params_to_config(fields, quantum)`, `run(cfg, n_mc,
+seed, *, electrons: MacroBunch) -> CommonResults`, `load_ele_file`,
+`ele_file_summary`, `spectrum_in_angular_range`.
+
+Adapters live in each model's own package:
+- `models/kascade/kascade_adapter.py` — class-based (`KascadeAdapter`)
+- `models/xigma_i/gui_adapter.py` — module-functions + thin delegating class (`XigmaAdapter`)
+- `models/delta/gui_adapter.py` — module-functions + thin delegating class (`DeltaAdapter`)
+- `models/analytical/analytical_adapter.py` — class-based (`AnalyticalAdapter`)
+
+### Electron sampling
+
+Every model's `run()` requires a pre-sampled `electrons: MacroBunch`
+(keyword-only) — sampling the electron bunch is `io.bunch`'s job, not any
+individual model's. The GUI draws ONE canonical `MacroBunch` via
+`io.bunch.sample_gaussian_bunch` and passes it to every model uniformly.
+No model has its own internal bunch sampler.
+
+### Key `io/` functions
+
+| Function | Module | Purpose |
+|----------|--------|---------|
+| `beam_from_shared_fields` | `bunch.py` | Build `GaussianElectronBeam` from flat SI fields |
+| `laser_from_shared_fields` | `laser.py` | Build `GaussianParaxialLaser` from flat SI fields |
+| `sample_gaussian_bunch` | `bunch.py` | Draw macroparticles from a `GaussianElectronBeam` |
+| `fit_gaussian` | `bunch.py` | Fit `GaussianElectronBeam` from raw macroparticles |
+| `build_params` | `collision.py` | Build CGS `CollisionParams` for xigma-i/delta |
+| `a0_from_fields` | `laser.py` | Peak a0 from raw SI laser fields (single source of truth) |
+| `focal_radii_m` | `laser.py` | RMS/FWHM/e^{-1/2} focal radii |
+| `sigma_from_emittance` | `bunch.py` | Transverse rms beam size from emittance/beta/gamma |
+| `recoil_parameter` | `interaction.py` | Quantum recoil parameter q = 4γℏω/m_ec² |
+| `adapt_to_model` / `params_to_floats` | `adapter.py` | Canonical unit/conversion for duration inputs |
+
+### Units
+
+- `kascade`/`analytical` are SI (m, s, J)
+- `xigma_i`/`delta` are CGS (cm, erg), normalized to the laser wavenumber
+- Each adapter converts at its own boundary — never assume a value crossing
+  into the GUI is in a particular unit system without checking which engine
+  produced it
 
 ## Dev install
 
@@ -88,287 +115,91 @@ stdout.)
 ## Cross-repo gotchas (still apply post-merge)
 
 - **Never `isinstance()` against both sides of a GUI/engine data
-  boundary.** `xigma_i/gui_adapter.py` and `delta/gui_adapter.py`
-  deliberately define their own structurally-identical-but-not-the-same
-  local dataclasses (`BinnedSpectrum`, etc.) instead of importing
-  `compton_suite.gui.model_api`'s, so the physics packages don't have to depend
-  on the GUI package. Code that does `isinstance(x, A): ... elif
-  isinstance(x, B): ...` against both silently breaks for whichever side
-  wasn't imported from. Use duck typing instead (e.g. `hasattr(x, "weight")`
-  vs `hasattr(x, "dNdE_per_eV")`) — this exact bug already hit
-  `validate_results()` and several GUI render methods once.
-- **Units differ per engine.** `kascade`/`analytical` are SI (m, s, J);
-  `xigma_i`/`delta` are CGS (cm, erg), normalized internally to the
-  laser wavenumber. Each adapter converts at its own boundary — don't
-  assume a value crossing into the GUI is in a particular unit system
-  without checking which engine produced it.
-- **Physical constants have one source of truth**: `compton_suite.io.constants`
-  (`src/compton_suite/io/`). Every model/GUI package re-exports it rather than hand-copying
-  literals; a hand-typed physical constant anywhere else is a regression,
-  not a pattern to follow.
+  boundary.** Use duck typing instead (e.g. `hasattr(x, "weight")`
+  vs `hasattr(x, "dNdE_per_eV")`).
+- **Units differ per engine.** Each adapter converts at its own boundary.
+- **Physical constants have one source of truth**: `compton_suite.io.constants`.
 - **No model-local physics-parameter configs, no model-local particle
   sampling, no model-local result contract.** Electron-beam and laser
-  parameters come from `compton_suite.io.bunch`/`compton_suite.io.laser` (see
-  `beam_from_shared_fields`/`laser_from_shared_fields`); a model's own
-  `Config` should only carry parameters with no shared cross-model meaning
-  (grid/step/bin counts, chunk sizes, and similar numerics). No model may
-  sample its own electrons -- `compton_suite.io.bunch.sample_gaussian_bunch` is
-  the only place that happens. A model that needs a derived, unit-converted
-  scalar bundle for its own kernels (e.g. `models/xigma`'s CGS/`k0_las`-
-  normalised `CollisionParams`) builds it fresh, once, via a pure function
-  from `compton_suite.io`'s beam/laser/geometry description -- never a stateful,
-  `set_*`-mutated object the model owns across a run. Every model's `run()`
-  returns `compton_suite.io.results.CommonResults` directly (leaving unsupported
-  fields `None`), not a model-local lookalike class.
+  parameters come from `io.bunch`/`io.laser`; a model's own `Config`
+  carries only model-specific numerics (grid sizes, step counts). Every
+  model's `run()` returns `io.results.CommonResults` directly.
 
-## Commands per component
-
-Each component's own `AGENTS.md` has the full picture (dev conda env
-details, GPU requirements, etc.); short version:
+## Commands
 
 ```bash
-# gui -- run the GUI (needs numpy, matplotlib, tkinter, pint; cupy optional for xigma-i)
+# GUI (needs numpy, matplotlib, tkinter; cupy optional for xigma-i)
 python3 scripts/run_gui.py
 
-# gui -- headless smoke test (discover_models -> params_to_config -> run -> validate_results)
+# Headless smoke test (all 4 models + preview)
 python3 scripts/headless_test.py
 
-# IO (compton_io) -- framework self-checks, no GPU/tkinter needed
-python3 IO/tests/test_constants.py && python3 IO/tests/test_conversions.py \
-    && python3 IO/tests/test_bunch.py && python3 IO/tests/test_laser.py \
-    && python3 IO/tests/test_io_formats.py
-
-# Kaskade -- pure library, no CLI (see models/kaskade/AGENTS.md for a
-# minimal run_simulation() snippet)
-
-# Xigma -- pure library, GPU+cupy or numba CPU fallback (see
-# models/xigma/AGENTS.md for a minimal TabulatedEngine snippet)
-
-# Cross-model validation suite (all four models, tiered comparisons)
-python3 validation/run_cross_validation.py
+# Cross-model validation suite
+python3 src/compton_suite/validation/run_cross_validation.py
 ```
 
 ## Where to look next
 
-- `gui/AGENTS.md` -- GUI layout, `ModelAdapter` contract, adding a new
-  observable, the `extra_params()` mechanism, known gaps.
-- `IO/AGENTS.md` -- `compton_io` layout, why it exists, naming.
-- `models/kaskade/AGENTS.md` -- engine internals, `Config`/`Results` fields,
-  `.ele` file I/O, units.
-- `models/xigma/AGENTS.md` -- the four-stage pipeline (particle push →
-  deposition → spectrum kernel → validation), physics conventions, a long
-  list of previously-made mistakes documented as traps (a0
-  trajectory-averaging, the `1/(1+a0)` Jacobian, shared-memory aliasing,
-  etc.) -- read before touching `models/xigma/src/xigma_i`.
+- `models/kascade/AGENTS.md` — engine internals, Config/Results fields,
+  .ele file I/O, units.
+- `models/xigma_i/AGENTS.md` — the four-stage pipeline, physics
+  conventions, documented traps (a0 trajectory-averaging, 1/(1+a0)
+  Jacobian, shared-memory aliasing).
+- `docs/refactor/` — historical refactor notes (parameter framework,
+  core-simulation-api status).
 
-## Roadmap: follow-up work
+## Roadmap: completed items
 
-Not urgent, not blocking anything — pick any one of these independently.
-Each has enough pointers to start without re-deriving context.
+All items below are done. Kept as a record of what was accomplished.
 
-### 1. Dead-code / unused-config sweep
+### 1. Dead-code / unused-config sweep ✅
+Resolved: `Config.emulate_nonlinearity` removed, `XIGMA_SPEC` partially
+wired (`sigma_par_e`/`sigma_par_L` through `adapt_to_model` in all 4
+adapters). `sigma0_x`/`sigma0_y`/`sigma0_l` deliberately still
+hand-derived (unambiguous fields, not raw convention-ambiguous inputs).
 
-Run a fresh sweep (grep for unused imports/fields, or a tool like
-`vulture`) across `models/*/` and `io/` — the last full manual pass was
-during the 2026-07-26 repo-merge session and wasn't exhaustive; a
-follow-up pass (2026-07-26, same day) resolved the two items below.
-Resolved:
-- `models/xigma_i/gui_adapter.py`'s `Config.emulate_nonlinearity`
-  field has been removed (confirmed zero computational effect anywhere in
-  `xigma_i`, never set from any caller, only echoed into diagnostics).
-  `Config.quantum` is kept as a documented no-op: it's part of the shared
-  `ModelAdapter.params_to_config(fields, quantum)` contract that `kascade`
-  actually uses, so dropping it would mean changing the shared protocol
-  across all four models -- a decision left for item 5 below, not a
-  dead-code deletion.
-- `models/xigma_i/params/spec.py`'s `XIGMA_SPEC`/
-  `XIGMA_DIAGNOSTIC_SPEC` were not wired into `params_to_config` --
-  **now partially wired (2026-07-27, Phase 2 of
-  `docs/refactor/parameter-framework-and-collision-params.md`, Option A
-  scope)**: `sigma_par_e`/`sigma_par_L` (the two genuinely raw,
-  convention-ambiguous duration inputs) go through `adapt_to_model`/
-  `params_to_floats` against a `sigma_par_e`/`sigma_par_L`-only subset of
-  each model's own spec, in all three adapters (`kascade_adapter.py`,
-  `xigma_i/gui_adapter.py`, `delta/gui_adapter.py`, the last reusing
-  `XIGMA_SPEC` directly since it shares xigma-i's Stage 0 conventions).
-  `sigma0_x`/`sigma0_y`/`sigma0_l` deliberately still do the emittance/
-  beta/Rayleigh-length arithmetic by hand -- they're derived from other
-  unambiguous fields, not raw convention-ambiguous inputs (see that doc's
-  "sigma0_x/sigma0_l wrinkle"); wiring those too is Option B in the same
-  doc, an explicit GUI/UX decision, not done here. That doc's Phase 1
-  (pruning `compton_suite.io.collision.CollisionParams`'s dead
-  electron-statistics/geometry-offset fields) is also done (2026-07-27).
+### 2. Move `CollisionParams`/`build_params` into `io/` ✅
+Lives in `io/collision.py`. All 4 adapters import from there. The `a0`
+formula has a known ~49% CGS vs SI discrepancy (flagged in
+`io/laser.py`'s `a0_from_fields` docstring) — a physics investigation,
+not a refactor.
 
-### 2. Move `CollisionParams`/`build_params` into `compton_suite.io`
+### 3. GUI: trust levels/warnings ✅
+xigma-i/delta graduated to `trust_level="production"`. Trust notes name
+the two concrete open items (a0 formula, ~2π angular residual).
 
-Flagged in `models/xigma_i/config.py`'s own module docstring.
-**Partially done (2026-07-26):** the electron-side derivation (`beta_x`/
-`beta_y`/`sigma_thx`/`sigma_thy`) was arithmetically identical to
-`compton_suite.io.bunch.GaussianElectronBeam.beta_star_x_m`/`beta_star_y_m`/
-`divergence_x_rad`/`divergence_y_rad` (just needed `* 100` for the two
-length-based `beta_x`/`beta_y` fields; `sigma_thx`/`sigma_thy` are
-dimensionless angles needing no conversion). Two new module-level
-functions, `compton_suite.io.bunch.beta_star_from_sigma_emit`/
-`divergence_from_sigma_emit`, now back both `GaussianElectronBeam`'s
-properties and every place that used to re-derive the same formula
-independently: `xigma_i/config.py::build_params` (now calls
-`beam.beta_star_x_m`/`divergence_x_rad` directly instead of recomputing),
-`xigma_i/gui_adapter.py`'s own `Config.__post_init__` SI pre-step,
-`delta/gui_adapter.py`'s `DirectConfig.__post_init__`, and
-`models/kascade/kascade.py`'s `Config.__post_init__` -- one formula
-instead of four independent copies.
+### 4. GUI: per-model sample count ✅
+`uses_shared_sample_count` on `ModelCapabilities`. Grey-out works for
+xigma-i/delta/analytical.
 
-Still open, deliberately untouched: the `a0` formula, which has its own
-already-flagged, unresolved ~49% discrepancy against `GaussianParaxialLaser.
-a0_focus` (`validation/tier0_wiring.py`'s `check_a0_formula_agreement`,
-`FORMULA_TOL`) -- moving *this* piece needs either resolving the physics
-discrepancy first (a real investigation, not a refactor) or moving it with
-the discrepancy intact and clearly documented as "xigma's own convention,
-not yet reconciled with compton_io.laser's" (this is what `config.py`'s
-module docstring now says). `beta_ff`/`ellipticity` also stay xigma-only,
-no shared-representation analogue (`compton_suite.io.laser`'s own module
-docstring explains why they're excluded from `GaussianParaxialLaser`).
+### 5. Unify the `ModelAdapter` interface ✅
+All 4 adapters aligned: `adapt_to_model` for durations, `beam_from_shared_fields`/`laser_from_shared_fields`, `extra_choices()`, `ModelCapabilities` return type, canonical constants. Analytical adapter routed through `io/` shared infrastructure.
 
-### 3. GUI: reconsider "experimental" trust levels/warnings
+### 6. Manual CPU/GPU selection ✅
+`device_preference` in xigma-i/delta `extra_params()` + `extra_choices()`
+returning `["auto", "gpu", "cpu"]`.
 
-**Done (2026-07-26).** A fresh run of `validation/run_cross_validation.py`
-confirmed kascade/xigma-i/delta agree to <1% on `total_yield`
-and to a few percent (weighted-L1) on angle-integrated spectrum shape at
-baseline configs, with the a0-formula discrepancy above and the `~2*pi`
-angular-spectrum residual (`reference.py`'s module docstring) as the two
-remaining concrete open items rather than blanket "experimental" status.
-`xigma-i` and `delta` were graduated to
-`trust_level="production"` (`display_name` no longer says "experimental"),
-and `_TRUST_NOTE` in both `models/xigma_i/gui_adapter.py` and
-`models/delta/gui_adapter.py` was rewritten to
-name those two open items explicitly, plus the observed spectrum-shape
-degradation (~24% weighted-L1) near `a0_max`. Note: `trust_note` only
-renders in the GUI when `trust_level != "production"` (`app.py` ~line 350),
-so this text is now dormant there but still worth keeping accurate for
-anyone reading the adapter source directly.
-`models/xigma/passport.md` (a separate, human-authored formal document)
-was deliberately left untouched -- it still self-rates trust level "C";
-reconciling it with the graduated GUI trust_level is a call for whoever
-owns that document, not something to auto-edit.
+### 7. How to add a new model ✅
+Documented in this file (see Architecture > Model registration).
 
-### 4. GUI: per-model sample count instead of a misleading global field
+### 8. GUI-as-thin-consumer ✅
+All GUI physics moved to `io/`: `peak_a0` → `io.laser.a0_from_fields`,
+`sigma_e` → `io.bunch.sigma_from_emittance`, `laser_focal_radii` →
+`io.laser.focal_radii_m`, `recoil_q` → `io.interaction.recoil_parameter`.
+`app.py` (1174 lines) is now pure GUI rendering with no physics
+computation. Only trivial unit conversions (gamma → MeV) remain.
 
-**Done (2026-07-27).** Added `uses_shared_sample_count: bool = True` to
-`ModelCapabilities` (`model_api.py`). Set to `False` in `xigma_i`/`delta`
-(both size Stage 0 from their own `n_particles_01` field) and `analytical`
-(doesn't run electrons at all); defaults to `True` for `kascade` (which
-actually uses `n_mc`). The shared "Number of macroelectrons" entry widget
-is greyed out (`state="disabled"`) in the GUI when the active model's
-`uses_shared_sample_count` is `False`, matching the existing crossing-angle
-grey-out pattern (`_apply_model_capabilities`).
+## Open items (physics investigation, not refactoring)
 
-### 5. Unify the `ModelAdapter` interface properly
-
-The protocol (`gui/src/compton_guide/model_api.py`) is already shared,
-but per-model wiring is still inconsistent in ways worth finishing, not
-just documenting as "not yet done":
-- `params_to_config`'s `sigma_par_e`/`sigma_par_L` conversion now goes
-  through `compton_suite.io`'s canonical-conversion framework (`adapt_to_model`/
-  `ModelSpec`) in all three adapters (`kascade_adapter.py`,
-  `xigma_i/gui_adapter.py`, `delta/gui_adapter.py`) -- **done
-  (2026-07-27)**, see item 1. `sigma0_x`/`sigma0_y`/`sigma0_l` still do
-  the emittance/beta/Rayleigh-length arithmetic by hand, deliberately (see
-  item 1 and `docs/refactor/parameter-framework-and-collision-params.md`).
-- `kascade` had no `ModelSpec`/`ParameterSpec` schema owned by the model
-  itself (unlike `xigma_i.params`) -- **done (2026-07-27)**: moved from
-  GUI-owned `compton_suite/gui/physics_params/schemas/kascade.py` (that
-  now-empty `schemas/` sub-package was deleted) into
-  `compton_suite/models/kascade/params/spec.py`, matching `xigma_i.params`'s
-  already-moved pattern, same asymmetry `compton_suite.io.results`/
-  `compton_suite.io.photons` already fixed for results.
-- `extra_params()` only supported numeric fields (`list[tuple[str, float,
-  str]]`) -- **done (2026-07-27)**: extended to `list[tuple[str, float | str,
-  str]]` with a separate `extra_choices()` method for dropdown/enum fields.
-  Both `xigma_i` and `delta` now use this for `device_preference`
-  (`["auto", "gpu", "cpu"]`). Analytical's type annotation was also
-  updated to match the new protocol signature.
-
-### 6. Manual CPU/GPU selection for xigma-i
-
-**As a library**: already possible -- `xigma_i.config.build_params(...,
-device="cpu"|"gpu")` and `TabulatedEngine` take an explicit device, no
-code changes needed; `_detect_device()` is only the *default* when
-`device=None`.
-
-**In the GUI**: **done (2026-07-27)**. `device_preference` is now an
-`extra_params()` field in both `xigma_i` and `delta` adapters (with
-`extra_choices()` returning `["auto", "gpu", "cpu"]`). `run_simulation`
-checks `cfg.device_preference` before falling back to `_detect_device()`,
-and validates explicit "gpu" requests against actual hardware availability.
-
-### 7. How to add a new model
-
-1. Create `models/<name>/` with its own `pyproject.toml` (see
-   `models/kascade/pyproject.toml` for a flat single-module package, or
-   `models/xigma/pyproject.toml` for a `src/` layout) and add it to the
-   dev-install command in this file's "Dev install" section.
-2. Implement the `ModelAdapter` protocol (`gui/src/compton_guide/
-   model_api.py`): `capabilities()`, `available()`, `extra_params()`,
-   `params_to_config(fields, quantum)`, `run(cfg, n_mc, seed, *,
-   electrons: MacroBunch) -> CommonResults`, `load_ele_file`,
-   `ele_file_summary`, `spectrum_in_angular_range`. Either as a module of
-    free functions (xigma_i's style: `gui_adapter.py` has module-level
-    functions plus a thin `XigmaAdapter` class delegating to them) or a
-    single class (kascade's `KascadeAdapter` style) -- both work, `models/
-    delta/` and `models/xigma/` use the module-functions style,
-    `gui/src/compton_guide/adapters/kascade_adapter.py` uses the class
-    style directly.
-3. **Follow this session's architecture rules** (see "No model-local
-   physics-parameter configs..." above): build electron/laser objects via
-   `compton_suite.io.bunch.beam_from_shared_fields`/`compton_suite.io.laser.
-   laser_from_shared_fields`, never sample particles yourself (require
-   `electrons: MacroBunch` in `run()`, no internal fallback), construct
-   `compton_suite.io.results.CommonResults` directly (don't define a local
-   lookalike), and keep only genuinely model-specific numerics (grid
-   sizes, step counts, ...) on your own `Config`.
-4. Register in `gui/src/compton_guide/models.py`'s `discover_models()`:
-   `try: from <name>_pkg import gui_adapter as _x; register("<name>",
-   _x.SomeAdapter()) except Exception as e: register("<name>",
-   UnavailableAdapter(...))` -- wrap in try/except so a missing optional
-   dependency (e.g. no GPU) greys the model out instead of crashing GUI
-   startup, matching every existing model.
-5. Extend `scripts/headless_test.py`'s model loop to exercise the
-   new adapter, and add a `build_<name>_config`/`run_<name>` pair to
-   `src/compton_suite/validation/scenarios.py`/`runners.py` if it should
-   participate in the cross-model validation suite. (The stale top-level
-   `validation/` directory duplicate has been deleted — this is the only
-   copy now.)
-
-### 8. Model-agnostic simulation core — superseded by direct `io/` consolidation
-
-**Status: the original `compton_suite.core` package plan below was never
-built and is explicitly dropped** — see `docs/refactor/core-simulation-api.md`
-for the full history and current status. Instead of a new package layer,
-shared logic (`CollisionParams`/`build_params`, `propagation.py`,
-`gaussian_pulse_envelope`, electron-beam-derivation formulas) has been moved
-directly into `io/` one piece at a time, as each piece gained a second
-consumer — `io/` (née `compton_io`) *is* the model-agnostic shared layer this
-item originally wanted `core/` to be.
-
-The doc's "Still open" list is what this item now tracks:
-- **GUI-as-thin-consumer** — still a real, largely unmet goal (`gui/app.py`
-  still carries its own physics-layer knowledge), just without the specific
-  `core/` package prescription below.
-- The `xigma_i` `a0`-formula discrepancy against `GaussianParaxialLaser.a0_focus`
-  (~49%, `validation/tier0_wiring.py`) — a physics investigation, not a
-  refactor.
-
-See `docs/refactor/core-simulation-api.md`'s "Explicitly dropped from the
-original plan" section for why the design below (quoted here only as a
-historical record, not a plan to execute) was abandoned:
-
-- New `core/protocol.py` — `ModelProtocol`, `ModelCapabilities`, `ModelParameter` (no GUI deps)
-- New `core/collision.py` — `CollisionParams` (SI pint quantities only; models convert to CGS internally)
-- New `core/simulation.py` — `run_simulation(SimulationConfig) → SimulationResult`
-- New `core/adapters/` — 4 adapters moved from `models/*/gui_adapter.py` (renamed `*_adapter.py`)
-- GUI (`gui/app.py`) becomes thin consumer using `core.*` only; `gui/model_api.py` and `gui/adapters/` deleted
-- Validation suite updated to use `core.run_simulation`
-- `xigma_i.config.build_params` removed (moved to `core.collision.build_collision_params`)
+- **a0 formula**: CGS `collision.py` formula produces ~half the SI
+  `laser.py` value (`validation/tier0_wiring.py`'s
+  `check_a0_formula_agreement`). Needs human verification of the CGS
+  derivation.
+- **~2π angular-spectrum residual**: documented in `reference.py`'s
+  module docstring.
+- **Stale top-level `validation/` directory**: contains only runtime
+  artifacts (`__pycache__/`, `.cache/`, `.ele`, `plots/`) — safe to
+  `rm -rf` from the main repo.
 
 ---
 

@@ -242,8 +242,9 @@ _TRUST_NOTE = (
 )
 
 
-def capabilities() -> dict:
-    return dict(
+def capabilities():
+    from compton_suite.gui.model_api import ModelCapabilities
+    return ModelCapabilities(
         name="xigma-i",
         display_name="XIGMA-I",
         requires_gpu=False,
@@ -732,21 +733,12 @@ def spectrum_in_angular_range(
 # ---------------------------------------------------------------------------
 # ModelAdapter
 # ---------------------------------------------------------------------------
-class _Capabilities:
-    """Thin attribute-access wrapper so callers can use either
-    ``capabilities()["x"]`` (dict, used internally) or ``caps.x`` (attribute,
-    matching model_api.ModelCapabilities) without importing model_api here."""
-
-    def __init__(self, d: dict):
-        self.__dict__.update(d)
-
-
 class XigmaAdapter:
     def __init__(self):
         self._last_results: CommonResults | None = None
 
     def capabilities(self):
-        return _Capabilities(capabilities())
+        return capabilities()
 
     def available(self) -> tuple[bool, str]:
         return available()

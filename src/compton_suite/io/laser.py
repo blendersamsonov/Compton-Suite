@@ -25,7 +25,8 @@ import numpy as np
 
 from .constants import C_LIGHT, E_CHARGE, EPS0, HBAR, ME
 
-__all__ = ["GaussianParaxialLaser", "validate", "laser_from_shared_fields"]
+__all__ = ["GaussianParaxialLaser", "validate", "laser_from_shared_fields",
+           "a0_from_fields", "focal_radii_m"]
 
 
 @dataclass(frozen=True)
@@ -195,3 +196,62 @@ def laser_from_shared_fields(*, lambda_L: float, sigma0_l: float, sigma_par_L: f
         duration_rms_s=sigma_par_L / C_LIGHT,
         focus_z_m=focus_z_m,
     )
+
+
+def a0_from_fields(*, wavelength_m: float, pulse_energy_J: float,
+                    waist_rms_m: float, duration_rms_s: float) -> float:
+    """Peak normalised vector potential a_0 from raw SI laser fields.
+
+    This is the **single source of truth** for a0 computation across the
+    suite.  Every consumer (GUI live preview, analytical model, validation
+    cross-check) should call this rather than re-implementing the formula.
+
+    Constructs a temporary :class:`GaussianParaxialLaser` at focus (z=0)
+    and returns its ``a0_focus`` property.  The formula is the standard
+    SI plane-wave relation (spec Sec. 9, ``laser.py``'s ``a0_at``
+    docstring for the linear-polarization caveat)::
+
+        a0 = (e / (me * c * omega0)) * sqrt(2 * I0 / (eps0 * c))
+
+    where ``I0 = pulse_energy / ((2*pi)^1.5 * waist^2 * duration)``.
+
+    .. note::
+
+       The CGS equivalent in ``collision.py``'s ``build_params`` has a
+       known ~49% discrepancy against this SI formula
+       (``validation/tier0_wiring.py``'s ``check_a0_formula_agreement``).
+       This function is the authoritative SI implementation; the CGS
+       formula needs human verification and should not be treated as
+       equivalent until reconciled.
+    """
+    laser = GaussianParaxialLaser(
+        pulse_energy_J=pulse_energy_J,
+        wavelength_m=wavelength_m,
+        waist_rms_x_m=waist_rms_m,
+        waist_rms_y_m=waist_rms_m,
+        duration_rms_s=duration_rms_s,
+        focus_z_m=0.0,
+    )
+    return laser.a0_focus
+
+
+def focal_radii_m(*, wavelength_m: float, rayleigh_length_m: float) -> tuple[float, float, float]:
+    """Return ``(rms, fwhm, e^{-1/2})`` focal radii [m] for a round
+    Gaussian beam given its wavelength and Rayleigh length.
+
+    The three definitions commonly used in the literature:
+
+    * **RMS** (``sigma = w0 / 2``): the RMS of the intensity profile,
+      used by ``GaussianParaxialLaser``'s ``waist_rms_*_m`` fields.
+    * **FWHM** (``sigma * 2*sqrt(2*ln2)``): full width at half maximum
+      of the intensity profile.
+    * **e^{-1/2}** (``sigma * sqrt(2)``): the 1/e^2 intensity radius
+      (sometimes written w0 in laser-physics notation), which is
+      ``sqrt(Rayleigh * lambda / pi)``.
+    """
+    # waist_1e2 = 1/e^2 intensity radius = sqrt(R * lambda / pi)
+    waist_1e2 = np.sqrt(rayleigh_length_m * wavelength_m / np.pi)
+    rms = waist_1e2 / 2.0
+    fwhm = waist_1e2 * np.sqrt(np.log(2.0) / 2.0)
+    e_inv_sqrt = waist_1e2 / (2.0 * np.sqrt(2.0))
+    return (float(rms), float(fwhm), float(e_inv_sqrt))
