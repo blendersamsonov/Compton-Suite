@@ -43,6 +43,8 @@
   "41": "Compton-GUIde",
   "42": "New GUI observables: status per model",
   "43": "KASCADE",
+  "44": ".run",
+  "45": ".available",
   "46": "opencode.json",
   "50": "graphify.js",
   "53": "ComptonSuite model-agnostic-core refactor: status"
