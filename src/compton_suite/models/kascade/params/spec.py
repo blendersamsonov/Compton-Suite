@@ -1,24 +1,30 @@
-"""ModelSpec for kascade (formerly dfe5_compton_mc), at the boundary its own
-adapter already uses: ``kascade.Config``'s fields.
+"""ModelSpec for kascade, at the boundary its own adapter already uses:
+``kascade.Config``'s fields.
 
-Verified field-by-field against ``MC-Kost/kascade.py``:
+Verified field-by-field against ``kascade.py``:
 
 * ``laser_density``'s docstring/body Gaussian-izes both the transverse
   extent via ``sigma0_l`` (``sp2 = sigma0_l**2 * (1 + (u/R_sf)**2)``, an
   RMS width of the photon-density profile) and the longitudinal one via
   ``sigma_par_L`` (``exp(-(u - c t)**2 / (2 sigma_par_L**2))``) -- both are
   the RMS of a density profile, matching xigma-i's ``sigma_lr0``/
-  ``sigma_lz`` convention exactly (see ``schemas/xigma.py``).
+  ``sigma_lz`` convention exactly (see ``models.xigma_i.params.spec``).
 * ``Config``'s own field comments confirm the length<->duration relation
   directly: ``sigma_par_e: ... # m (rms bunch length, = c*duration)`` and
   ``sigma_par_L: ... # m (rms pulse length, = c*duration)``.
 
 This is the same convention as xigma-i's ``Config`` in every field that
 exists in both -- expected, since both adapters' ``params_to_config`` were
-written (independently, by hand) with identical arithmetic; see this
-package's top-level docstring and ``scripts/physics_params_demo.py`` for
-why that agreement is exactly what this module exists to make explicit and
-machine-checkable instead of a coincidence nobody would notice breaking.
+written (independently, by hand) with identical arithmetic; see
+``scripts/physics_params_demo.py`` for why that agreement is exactly what
+this module exists to make explicit and machine-checkable instead of a
+coincidence nobody would notice breaking.
+
+Moved here from ``compton_suite.gui.physics_params.schemas.kascade`` (GUI-
+owned) so this model declares its own parameter contract directly, on top
+of the shared ``compton_suite.io`` framework -- matching
+``models.xigma_i.params``'s already-moved pattern (see that package's
+``__init__.py`` docstring).
 """
 
 from __future__ import annotations
@@ -78,4 +84,5 @@ KASCADE_DIAGNOSTIC_SPEC: dict[str, ParameterSpec] = {
     ),
 }
 """Read-only/derived quantities with a documented convention -- see this
-module's docstring and ``schemas/xigma.py``'s analogous ``XIGMA_DIAGNOSTIC_SPEC``."""
+module's docstring and ``models.xigma_i.params.spec``'s analogous
+``XIGMA_DIAGNOSTIC_SPEC``."""

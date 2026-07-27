@@ -12,7 +12,15 @@ from __future__ import annotations
 import numpy as np
 
 from . import kascade as _kascade
+from .params import KASCADE_SPEC as _KASCADE_SPEC
 from compton_suite.io import constants as _io_constants
+from compton_suite.io import (
+    PhysicalMeaning as _PhysicalMeaning,
+    PhysicalQuantity as _PhysicalQuantity,
+    TimeConvention as _TimeConvention,
+    adapt_to_model as _adapt_to_model,
+    params_to_floats as _params_to_floats,
+)
 from compton_suite.io.bunch import MacroBunch
 from compton_suite.io.bunch import beam_from_shared_fields as _beam_from_shared_fields
 from compton_suite.io.bunch import fit_gaussian as _fit_gaussian
@@ -34,6 +42,15 @@ from compton_suite.gui.model_api import (
 
 class ParamError(Exception):
     pass
+
+
+# The only two KASCADE_SPEC fields that are genuinely raw, convention-
+# ambiguous GUI inputs today (a duration typed in picoseconds) -- sigma0_x/
+# sigma0_y/sigma0_l are derived from other unambiguous fields (emittance +
+# beta, Rayleigh length), not typed directly in a convention that needs
+# resolving, so they stay hand-derived below (see docs/refactor/
+# parameter-framework-and-collision-params.md's "sigma0_x/sigma0_l wrinkle").
+_DURATION_SPEC = {k: _KASCADE_SPEC[k] for k in ("sigma_par_e", "sigma_par_L")}
 
 
 def _float(fields: dict, key: str) -> float:
@@ -104,7 +121,6 @@ class KascadeAdapter:
         eps0 = g("mean_energy_MeV") * 1e6 / _io_constants.MEC2_EV
         N_e = g("charge_nC") * 1e-9 / _io_constants.E_CHARGE
         sigma_eps_rel = g("rel_spread_pct") / 100.0
-        sigma_par_e = _io_constants.C_LIGHT * (g("bunch_duration_ps") * 1e-12)
         emit_x = g("emit_x_mmmrad") * 1e-6 / eps0
         emit_y = g("emit_y_mmmrad") * 1e-6 / eps0
         beta_x = g("beta_x_m")
@@ -115,11 +131,22 @@ class KascadeAdapter:
         # --- laser ---
         lambda_L = g("laser_wavelength_nm") * 1e-9
         pulse_energy_J = g("laser_energy_mJ") * 1e-3
-        sigma_par_L = _io_constants.C_LIGHT * (g("pulse_duration_ps") * 1e-12)
         R_sf = g("rayleigh_length_m")
         sigma0_l = 0.5 * np.sqrt(max(R_sf, 0.0) * lambda_L / np.pi) if R_sf > 0 else 0.0
         rep_rate_hz = g("pulse_frequency_Hz")
         crossing_angle = g("crossing_angle")
+
+        durations = _params_to_floats(_adapt_to_model({
+            "sigma_par_e": _PhysicalQuantity(
+                g("bunch_duration_ps"), "picosecond",
+                _PhysicalMeaning.BUNCH_LENGTH, _TimeConvention.SIGMA_INTENSITY_RMS,
+            ),
+            "sigma_par_L": _PhysicalQuantity(
+                g("pulse_duration_ps"), "picosecond",
+                _PhysicalMeaning.PULSE_DURATION, _TimeConvention.SIGMA_INTENSITY_RMS,
+            ),
+        }, _DURATION_SPEC))
+        sigma_par_e, sigma_par_L = durations["sigma_par_e"], durations["sigma_par_L"]
 
         # --- relative position (mismatch) ---
         delta_x = g("x_mismatch_mm") * 1e-3

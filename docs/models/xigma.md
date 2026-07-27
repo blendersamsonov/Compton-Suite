@@ -679,11 +679,16 @@ Every caller that imports `xigma_i` (`gui_adapter.available()`,
 "model unavailable: <error>" exactly like a missing cupy/numba does,
 never a crash.
 
-**Not yet wired into `gui_adapter.params_to_config`** -- that still does
-the FWHM/waist/duration arithmetic by hand (see `spec.py`'s module
-docstring). `gui/scripts/physics_params_demo.py` exercises
-`xigma_i.params` end to end, alongside `compton_guide`'s own
-`physics_params.schemas.kascade.KASCADE_SPEC`.
+**Partially wired into `gui_adapter.params_to_config`**: `sigma_par_e`/
+`sigma_par_L` (genuinely raw, convention-ambiguous duration inputs) now go
+through `adapt_to_model`/`params_to_floats` against a `sigma_par_e`/
+`sigma_par_L`-only subset of `XIGMA_SPEC`; `sigma0_x`/`sigma0_y`/`sigma0_l`
+still do the emittance/beta/Rayleigh-length arithmetic by hand, since they
+aren't raw convention-ambiguous inputs today (see `spec.py`'s module
+docstring and `docs/refactor/parameter-framework-and-collision-params.md`'s
+"sigma0_x/sigma0_l wrinkle"). `scripts/physics_params_demo.py` exercises
+`xigma_i.params` end to end, alongside `compton_suite.models.kascade.
+params.KASCADE_SPEC`.
 
 Needs `pint` (a hard dependency in `pyproject.toml`, transitively required
 by `compton_io` -- pure Python, no GPU/cupy involvement, so neither

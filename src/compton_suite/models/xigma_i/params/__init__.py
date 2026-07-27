@@ -27,8 +27,12 @@ Typical use (see ``spec.py`` for the concrete spec, and compton-gui's
     adapted = adapt_to_model({"sigma0_l": laser_width, ...}, XIGMA_SPEC)
     # adapted["sigma0_l"] is now in XIGMA_SPEC's own convention/unit
 
-**Not yet wired into ``gui_adapter.params_to_config``** -- that still does
-the FWHM/waist/duration arithmetic by hand.
+**Partially wired into ``gui_adapter.params_to_config``**: ``sigma_par_e``/
+``sigma_par_L`` (raw, convention-ambiguous duration inputs) go through
+``adapt_to_model``/``params_to_floats`` against this package's own
+``XIGMA_SPEC``; ``sigma0_x``/``sigma0_y``/``sigma0_l`` still do the
+emittance/beta/Rayleigh-length arithmetic by hand, since they aren't raw
+convention-ambiguous inputs today -- see ``spec.py``'s module docstring.
 """
 
 from compton_suite.io import (

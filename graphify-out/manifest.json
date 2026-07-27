@@ -1,522 +1,522 @@
 {
   "pyproject.toml": {
-    "mtime": 1785131637.7786288,
+    "mtime": 1785134182.5037663,
     "ast_hash": "507a842c174722d5b58b0d8fa3e6aea7",
     "semantic_hash": ""
   },
   "src/compton_suite/__init__.py": {
-    "mtime": 1785131637.779773,
+    "mtime": 1785134182.5048566,
     "ast_hash": "e7f8aaff01efd4dc3d57e914faedbda6",
     "semantic_hash": ""
   },
   "tests/test_analytical.py": {
-    "mtime": 1785131637.801199,
+    "mtime": 1785134182.5257413,
     "ast_hash": "4372e4694825aa7ed6bfea8e060dde9b",
     "semantic_hash": ""
   },
   ".opencode/opencode.json": {
-    "mtime": 1785131637.729631,
+    "mtime": 1785134182.455213,
     "ast_hash": "e5f74d14a81702b55bdf53b33ec991d7",
     "semantic_hash": ""
   },
   ".opencode/plugins/graphify.js": {
-    "mtime": 1785131637.7300265,
+    "mtime": 1785134182.4555924,
     "ast_hash": "3ea725724bc8ebe483c9f13d6aa1124f",
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1785133907.7623796,
-    "ast_hash": "2659bbe2457686f137b6a4d444d38ba9",
+    "mtime": 1785135049.649723,
+    "ast_hash": "ceb7d0f71c611c7da1882368d7cec078",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785133907.7623796,
-    "ast_hash": "2659bbe2457686f137b6a4d444d38ba9",
+    "mtime": 1785135049.649723,
+    "ast_hash": "ceb7d0f71c611c7da1882368d7cec078",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
-    "mtime": 1785131637.7789035,
+    "mtime": 1785134182.5039854,
     "ast_hash": "3ed629d9316f25fe0b30a50f5f15e174",
     "semantic_hash": ""
   },
   "scripts/physics_params_demo.py": {
-    "mtime": 1785131637.7791064,
-    "ast_hash": "47bee6aab5525a5dd0f9be0b6a15773a",
+    "mtime": 1785134664.329592,
+    "ast_hash": "f1c791376e37899949ee50fe1f9c100b",
     "semantic_hash": ""
   },
   "scripts/run_gui.py": {
-    "mtime": 1785131637.7792833,
+    "mtime": 1785134182.5043468,
     "ast_hash": "a4053992a6452fd03a5b1c6057497e4e",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/__init__.py": {
-    "mtime": 1785131637.7800264,
+    "mtime": 1785134182.5051,
     "ast_hash": "d0c9cd69be8beef83b1dac10e4ef2ee9",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/app.py": {
-    "mtime": 1785132399.278748,
+    "mtime": 1785134182.5055332,
     "ast_hash": "8f5e5bada785491b9897ff201116c70c",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/model_api.py": {
-    "mtime": 1785131637.7807593,
+    "mtime": 1785134182.5057976,
     "ast_hash": "f6744dcd9eb1f68414b3d8eea19eb022",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/models.py": {
-    "mtime": 1785131637.7809982,
+    "mtime": 1785134182.5060015,
     "ast_hash": "9a1831b83fa761407de95d6b220bfa1a",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/physics_constants.py": {
-    "mtime": 1785133387.45705,
+    "mtime": 1785134182.5062306,
     "ast_hash": "2d6a7d227b088f3a13ae19cb35d664ba",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/physics_params/__init__.py": {
-    "mtime": 1785131637.7814891,
-    "ast_hash": "1180e0b9e83927b0d2705d336d995ada",
-    "semantic_hash": ""
-  },
-  "src/compton_suite/gui/physics_params/schemas/__init__.py": {
-    "mtime": 1785131637.7819247,
-    "ast_hash": "1ce8a2a6c5d1eb56a641091ad3d43a83",
-    "semantic_hash": ""
-  },
-  "src/compton_suite/gui/physics_params/schemas/kascade.py": {
-    "mtime": 1785131637.78212,
-    "ast_hash": "f024be2fdb5e39f5998bae34a230a598",
+    "mtime": 1785134616.986643,
+    "ast_hash": "7fa17e7cfab973004be7b111786c5f27",
     "semantic_hash": ""
   },
   "src/compton_suite/io/__init__.py": {
-    "mtime": 1785131637.7823548,
+    "mtime": 1785134182.5073845,
     "ast_hash": "63f1659da01f4e094950f546bbd48dbf",
     "semantic_hash": ""
   },
   "src/compton_suite/io/adapter.py": {
-    "mtime": 1785131637.782555,
+    "mtime": 1785134182.507587,
     "ast_hash": "8f4465285e6eec55dcc0e5a6c0c5555c",
     "semantic_hash": ""
   },
   "src/compton_suite/io/bunch.py": {
-    "mtime": 1785131637.7827437,
+    "mtime": 1785134182.507768,
     "ast_hash": "1e11f027e147be6412e2a9c230f5b292",
     "semantic_hash": ""
   },
   "src/compton_suite/io/canonical.py": {
-    "mtime": 1785131637.782958,
+    "mtime": 1785134182.5079803,
     "ast_hash": "644785522ff0857120f49ed362ac05a6",
     "semantic_hash": ""
   },
   "src/compton_suite/io/collision.py": {
-    "mtime": 1785131637.7831495,
-    "ast_hash": "b9aa958246cf9a9fa974fbd477895d42",
+    "mtime": 1785134433.8394408,
+    "ast_hash": "a233573a802d40b9fc97f53d83489271",
     "semantic_hash": ""
   },
   "src/compton_suite/io/constants.py": {
-    "mtime": 1785131637.7833548,
+    "mtime": 1785134182.5083675,
     "ast_hash": "4d14812699af9723c419e215de90ee83",
     "semantic_hash": ""
   },
   "src/compton_suite/io/converters.py": {
-    "mtime": 1785131637.783548,
+    "mtime": 1785134182.5085607,
     "ast_hash": "78ac8127c9ba2eb29094dc682049c95b",
     "semantic_hash": ""
   },
   "src/compton_suite/io/enums.py": {
-    "mtime": 1785131637.783734,
+    "mtime": 1785134182.508726,
     "ast_hash": "c88e8be9373163a0f7b6c2d30fc6c7c7",
     "semantic_hash": ""
   },
   "src/compton_suite/io/interaction.py": {
-    "mtime": 1785131637.7839227,
+    "mtime": 1785134182.508894,
     "ast_hash": "8894ab5c16e16a02c4909b9bb527e6a1",
     "semantic_hash": ""
   },
   "src/compton_suite/io/io_formats/__init__.py": {
-    "mtime": 1785131637.784316,
+    "mtime": 1785134182.5092416,
     "ast_hash": "62ead0b078513dd38d9a5525a43d8da9",
     "semantic_hash": ""
   },
   "src/compton_suite/io/io_formats/sdds.py": {
-    "mtime": 1785131637.784525,
+    "mtime": 1785134182.5094187,
     "ast_hash": "4e6fcb665cdf0fd12884a6e36ef4ecfd",
     "semantic_hash": ""
   },
   "src/compton_suite/io/io_formats/yaml_spec.py": {
-    "mtime": 1785131637.7847173,
+    "mtime": 1785134182.509582,
     "ast_hash": "b3ef038cc6f85dac1098cf52f40b3e62",
     "semantic_hash": ""
   },
   "src/compton_suite/io/laser.py": {
-    "mtime": 1785131637.7849362,
+    "mtime": 1785134182.5097919,
     "ast_hash": "b22da2057dcd5ced8910830085cbead9",
     "semantic_hash": ""
   },
   "src/compton_suite/io/photons.py": {
-    "mtime": 1785131637.785345,
+    "mtime": 1785134182.510163,
     "ast_hash": "34caac607c359c49e45983149ebf50c8",
     "semantic_hash": ""
   },
   "src/compton_suite/io/propagation.py": {
-    "mtime": 1785131637.7855442,
+    "mtime": 1785134182.5103574,
     "ast_hash": "04c964c40d102c1e87ff2ca3070f25b9",
     "semantic_hash": ""
   },
   "src/compton_suite/io/quantities.py": {
-    "mtime": 1785131637.7857308,
+    "mtime": 1785134182.510539,
     "ast_hash": "977990d1ecc64260ec7bd4b1af765fb6",
     "semantic_hash": ""
   },
   "src/compton_suite/io/results.py": {
-    "mtime": 1785131637.7859359,
+    "mtime": 1785134182.5107243,
     "ast_hash": "df515ceb28eaf47dbc42c07ea33c5020",
     "semantic_hash": ""
   },
   "src/compton_suite/io/schema.py": {
-    "mtime": 1785131637.7861128,
-    "ast_hash": "c251ba63c645c5a177e0e2dc92a11a0f",
+    "mtime": 1785134628.0666184,
+    "ast_hash": "fd99abae076de0e0fac29436bb0f4626",
     "semantic_hash": ""
   },
   "src/compton_suite/io/units.py": {
-    "mtime": 1785131637.7862902,
+    "mtime": 1785134182.5110972,
     "ast_hash": "d4f4db7bca75b353d9c6a380823c3949",
     "semantic_hash": ""
   },
   "src/compton_suite/io/validation.py": {
-    "mtime": 1785131637.7864742,
+    "mtime": 1785134182.5112863,
     "ast_hash": "c4715c19c3896aa327100ee807db5415",
     "semantic_hash": ""
   },
   "src/compton_suite/models/__init__.py": {
-    "mtime": 1785131637.7867455,
+    "mtime": 1785134182.5115137,
     "ast_hash": "4cb14cf335d2370dc30d97445ae60613",
     "semantic_hash": ""
   },
   "src/compton_suite/models/analytical/__init__.py": {
-    "mtime": 1785131637.7871764,
+    "mtime": 1785134182.5118961,
     "ast_hash": "d6c5027bb50773c347bc339bea70a591",
     "semantic_hash": ""
   },
   "src/compton_suite/models/analytical/analytical.py": {
-    "mtime": 1785131637.7873945,
+    "mtime": 1785134182.5121021,
     "ast_hash": "2cb382a177626cb8098b81034242c932",
     "semantic_hash": ""
   },
   "src/compton_suite/models/analytical/analytical_adapter.py": {
-    "mtime": 1785133379.0415828,
+    "mtime": 1785134182.5123405,
     "ast_hash": "c409b1a60240f416c77844426dbba079",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/__init__.py": {
-    "mtime": 1785131637.7881858,
+    "mtime": 1785134182.5129158,
     "ast_hash": "c6459bf1f451992a14319c58d0b8c0b1",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/kascade.py": {
-    "mtime": 1785132399.279456,
+    "mtime": 1785134182.513287,
     "ast_hash": "67953fdb47a099684b45bdbf384fa05e",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/kascade_adapter.py": {
-    "mtime": 1785132399.2796726,
-    "ast_hash": "e37d18f5a89ed338a3fbd36cef86efd7",
+    "mtime": 1785134695.5903187,
+    "ast_hash": "91c89d6ed4bd9374006e4f5da8cb7f79",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_direct/__init__.py": {
-    "mtime": 1785131637.7891135,
+    "mtime": 1785134182.5138233,
     "ast_hash": "2d78495a5cefcfe314c5be9c206d747b",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_direct/gui_adapter.py": {
-    "mtime": 1785132399.2807276,
-    "ast_hash": "872a47d93511ab274d89d3dd7db539f3",
+    "mtime": 1785134811.352495,
+    "ast_hash": "747a6e6d4da5252566f8a02767c00750",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/__init__.py": {
-    "mtime": 1785131637.7896729,
+    "mtime": 1785134182.5144172,
     "ast_hash": "70ac7395ea177ad5a6928ca7552a3a41",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/config.py": {
-    "mtime": 1785131637.7898548,
+    "mtime": 1785134182.5145845,
     "ast_hash": "25ee4056332c4ffa4e35175b6e1db11e",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/deposition.py": {
-    "mtime": 1785131637.7903051,
+    "mtime": 1785134182.5150042,
     "ast_hash": "7dce7a12819b54305e070101d509b8ee",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/gui_adapter.py": {
-    "mtime": 1785133366.6924105,
-    "ast_hash": "7f90d253c8da0de49400fa0fae06b69d",
+    "mtime": 1785134740.1976871,
+    "ast_hash": "6c7083e5af0abe260245cb2971988acc",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/params/__init__.py": {
-    "mtime": 1785131637.7909694,
-    "ast_hash": "38525b37be29df549d23322cc4a6c2d6",
+    "mtime": 1785134964.027728,
+    "ast_hash": "af394c7b8275f4182091436c39fa2788",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/params/spec.py": {
-    "mtime": 1785131637.7911756,
-    "ast_hash": "6c382cbf853aea9f0315153426e4e9ab",
+    "mtime": 1785134949.1355846,
+    "ast_hash": "7f83745df6105ac71ef9bb372e1e6508",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/particles.py": {
-    "mtime": 1785131637.7915332,
+    "mtime": 1785134182.5160856,
     "ast_hash": "e37220f9165cb157af9e32c169e5b430",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/reference.py": {
-    "mtime": 1785131637.7918313,
+    "mtime": 1785134182.5163512,
     "ast_hash": "245e74b167d918840b35f71e5d02442b",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/spectrum4d.py": {
-    "mtime": 1785131637.792103,
+    "mtime": 1785134182.5166435,
     "ast_hash": "61c44f2e81a0be3179cf59c1dc4ccc40",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/spectrum4d_cpu.py": {
-    "mtime": 1785131637.7923882,
+    "mtime": 1785134182.5169203,
     "ast_hash": "a5630e600b3da09a91292af0c46f0280",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/spectrum_from_particles.py": {
-    "mtime": 1785131637.7926168,
+    "mtime": 1785134182.5171444,
     "ast_hash": "221adb74f1f8e3d458c234bd63a65154",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/tabulated_engine.py": {
-    "mtime": 1785131637.792841,
+    "mtime": 1785134182.5173502,
     "ast_hash": "04b734bcae4704d7d584fc6d0c37f8b6",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/cache.py": {
-    "mtime": 1785131637.7931232,
+    "mtime": 1785134182.5176277,
     "ast_hash": "940314672c2e166d7c4297e9647e0ca8",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/metrics.py": {
-    "mtime": 1785131637.7933416,
+    "mtime": 1785134182.5178413,
     "ast_hash": "a45fd3b04db37267ac7d101a08448781",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/parameter_bank.py": {
-    "mtime": 1785131637.7935348,
+    "mtime": 1785134182.5180066,
     "ast_hash": "3b41f787ec69f71eb1ea76fe827ea732",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/run_cross_validation.py": {
-    "mtime": 1785131637.7981348,
+    "mtime": 1785134182.5225751,
     "ast_hash": "4e1ff88e46a2962b30fa4b1dca532135",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/runners.py": {
-    "mtime": 1785131637.798331,
+    "mtime": 1785134182.5227642,
     "ast_hash": "c0fe7fefd87e6f57a00b4c95c360c8dc",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/scenarios.py": {
-    "mtime": 1785132399.2817738,
+    "mtime": 1785134182.5229928,
     "ast_hash": "54121fd74616752be813f16ad3b5ec5d",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/tier0_wiring.py": {
-    "mtime": 1785131637.798728,
+    "mtime": 1785134182.5232048,
     "ast_hash": "eb162d3c85c2362569c42205f15671a7",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/tier1_yield.py": {
-    "mtime": 1785131637.7989328,
+    "mtime": 1785134182.5233872,
     "ast_hash": "60ec4c9fc3d1f0e9f457a1c5d4d84880",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/tier2_spectrum.py": {
-    "mtime": 1785131637.7991068,
+    "mtime": 1785134182.5235689,
     "ast_hash": "e9f6193f7e0f7d1b3c25790dc5016ae1",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/tier3_angular_shape.py": {
-    "mtime": 1785131637.7992766,
+    "mtime": 1785134182.5237632,
     "ast_hash": "c0b2ffe68036463328eb50e852df33bc",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/tier4_regime_boundary.py": {
-    "mtime": 1785131637.7994468,
+    "mtime": 1785134182.5239432,
     "ast_hash": "2cc46d200219d6c917a283e3a2a8d135",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/visualize.py": {
-    "mtime": 1785131637.799634,
+    "mtime": 1785134182.5241153,
     "ast_hash": "3340681ed723653583698bb6c369506a",
     "semantic_hash": ""
   },
   "tests/io_tests/test_bunch.py": {
-    "mtime": 1785131637.8000555,
+    "mtime": 1785134182.5245032,
     "ast_hash": "9b53084baa9ae215d391fd41edbf4777",
     "semantic_hash": ""
   },
   "tests/io_tests/test_constants.py": {
-    "mtime": 1785131637.8002083,
+    "mtime": 1785134182.5246751,
     "ast_hash": "038b2f911258e6dbadc8cb480cc99ce5",
     "semantic_hash": ""
   },
   "tests/io_tests/test_conversions.py": {
-    "mtime": 1785131637.800367,
+    "mtime": 1785134182.5248451,
     "ast_hash": "5507f7b72ebf4b286470bf6731cdda49",
     "semantic_hash": ""
   },
   "tests/io_tests/test_io_formats.py": {
-    "mtime": 1785131637.8005283,
+    "mtime": 1785134182.524996,
     "ast_hash": "5238f01100e8677858023f7eb82f9842",
     "semantic_hash": ""
   },
   "tests/io_tests/test_laser.py": {
-    "mtime": 1785131637.8006842,
+    "mtime": 1785134182.5251842,
     "ast_hash": "ff9ac7ec003bfd9c889f0f1d96411f8b",
     "semantic_hash": ""
   },
   "tests/io_tests/test_propagation.py": {
-    "mtime": 1785131637.8010228,
+    "mtime": 1785134182.5255547,
     "ast_hash": "04abf15bc9c3c767fb385fc631b7507b",
     "semantic_hash": ""
   },
   "docs/gui/AGENTS.md": {
-    "mtime": 1785131637.7307928,
-    "ast_hash": "992f91a8941ceb34aeb4df587d249a11",
+    "mtime": 1785134990.5835118,
+    "ast_hash": "4a77f8039c36863130b541845d2a5116",
     "semantic_hash": ""
   },
   "docs/gui/Conventions-and-units.md": {
-    "mtime": 1785131637.7310035,
+    "mtime": 1785134182.456816,
     "ast_hash": "f551958a401531ef6a4a3d219240db09",
     "semantic_hash": ""
   },
   "docs/gui/new-features-plan.md": {
-    "mtime": 1785131637.731245,
+    "mtime": 1785134182.4570832,
     "ast_hash": "66410ba186b0860a0cf338e5de8139a5",
     "semantic_hash": ""
   },
   "docs/io/AGENTS.md": {
-    "mtime": 1785131637.7315638,
-    "ast_hash": "9878b27860d16c1b461458feea01be95",
+    "mtime": 1785134913.3485286,
+    "ast_hash": "bff28f9671a9d4fe7d4318b206c04153",
     "semantic_hash": ""
   },
   "docs/io/specs/electron_beam_io_v0.1_full.md": {
-    "mtime": 1785131637.73196,
+    "mtime": 1785134182.4578822,
     "ast_hash": "b84afacb9335f85298b87305ed878b61",
     "semantic_hash": ""
   },
   "docs/io/specs/electron_beam_io_v0.1_short.md": {
-    "mtime": 1785131637.7321808,
+    "mtime": 1785134182.4581072,
     "ast_hash": "f6edcaa70186c798953fc48c7103990f",
     "semantic_hash": ""
   },
   "docs/io/specs/gaussian_paraxial_laser_io_v0.1.md": {
-    "mtime": 1785131637.7323842,
+    "mtime": 1785134182.4583359,
     "ast_hash": "619ab903e0bf06c7f0b86face864e56a",
     "semantic_hash": ""
   },
   "docs/io/specs/gaussian_paraxial_laser_io_v0.1_short.md": {
-    "mtime": 1785131637.73258,
+    "mtime": 1785134182.4585378,
     "ast_hash": "4e3c194c1a5ca50e1df5ecf3f5305907",
     "semantic_hash": ""
   },
   "docs/models/kaskade.md": {
-    "mtime": 1785131637.7332935,
+    "mtime": 1785134182.4588103,
     "ast_hash": "a701f505731144cd0ceb93483ca485a5",
     "semantic_hash": ""
   },
   "docs/models/xigma.md": {
-    "mtime": 1785131637.7344062,
-    "ast_hash": "2d75e50f343bbfafd6823f320cb118e8",
+    "mtime": 1785134908.231584,
+    "ast_hash": "b0cfaa94271f42f8fd8043ff4642341c",
     "semantic_hash": ""
   },
   "docs/models/xigma_passport.md": {
-    "mtime": 1785131637.7346828,
+    "mtime": 1785134182.4595437,
     "ast_hash": "986521375978e91c243a5f06b07190c1",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/AGENTS.md": {
-    "mtime": 1785131637.7878733,
-    "ast_hash": "a701f505731144cd0ceb93483ca485a5",
+    "mtime": 1785134936.4967453,
+    "ast_hash": "b562eac3d4427e0523ecab6ea4322c7b",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/CLAUDE.md": {
-    "mtime": 1785131637.7878733,
-    "ast_hash": "a701f505731144cd0ceb93483ca485a5",
+    "mtime": 1785134936.4967453,
+    "ast_hash": "b562eac3d4427e0523ecab6ea4322c7b",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/baseline_angular_shape.png": {
-    "mtime": 1785131637.7941883,
+    "mtime": 1785134182.5185926,
     "ast_hash": "689f37a593e06da4bfc53e28ee76a46a",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/baseline_spectrum.png": {
-    "mtime": 1785131637.794838,
+    "mtime": 1785134182.5192406,
     "ast_hash": "0cd39facab547b1a54cac1fdfa1dd046",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/baseline_yield.png": {
-    "mtime": 1785131637.7950916,
+    "mtime": 1785134182.5195277,
     "ast_hash": "a7c7cf91a717dad96f1c0a4e2c321362",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/low_a0_angular_shape.png": {
-    "mtime": 1785131637.7955117,
+    "mtime": 1785134182.5200534,
     "ast_hash": "ac092b7bfe45bd6db5c3747aaa5f5510",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/low_a0_spectrum.png": {
-    "mtime": 1785131637.7961056,
+    "mtime": 1785134182.5206478,
     "ast_hash": "c90f1cbb52c51fa3b8b7abd27c0cb30e",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/low_a0_yield.png": {
-    "mtime": 1785131637.796367,
+    "mtime": 1785134182.5209184,
     "ast_hash": "f2968c2470e40c48953a01e69e0f14e1",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/near_a0_max_angular_shape.png": {
-    "mtime": 1785131637.7967355,
+    "mtime": 1785134182.52131,
     "ast_hash": "0dc79da17943de255a54a785961db3c8",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/near_a0_max_spectrum.png": {
-    "mtime": 1785131637.797273,
+    "mtime": 1785134182.5218344,
     "ast_hash": "531169549f16011c5781a432f38bf708",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/near_a0_max_yield.png": {
-    "mtime": 1785131637.7975464,
+    "mtime": 1785134182.522073,
     "ast_hash": "ae6b629c0b8335bd67ec824c29e1a9bf",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/plots/regime_boundary.png": {
-    "mtime": 1785131637.7978866,
+    "mtime": 1785134182.5223577,
     "ast_hash": "01cee467ce0dfce7e094249e581b146c",
     "semantic_hash": ""
   },
   "src/compton_suite/io/laser_envelope.py": {
-    "mtime": 1785131637.7851474,
+    "mtime": 1785134182.509988,
     "ast_hash": "2b67e10888a70784d0683067dd25bcbe",
     "semantic_hash": ""
   },
   "tests/io_tests/test_laser_envelope.py": {
-    "mtime": 1785131637.8008559,
+    "mtime": 1785134182.5253646,
     "ast_hash": "2b64d827abbc2f262a2c0ab41b667d11",
     "semantic_hash": ""
   },
   "docs/refactor/core-simulation-api.md": {
-    "mtime": 1785131637.7349758,
+    "mtime": 1785134182.4597948,
     "ast_hash": "b8a96f4b28465d48586206d4c615b0c7",
     "semantic_hash": ""
   },
   "docs/refactor/parameter-framework-and-collision-params.md": {
-    "mtime": 1785133888.7003465,
+    "mtime": 1785134182.4600198,
     "ast_hash": "5317a5f32b4480ae0de7ff86a10ef6ab",
+    "semantic_hash": ""
+  },
+  "src/compton_suite/models/kascade/params/__init__.py": {
+    "mtime": 1785134576.6485121,
+    "ast_hash": "bb3cd1762709e1e27a2e2df7179874f1",
+    "semantic_hash": ""
+  },
+  "src/compton_suite/models/kascade/params/spec.py": {
+    "mtime": 1785134566.7924955,
+    "ast_hash": "2e7f32f60f4c9a8d0f5885f163dcf61b",
     "semantic_hash": ""
   }
 }

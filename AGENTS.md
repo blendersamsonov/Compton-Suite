@@ -187,15 +187,22 @@ Resolved:
   across all four models -- a decision left for item 5 below, not a
   dead-code deletion.
 - `models/xigma/src/xigma_i/params/spec.py`'s `XIGMA_SPEC`/
-  `XIGMA_DIAGNOSTIC_SPEC` are still not wired into `params_to_config` --
-  left as-is (still exercised by `gui/scripts/physics_params_demo.py`).
-  Finishing that wiring is real design work tied to item 5, still open --
-  see `docs/refactor/parameter-framework-and-collision-params.md` for a
-  concrete plan (2026-07-27), including a real nuance about which fields
-  are genuinely convention-ambiguous versus already-derived. That doc's
-  Phase 1 (pruning `compton_io.collision.CollisionParams`'s dead
-  electron-statistics/geometry-offset fields) is unrelated but adjacent
-  and independently actionable.
+  `XIGMA_DIAGNOSTIC_SPEC` were not wired into `params_to_config` --
+  **now partially wired (2026-07-27, Phase 2 of
+  `docs/refactor/parameter-framework-and-collision-params.md`, Option A
+  scope)**: `sigma_par_e`/`sigma_par_L` (the two genuinely raw,
+  convention-ambiguous duration inputs) go through `adapt_to_model`/
+  `params_to_floats` against a `sigma_par_e`/`sigma_par_L`-only subset of
+  each model's own spec, in all three adapters (`kascade_adapter.py`,
+  `xigma_i/gui_adapter.py`, `xigma_direct/gui_adapter.py`, the last reusing
+  `XIGMA_SPEC` directly since it shares xigma-i's Stage 0 conventions).
+  `sigma0_x`/`sigma0_y`/`sigma0_l` deliberately still do the emittance/
+  beta/Rayleigh-length arithmetic by hand -- they're derived from other
+  unambiguous fields, not raw convention-ambiguous inputs (see that doc's
+  "sigma0_x/sigma0_l wrinkle"); wiring those too is Option B in the same
+  doc, an explicit GUI/UX decision, not done here. That doc's Phase 1
+  (pruning `compton_io.collision.CollisionParams`'s dead
+  electron-statistics/geometry-offset fields) is also done (2026-07-27).
 
 ### 2. Move `CollisionParams`/`build_params` into `compton_io`
 
@@ -268,19 +275,20 @@ shared field entirely, so there's one obvious place per model to control
 The protocol (`gui/src/compton_guide/model_api.py`) is already shared,
 but per-model wiring is still inconsistent in ways worth finishing, not
 just documenting as "not yet done":
-- `params_to_config` still does FWHM/waist/duration arithmetic by hand in
-  both `kascade_adapter.py` and `xigma_i/gui_adapter.py`, instead of going
-  through `compton_io`'s canonical-conversion framework
-  (`adapt_to_model`/`ModelSpec`) that `xigma_i.params.XIGMA_SPEC` already
-declares but doesn't use (see item 1). `gui/scripts/
-physics_params_demo.py` already demonstrates what the wired-up version
-  would look like end to end.
-- `kascade` has no `ModelSpec`/`ParameterSpec` schema at all (unlike
-  `xigma_i.params`) -- `gui/src/compton_guide/physics_params/schemas/
-  kascade.py`'s `KASCADE_SPEC` is GUI-owned, not model-owned, which is the
-  same asymmetry `compton_io.results`/`compton_io.photons` already fixed
-  for results -- move it into `models/kaskade/` for real model-contract
-  ownership.
+- `params_to_config`'s `sigma_par_e`/`sigma_par_L` conversion now goes
+  through `compton_io`'s canonical-conversion framework (`adapt_to_model`/
+  `ModelSpec`) in all three adapters (`kascade_adapter.py`,
+  `xigma_i/gui_adapter.py`, `xigma_direct/gui_adapter.py`) -- **done
+  (2026-07-27)**, see item 1. `sigma0_x`/`sigma0_y`/`sigma0_l` still do
+  the emittance/beta/Rayleigh-length arithmetic by hand, deliberately (see
+  item 1 and `docs/refactor/parameter-framework-and-collision-params.md`).
+- `kascade` had no `ModelSpec`/`ParameterSpec` schema owned by the model
+  itself (unlike `xigma_i.params`) -- **done (2026-07-27)**: moved from
+  GUI-owned `compton_suite/gui/physics_params/schemas/kascade.py` (that
+  now-empty `schemas/` sub-package was deleted) into
+  `compton_suite/models/kascade/params/spec.py`, matching `xigma_i.params`'s
+  already-moved pattern, same asymmetry `compton_io.results`/
+  `compton_io.photons` already fixed for results.
 - `extra_params()` only supports numeric fields (`list[tuple[str, float,
   str]]`) -- item 6 below needs a choice/enum-typed field, which doesn't
   fit this shape yet and would need a small protocol extension (or a

@@ -42,6 +42,14 @@ from compton_suite.io.photons import (
     BinnedTemporalEnvelope,
 )
 from compton_suite.io.results import CommonResults
+from compton_suite.io import (
+    PhysicalMeaning as _PhysicalMeaning,
+    PhysicalQuantity as _PhysicalQuantity,
+    TimeConvention as _TimeConvention,
+    adapt_to_model as _adapt_to_model,
+    params_to_floats as _params_to_floats,
+)
+from compton_suite.models.xigma_i.params import XIGMA_SPEC as _XIGMA_SPEC
 
 _TRUST_NOTE = (
     "Cross-validated against kascade and xigma-i: total_yield agrees to "
@@ -228,6 +236,17 @@ class ParamError(Exception):
     pass
 
 
+# The only two XIGMA_SPEC fields that are genuinely raw, convention-
+# ambiguous GUI inputs today (a duration typed in picoseconds) -- sigma0_x/
+# sigma0_y/sigma0_l are derived from other unambiguous fields (emittance +
+# beta, Rayleigh length), not typed directly in a convention that needs
+# resolving, so they stay hand-derived below (see docs/refactor/
+# parameter-framework-and-collision-params.md's "sigma0_x/sigma0_l wrinkle").
+# Reuses xigma-i's own XIGMA_SPEC (not a separate copy) since this model
+# shares xigma-i's Stage 0 conventions exactly (see module docstring).
+_DURATION_SPEC = {k: _XIGMA_SPEC[k] for k in ("sigma_par_e", "sigma_par_L")}
+
+
 def _float(fields: dict, key: str) -> float:
     try:
         return float(fields[key].get())
@@ -243,7 +262,6 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
     eps0 = g("mean_energy_MeV") * 1e6 / 510_998.950
     N_e = g("charge_nC") * 1e-9 / _ELEMENTARY_CHARGE_C
     sigma_eps_rel = g("rel_spread_pct") / 100.0
-    sigma_par_e = 2.99792458e8 * (g("bunch_duration_ps") * 1e-12)
     emit_x = g("emit_x_mmmrad") * 1e-6 / eps0
     emit_y = g("emit_y_mmmrad") * 1e-6 / eps0
     beta_x = g("beta_x_m")
@@ -253,11 +271,22 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
 
     lambda_L = g("laser_wavelength_nm") * 1e-9
     pulse_energy_J = g("laser_energy_mJ") * 1e-3
-    sigma_par_L = 2.99792458e8 * (g("pulse_duration_ps") * 1e-12)
     R_sf = g("rayleigh_length_m")
     sigma0_l = 0.5 * np.sqrt(max(R_sf, 0.0) * lambda_L / np.pi) if R_sf > 0 else 0.0
     rep_rate_hz = g("pulse_frequency_Hz")
     crossing_angle = g("crossing_angle")
+
+    durations = _params_to_floats(_adapt_to_model({
+        "sigma_par_e": _PhysicalQuantity(
+            g("bunch_duration_ps"), "picosecond",
+            _PhysicalMeaning.BUNCH_LENGTH, _TimeConvention.SIGMA_INTENSITY_RMS,
+        ),
+        "sigma_par_L": _PhysicalQuantity(
+            g("pulse_duration_ps"), "picosecond",
+            _PhysicalMeaning.PULSE_DURATION, _TimeConvention.SIGMA_INTENSITY_RMS,
+        ),
+    }, _DURATION_SPEC))
+    sigma_par_e, sigma_par_L = durations["sigma_par_e"], durations["sigma_par_L"]
 
     delta_x = g("x_mismatch_mm") * 1e-3
     delta_y = g("y_mismatch_mm") * 1e-3

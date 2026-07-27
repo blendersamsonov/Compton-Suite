@@ -12,6 +12,7 @@
   "10": "MacroBunch",
   "11": "cache.py",
   "12": "headless_test.py",
+  "13": "CollisionParams pruning + finishing the PhysicalQuantity/ModelSpec migration",
   "14": "propagation.py",
   "15": "KascadeAdapter",
   "16": "InteractionGeometry",
@@ -22,6 +23,7 @@
   "21": "test_laser.py",
   "22": "bunch.py",
   "23": "UnavailableAdapter",
+  "24": "run_multiphoton_chain",
   "25": "analytical.py",
   "26": "compton_suite/__init__.py",
   "27": "detect_device",
@@ -40,12 +42,7 @@
   "41": "Compton-GUIde",
   "42": "New GUI observables: status per model",
   "43": "KASCADE",
-  "44": "propagation.py",
   "46": "opencode.json",
-  "48": "Grid4D",
-  "49": "spectrum_in_angular_range",
   "50": "graphify.js",
-  "51": "build_table_streaming",
-  "52": "_interp4d",
   "53": "ComptonSuite model-agnostic-core refactor: status"
 }

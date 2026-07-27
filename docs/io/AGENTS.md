@@ -63,9 +63,10 @@ tests/
 ```
 
 **What does NOT live here**: any specific model's `ModelSpec` *instance*
-(`xigma_i.params.spec.XIGMA_SPEC`/`XIGMA_DIAGNOSTIC_SPEC`,
-`compton_guide.physics_params.schemas.kascade.KASCADE_SPEC`) -- those are
-model contracts owned by each model's own package, not shared framework.
+(`compton_suite.models.xigma_i.params.spec.XIGMA_SPEC`/
+`XIGMA_DIAGNOSTIC_SPEC`, `compton_suite.models.kascade.params.spec.
+KASCADE_SPEC`/`KASCADE_DIAGNOSTIC_SPEC`) -- those are model contracts
+owned by each model's own package, not shared framework.
 
 ## Naming
 

@@ -7,14 +7,21 @@ explicitly says "this is the RMS radius of the *photon density*
 distribution").
 
 ``Config`` itself is populated from raw GUI fields (picoseconds, a
-Rayleigh length in metres, ...) by ``gui_adapter.params_to_config`` today,
-by hand -- e.g. ``sigma_par_e = _C_LIGHT_M * (bunch_duration_ps * 1e-12)``
-and ``sigma0_l = 0.5 * sqrt(rayleigh_length_m * lambda_L / pi)`` (the
-latter is exactly ``converters.w0_to_sigma_intensity`` fed a waist derived
-from the Rayleigh length). ``XIGMA_SPEC`` describes the *result* of that
-hand-rolled conversion, i.e. what ``Config`` itself expects; it does not
-(yet) replace ``params_to_config``'s own arithmetic -- see compton-gui's
-``scripts/physics_params_demo.py`` for what doing so would look like.
+Rayleigh length in metres, ...) by ``gui_adapter.params_to_config``.
+``sigma_par_e``/``sigma_par_L`` -- genuinely raw, convention-ambiguous
+duration inputs (picoseconds off a GUI field) -- go through
+``adapt_to_model``/``params_to_floats`` against this spec's own
+``sigma_par_e``/``sigma_par_L`` entries (the light-time pint context
+turns the duration into ``c * duration``, matching this convention).
+``sigma0_x``/``sigma0_y``/``sigma0_l`` still do the emittance/beta/
+Rayleigh-length arithmetic by hand -- e.g. ``sigma0_l = 0.5 *
+sqrt(rayleigh_length_m * lambda_L / pi)`` (exactly
+``converters.w0_to_sigma_intensity`` fed a waist derived from the Rayleigh
+length) -- since they aren't raw convention-ambiguous inputs today, just
+derived from other unambiguous fields (see
+``docs/refactor/parameter-framework-and-collision-params.md``'s
+"sigma0_x/sigma0_l wrinkle" for why, and ``scripts/physics_params_demo.py``
+for what fully wiring them would look like).
 
 Originally lived in compton-gui as ``schemas/xigma.py`` (one of several
 per-model schemas in a GUI-side, multi-model framework); moved here so
