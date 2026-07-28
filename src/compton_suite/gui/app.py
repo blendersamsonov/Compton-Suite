@@ -65,6 +65,8 @@ from compton_suite.gui.models import discover_models
 
 from compton_suite.io.bunch import beam_from_shared_fields, sample_gaussian_bunch
 
+from compton_suite.gui.calculations import CalculationsSection
+
 # panel colours
 BLUE = "#d6e4f5"
 RED = "#f5d6d6"
@@ -247,6 +249,10 @@ class ComptonGuideApp(tk.Tk):
         # them while the panel is in display mode (otherwise the
         # ``_update_derived`` callback would clobber our output values).
         self._electron_traces: list[tuple[tk.StringVar, str]] = []
+        
+        # Calculations section (separate window)
+        self.calculations_window: tk.Toplevel | None = None
+        self.calculations_section: CalculationsSection | None = None
 
         # --- build layout ---
         self._build_menu()
@@ -324,6 +330,8 @@ class ComptonGuideApp(tk.Tk):
 
         calcmenu = tk.Menu(menubar, tearoff=0)
         calcmenu.add_command(label="Calculate", command=self.on_start)
+        calcmenu.add_separator()
+        calcmenu.add_command(label="Multi-Model Calculations...", command=self._open_calculations_section)
         menubar.add_cascade(label="Calculations", menu=calcmenu)
 
         helpmenu = tk.Menu(menubar, tearoff=0)
@@ -404,6 +412,34 @@ class ComptonGuideApp(tk.Tk):
             "Compton-GUIde\n\n"
             "Model-agnostic GUI front-end for pluggable Compton-scattering "
             "physics engines (kascade, xigma-i, ...).")
+    
+    def _open_calculations_section(self):
+        """Open the multi-model calculations section in a separate window."""
+        if self.calculations_window is not None and self.calculations_window.winfo_exists():
+            # Bring existing window to front
+            self.calculations_window.lift()
+            self.calculations_window.focus_force()
+            return
+        
+        # Create new window
+        self.calculations_window = tk.Toplevel(self)
+        self.calculations_window.title("Multi-Model Calculations")
+        self.calculations_window.geometry("1200x800+100+100")
+        
+        # Create calculations section
+        self.calculations_section = CalculationsSection(
+            self.calculations_window, self.fields)
+        self.calculations_section.pack(fill="both", expand=True)
+        
+        # Handle window close
+        self.calculations_window.protocol("WM_DELETE_WINDOW", self._close_calculations_section)
+    
+    def _close_calculations_section(self):
+        """Close the calculations section window."""
+        if self.calculations_window is not None:
+            self.calculations_window.destroy()
+            self.calculations_window = None
+            self.calculations_section = None
 
     def _save_fig(self):
         path = filedialog.asksaveasfilename(defaultextension=".png",
