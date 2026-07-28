@@ -956,7 +956,6 @@ class ComptonGuideApp(tk.Tk):
         """Refresh electron and laser values derived from the current fields."""
         from compton_suite.io.converters import sigma_intensity_to_fwhm, sigma_intensity_to_w0
         from compton_suite.io.enums import WidthConvention
-        from compton_suite.io.units import Q_
 
         energy_mev = _float_or_none(self.fields["mean_energy_MeV"])
         gamma = energy_mev * 1e6 / MEC2_EV if energy_mev is not None else None
