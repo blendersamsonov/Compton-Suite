@@ -46,6 +46,7 @@ def load_electron_beam(path: str) -> GaussianElectronBeam:
         emit_geom_x_m=float(block["emit_geom_x_um"]) * 1e-6,
         emit_geom_y_m=float(block["emit_geom_y_um"]) * 1e-6,
         sigma_t_s=float(block["bunch_duration_rms_ps"]) * 1e-12,
+        sigma_pz=float(block.get("sigma_pz", 0.0)),
     )
 
 
@@ -62,6 +63,7 @@ def save_electron_beam(beam: GaussianElectronBeam, path: str) -> None:
             "emit_geom_x_um": beam.emit_geom_x_m * 1e6,
             "emit_geom_y_um": beam.emit_geom_y_m * 1e6,
             "bunch_duration_rms_ps": beam.sigma_t_s * 1e12,
+            "sigma_pz": beam.sigma_pz,
             "propagation_direction": "+z",
         }
     }

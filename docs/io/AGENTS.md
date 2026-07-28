@@ -41,7 +41,13 @@ src/compton_suite/io/
   adapter.py           # adapt_to_model, params_to_floats
   bunch.py             # MacroBunch (raw macroparticle arrays), Gaussian
                         # ElectronBeam (gaussian_6d_waist v0.1 analytic
-                        # contract), sample_gaussian_bunch/fit_gaussian/
+                        # contract), sample_gaussian_bunch/
+                        # sample_gaussian_canonical (canonical sampling
+                        # with mass-shell enforcement), fit_gaussian/
+                        # fit_beam_full (structured Gaussian fitting with
+                        # Twiss, chirp, dispersion), drift (vacuum
+                        # propagation), evaluate_fit_quality (Mahalanobis,
+                        # KS, log-likelihood metrics),
                         # beam_from_shared_fields
   laser.py              # GaussianParaxialLaser (gaussian_paraxial v0.1
                          # analytic contract)
@@ -81,6 +87,7 @@ both.
 python3 tests/test_constants.py
 python3 tests/test_conversions.py
 python3 tests/test_bunch.py
+python3 tests/test_bunch_improvements.py  # New: canonical sampling, fitting, drift
 python3 tests/test_laser.py
 python3 tests/test_io_formats.py
 ```

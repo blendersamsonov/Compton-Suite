@@ -23,6 +23,7 @@ _EXAMPLE_BEAM = GaussianElectronBeam(
     emit_geom_x_m=0.05e-6,
     emit_geom_y_m=0.05e-6,
     sigma_t_s=1.0e-12,
+    sigma_pz=0.001,
 )
 _EXAMPLE_PULSE = GaussianParaxialLaser(
     pulse_energy_J=0.05,

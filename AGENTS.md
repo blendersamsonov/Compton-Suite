@@ -66,8 +66,25 @@ Adapters live in each model's own package:
 Every model's `run()` requires a pre-sampled `electrons: MacroBunch`
 (keyword-only) — sampling the electron bunch is `io.bunch`'s job, not any
 individual model's. The GUI draws ONE canonical `MacroBunch` via
-`io.bunch.sample_gaussian_bunch` and passes it to every model uniformly.
-No model has its own internal bunch sampler.
+`io.bunch.sample_gaussian_bunch` (which delegates to `sample_gaussian_canonical`)
+and passes it to every model uniformly. No model has its own internal bunch
+sampler.
+
+The sampling uses **canonical variables** (x, px, y, py, z, pz) with
+mass-shell enforcement: γ² = 1 + px² + py² + pz² is automatically
+satisfied by construction. The `GaussianElectronBeam` includes a
+`sigma_pz` parameter (relative RMS dispersion for longitudinal momentum)
+that controls the energy spread.
+
+After sampling, beams can be propagated using `drift(bunch, L)` which
+applies ballistic propagation (x → x + x'·L) and naturally produces
+Twiss tilt (α ≠ 0) from waist sampling.
+
+For fitting macroparticles back to a beam description, use
+`fit_beam_full(bunch)` which returns a `BeamFittedParams` dataclass
+containing transverse Twiss parameters, longitudinal dispersion,
+chirp (dγ/dz slope), and fit quality metrics (Mahalanobis distance,
+KS statistics, log-likelihood).
 
 ### Key `io/` functions
 
@@ -76,7 +93,10 @@ No model has its own internal bunch sampler.
 | `beam_from_shared_fields` | `bunch.py` | Build `GaussianElectronBeam` from flat SI fields |
 | `laser_from_shared_fields` | `laser.py` | Build `GaussianParaxialLaser` from flat SI fields |
 | `sample_gaussian_bunch` | `bunch.py` | Draw macroparticles from a `GaussianElectronBeam` |
+| `sample_gaussian_canonical` | `bunch.py` | Canonical sampling with mass-shell enforcement |
 | `fit_gaussian` | `bunch.py` | Fit `GaussianElectronBeam` from raw macroparticles |
+| `fit_beam_full` | `bunch.py` | Fit structured Gaussian with Twiss, chirp, dispersion |
+| `drift` | `bunch.py` | Propagate beam in vacuum over distance L |
 | `build_params` | `collision.py` | Build CGS `CollisionParams` for xigma-i/delta |
 | `a0_from_fields` | `laser.py` | Peak a0 from raw SI laser fields (single source of truth) |
 | `focal_radii_m` | `laser.py` | RMS/FWHM/e^{-1/2} focal radii |

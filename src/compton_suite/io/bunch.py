@@ -16,6 +16,18 @@ data and its analytic description:
   invariant under linear/ballistic drift -- rather than re-deriving beam
   parameters at each z independently. See :func:`fit_gaussian` for the
   concrete mechanism.
+
+Key functions:
+
+* :func:`sample_gaussian_bunch` / :func:`sample_gaussian_canonical` -- sample
+  macroparticles from a beam description using canonical variables with
+  mass-shell enforcement for physically consistent particles.
+* :func:`drift` -- propagate beam in vacuum over distance L, naturally
+  producing Twiss tilt from waist sampling.
+* :func:`fit_beam_full` -- fit structured Gaussian model with physical
+  correlations (Twiss, chirp, dispersion) and quality metrics.
+* :func:`evaluate_fit_quality` -- evaluate fit quality using Mahalanobis
+  distance, KS statistics, and log-likelihood.
 """
 
 from __future__ import annotations
@@ -26,9 +38,11 @@ import numpy as np
 
 from .constants import C_LIGHT, E_CHARGE, MEC2_EV
 
-__all__ = ["MacroBunch", "GaussianElectronBeam", "validate", "sample_gaussian_bunch", "fit_gaussian",
-           "beam_from_shared_fields", "beta_star_from_sigma_emit", "divergence_from_sigma_emit",
-           "sigma_from_emittance"]
+__all__ = ["MacroBunch", "GaussianElectronBeam", "BeamFittedParams", "validate",
+           "sample_gaussian_bunch", "sample_gaussian_canonical", "drift",
+           "fit_gaussian", "fit_beam_full", "evaluate_fit_quality",
+           "beam_from_shared_fields", "beta_star_from_sigma_emit",
+           "divergence_from_sigma_emit", "sigma_from_emittance"]
 
 
 def beta_star_from_sigma_emit(sigma_m: float, emit_geom_m: float) -> float:
@@ -113,6 +127,7 @@ class GaussianElectronBeam:
     emit_geom_x_m: float
     emit_geom_y_m: float
     sigma_t_s: float
+    sigma_pz: float  # Relative RMS dispersion for longitudinal momentum (dimensionless)
 
     @property
     def N_e(self) -> float:
@@ -146,6 +161,11 @@ class GaussianElectronBeam:
     @property
     def sigma_z_m(self) -> float:
         return self.beta0 * C_LIGHT * self.sigma_t_s
+
+    @property
+    def sigma_pz_abs(self) -> float:
+        """Absolute RMS dispersion for longitudinal momentum (normalized to mc)."""
+        return self.sigma_pz * self.gamma0 * self.beta0
 
     @property
     def divergence_x_rad(self) -> float:
@@ -219,47 +239,107 @@ def validate(beam: GaussianElectronBeam) -> list[str]:
 
 
 def sample_gaussian_bunch(beam: GaussianElectronBeam, n_particles: int, *,
-                           chirp: float = 0.0, angle_energy_corr: float = 0.0,
                            rng=None) -> MacroBunch:
     """Draw macroparticles from a :class:`GaussianElectronBeam`.
 
-    Independent factorized Gaussians per spec Sec. 13, defined at the beam
-    waist (``z=0``): ``x``/``thx`` and ``y``/``thy`` uncorrelated
-    (``alpha=0`` at the waist), no correlation by default (``chirp=0``,
-    ``angle_energy_corr=0``).
+    Uses canonical sampling with mass-shell enforcement for physically
+    consistent particles. This is the single entry point for electron
+    bunch sampling -- no model has its own internal bunch sampler.
 
-    ``chirp``: dimensionless energy-position correlation. ``gamma``
-    acquires an additional shift ``chirp * gamma0 * z / sigma_z_m``, so
-    ``chirp=0.1`` means a 10% fractional energy change over one bunch RMS
-    length. ``angle_energy_corr``: correlation coefficient in ``[-1, 1]``
-    between ``thx`` and the ``(gamma - gamma0) / sigma_gamma`` residual.
-    Both default to 0 (the plain, uncorrelated case). This is the one
-    place electron bunches get sampled from a beam description, correlated
-    or not -- no model has its own internal bunch sampler.
+    Delegates to :func:`sample_gaussian_canonical` for the actual sampling.
+    """
+    return sample_gaussian_canonical(beam, n_particles, rng=rng)
+
+
+def sample_gaussian_canonical(
+    beam: GaussianElectronBeam,
+    n_particles: int,
+    *,
+    rng=None,
+) -> MacroBunch:
+    """Draw macroparticles from a :class:`GaussianElectronBeam` using canonical
+    variables with mass-shell enforcement.
+
+    Sampling is done in canonical variables (x, p_x, y, p_y, z, p_z) and
+    then mapped to beam variables (x, x', y, y', z, gamma) with the
+    relativistic mass-shell constraint gamma^2 = 1 + p_x^2 + p_y^2 + p_z^2
+    automatically satisfied by construction.
+
+    Algorithm:
+    1. Sample x, y, z from Gaussians (independent)
+    2. Sample p_x, p_y from Gaussians (independent, sigma = gamma0 * divergence)
+    3. Sample p_z from Gaussian (independent, sigma = beam.sigma_pz * pz_mean)
+    4. Calculate gamma = sqrt(1 + p_x^2 + p_y^2 + p_z^2)
+    5. Convert to angles: x' = p_x/p_z, y' = p_y/p_z
+
+    This ensures:
+    - Mass-shell constraint is automatically satisfied
+    - No rejection sampling needed for mass-shell violations
+    - Physically consistent particles
     """
     rng = np.random.default_rng() if rng is None else rng
 
+    # Sample positions (independent)
     x = rng.normal(0.0, beam.sigma_x_m, n_particles)
     y = rng.normal(0.0, beam.sigma_y_m, n_particles)
-    thy = rng.normal(0.0, beam.divergence_y_rad, n_particles)
+    z = rng.normal(0.0, beam.sigma_z_m, n_particles)
 
-    corr = np.clip(angle_energy_corr, -1.0, 1.0)
-    g_std = rng.normal(0.0, 1.0, n_particles)
-    thx_std = corr * g_std + np.sqrt(max(0.0, 1.0 - corr**2)) * rng.normal(0.0, 1.0, n_particles)
-    thx = beam.divergence_x_rad * thx_std
+    # Sample transverse momenta (independent)
+    px = rng.normal(0.0, beam.gamma0 * beam.divergence_x_rad, n_particles)
+    py = rng.normal(0.0, beam.gamma0 * beam.divergence_y_rad, n_particles)
 
-    t = rng.normal(0.0, beam.sigma_t_s, n_particles)
-    z = beam.beta0 * C_LIGHT * t
-    gamma = beam.gamma0 * (1.0 + chirp * z / beam.sigma_z_m) + beam.sigma_gamma * g_std
+    # Sample longitudinal momentum (independent)
+    # pz_mean = gamma0 * beta0 for ultra-relativistic beams
+    pz_mean = beam.gamma0 * beam.beta0
+    sigma_pz_abs = beam.sigma_pz * pz_mean  # Absolute dispersion
+    pz = rng.normal(pz_mean, sigma_pz_abs, n_particles)
+
+    # Enforce pz > 1 (physical constraint for relativistic particles)
+    mask = pz > 1.0
+    while not np.all(mask):
+        n_bad = np.sum(~mask)
+        pz[~mask] = rng.normal(pz_mean, sigma_pz_abs, n_bad)
+        mask = pz > 1.0
+
+    # Calculate gamma from momenta (mass-shell: gamma^2 = 1 + p^2)
+    gamma = np.sqrt(1.0 + px**2 + py**2 + pz**2)
+
+    # Convert to angles
+    thx = px / pz
+    thy = py / pz
 
     weight = beam.N_e / n_particles
     return MacroBunch(x=x, y=y, z=z, thx=thx, thy=thy, gamma=gamma, weight=weight,
-                       meta={"source": "sample_gaussian_bunch", "beam": beam})
+                       meta={"source": "sample_gaussian_canonical", "beam": beam})
+
+
+def drift(bunch: MacroBunch, L: float) -> MacroBunch:
+    """Propagate beam in vacuum over distance L.
+
+    Ballistic propagation:
+    - x -> x + x' * L
+    - y -> y + y' * L
+    - z, thx, thy, gamma unchanged
+
+    This naturally produces Twiss tilt (alpha != 0) from waist sampling.
+    When sampling at the waist (alpha_x = alpha_y = 0), the beam will
+    develop non-zero alpha after drifting, which is the physically correct
+    behavior.
+    """
+    return MacroBunch(
+        x=bunch.x + bunch.thx * L,
+        y=bunch.y + bunch.thy * L,
+        z=bunch.z,
+        thx=bunch.thx,
+        thy=bunch.thy,
+        gamma=bunch.gamma,
+        weight=bunch.weight,
+    )
 
 
 def beam_from_shared_fields(*, eps0: float, sigma_eps_rel: float, emit_x: float, emit_y: float,
                              sigma0_x: float, sigma0_y: float, sigma_par_e: float,
-                             N_e: float) -> GaussianElectronBeam:
+                             N_e: float, sigma_pz: float = 0.0) -> GaussianElectronBeam:
     """Build a :class:`GaussianElectronBeam` from the flat SI field set every
     model's own ``Config`` already derives and agrees on (``eps0``,
     ``sigma_eps_rel``, ``emit_x/y``, ``sigma0_x/y``, ``sigma_par_e``, ``N_e``
@@ -281,6 +361,10 @@ def beam_from_shared_fields(*, eps0: float, sigma_eps_rel: float, emit_x: float,
     explicitly below, same distinction that caused a real bug in
     ``AnalyticalConfig`` earlier (see that class's ``sigma_eps_rel``
     docstring).
+
+    ``sigma_pz`` is the relative RMS dispersion for longitudinal momentum
+    (dimensionless), normalized to the mean momentum ``pz_mean = gamma0 * beta0``.
+    If not provided, defaults to 0.0 (delta function in longitudinal momentum).
     """
     gamma0 = eps0
     kinetic_energy_eV = (gamma0 - 1.0) * MEC2_EV
@@ -297,6 +381,194 @@ def beam_from_shared_fields(*, eps0: float, sigma_eps_rel: float, emit_x: float,
         emit_geom_x_m=emit_x,
         emit_geom_y_m=emit_y,
         sigma_t_s=sigma_par_e / (beta0 * C_LIGHT),
+        sigma_pz=sigma_pz,
+    )
+
+
+@dataclass
+class BeamFittedParams:
+    """Physically meaningful beam parameters from fitting.
+
+    Contains all parameters extracted from a Gaussian fit to macroparticle
+    data, including transverse Twiss parameters, longitudinal dispersion,
+    and fit quality metrics.
+    """
+    # Transverse (at waist)
+    sigma_x_waist: float
+    sigma_y_waist: float
+    emit_geom_x: float
+    emit_geom_y: float
+    beta_x: float
+    beta_y: float
+    alpha_x: float  # Should be ~0 at waist
+    alpha_y: float
+
+    # Longitudinal
+    sigma_z: float
+    sigma_pz: float      # Input parameter (relative)
+    sigma_gamma: float   # Computed from fit
+    chirp: float         # Slope dγ/dz (1/m units)
+
+    # Dispersion
+    D_x: float
+    D_y: float
+
+    # Fit quality
+    fit_quality: dict
+
+
+def evaluate_fit_quality(
+    bunch: MacroBunch,
+    mu: np.ndarray,
+    Sigma: np.ndarray,
+    n_synthetic: int = 3,
+) -> dict:
+    """Evaluate Gaussian fit quality with sampling-noise baseline.
+
+    Compares the real data against synthetic Gaussian samples generated from
+    the fitted parameters to distinguish between sampling noise and true
+    model mismatch.
+
+    Returns a dictionary with:
+    - ks_real: KS statistic for real data
+    - ks_synthetic: Mean KS for synthetic Gaussian samples
+    - ks_excess: ks_real - ks_synthetic (model mismatch indicator)
+    - mean_d2_real: Mean Mahalanobis distance for real data
+    - mean_d2_synthetic: Mean for synthetic
+    - log_likelihood_real: Log-likelihood of real data
+    - log_likelihood_synthetic: Mean for synthetic
+
+    Interpretation:
+    - real ~ synthetic: fit is noise-limited (good)
+    - real > synthetic: model mismatch
+    - large deviation: non-Gaussian structure
+    """
+    from scipy.stats import chi2, kstest
+
+    # Build data matrix
+    X = np.stack([bunch.x, bunch.thx, bunch.y, bunch.thy, bunch.z, bunch.gamma], axis=1)
+    Xc = X - mu
+
+    # Inverse covariance (with regularization for stability)
+    try:
+        inv = np.linalg.inv(Sigma)
+        sign, logdet = np.linalg.slogdet(Sigma)
+        if sign <= 0:
+            raise np.linalg.LinAlgError("Singular covariance")
+    except np.linalg.LinAlgError:
+        # Regularize if singular
+        Sigma_reg = Sigma + 1e-10 * np.eye(Sigma.shape[0])
+        inv = np.linalg.inv(Sigma_reg)
+        sign, logdet = np.linalg.slogdet(Sigma_reg)
+
+    # Mahalanobis distance for real data
+    d2_real = np.einsum("ni,ij,nj->n", Xc, inv, Xc)
+
+    # KS test against chi2(6)
+    ks_real, _ = kstest(d2_real, chi2(df=6).cdf)
+    mean_d2_real = np.mean(d2_real)
+
+    # Log-likelihood for real data
+    k = X.shape[1]
+    loglik_real = -0.5 * (k * np.log(2 * np.pi) + logdet + np.mean(d2_real))
+
+    # Synthetic baseline
+    rng = np.random.default_rng()
+    ks_syn = []
+    mean_d2_syn = []
+    loglik_syn = []
+
+    for _ in range(n_synthetic):
+        Xs = rng.multivariate_normal(mu, Sigma, size=len(X))
+        Xsc = Xs - mu
+
+        d2s = np.einsum("ni,ij,nj->n", Xsc, inv, Xsc)
+        ks, _ = kstest(d2s, chi2(df=6).cdf)
+
+        ks_syn.append(ks)
+        mean_d2_syn.append(np.mean(d2s))
+        loglik_syn.append(-0.5 * (k * np.log(2 * np.pi) + logdet + np.mean(d2s)))
+
+    return {
+        "ks_real": ks_real,
+        "ks_synthetic": np.mean(ks_syn),
+        "ks_excess": ks_real - np.mean(ks_syn),
+        "mean_d2_real": mean_d2_real,
+        "mean_d2_synthetic": np.mean(mean_d2_syn),
+        "log_likelihood_real": loglik_real,
+        "log_likelihood_synthetic": np.mean(loglik_syn),
+    }
+
+
+def fit_beam_full(bunch: MacroBunch) -> BeamFittedParams:
+    """Fit structured Gaussian model with physical correlations.
+
+    Extracts physically meaningful parameters from macroparticle data:
+    - Transverse: Twiss alpha, beta, emittance (geometric)
+    - Longitudinal: sigma_z, sigma_pz, chirp (slope dγ/dz)
+    - Dispersion: D_x, D_y (x-γ, y-γ correlations)
+    - Fit quality: Mahalanobis, KS, log-likelihood metrics
+
+    Uses biased covariance for physics (population parameters).
+    """
+    # Build data matrix: [x, thx, y, thy, z, gamma]
+    X = np.stack([bunch.x, bunch.thx, bunch.y, bunch.thy, bunch.z, bunch.gamma], axis=1)
+
+    # Center data
+    mu = np.mean(X, axis=0)
+    Xc = X - mu
+
+    # Compute covariance (biased for population parameters)
+    Sigma = np.cov(Xc, rowvar=False, bias=True)
+
+    # Extract parameters
+    ix, ixp, iy, iyp, iz, ig = range(6)
+
+    # Transverse emittance
+    emit_x = np.sqrt(Sigma[ix, ix] * Sigma[ixp, ixp] - Sigma[ix, ixp]**2)
+    emit_y = np.sqrt(Sigma[iy, iy] * Sigma[iyp, iyp] - Sigma[iy, iyp]**2)
+
+    # Twiss parameters
+    beta_x = Sigma[ix, ix] / emit_x
+    alpha_x = -Sigma[ix, ixp] / emit_x
+    beta_y = Sigma[iy, iy] / emit_y
+    alpha_y = -Sigma[iy, iyp] / emit_y
+
+    # Waist sizes (from emittance and divergence)
+    sigma_x_waist = emit_x / np.sqrt(Sigma[ixp, ixp])
+    sigma_y_waist = emit_y / np.sqrt(Sigma[iyp, iyp])
+
+    # Longitudinal
+    sigma_z = np.sqrt(Sigma[iz, iz])
+    sigma_pz = np.sqrt(Sigma[ig, ig])  # This is sigma_gamma from fit
+    sigma_gamma = sigma_pz  # For Gaussian, they're related
+
+    # Chirp (slope dγ/dz)
+    chirp = Sigma[iz, ig] / Sigma[iz, iz] if Sigma[iz, iz] > 0 else 0.0
+
+    # Dispersion
+    D_x = Sigma[ix, ig] / Sigma[ig, ig] if Sigma[ig, ig] > 0 else 0.0
+    D_y = Sigma[iy, ig] / Sigma[ig, ig] if Sigma[ig, ig] > 0 else 0.0
+
+    # Fit quality
+    fit_quality = evaluate_fit_quality(bunch, mu, Sigma)
+
+    return BeamFittedParams(
+        sigma_x_waist=sigma_x_waist,
+        sigma_y_waist=sigma_y_waist,
+        emit_geom_x=emit_x,
+        emit_geom_y=emit_y,
+        beta_x=beta_x,
+        beta_y=beta_y,
+        alpha_x=alpha_x,
+        alpha_y=alpha_y,
+        sigma_z=sigma_z,
+        sigma_pz=sigma_pz,
+        sigma_gamma=sigma_gamma,
+        chirp=chirp,
+        D_x=D_x,
+        D_y=D_y,
+        fit_quality=fit_quality,
     )
 
 
@@ -344,6 +616,10 @@ def fit_gaussian(bunch: MacroBunch) -> GaussianElectronBeam:
 
     bunch_charge_C = bunch.N_e * E_CHARGE
 
+    # Estimate sigma_pz from gamma spread (good approximation for ultra-relativistic beams)
+    # For ultra-relativistic: pz ≈ gamma, so sigma_pz / pz_mean ≈ sigma_gamma / gamma0
+    sigma_pz = sigma_gamma / gamma0 if gamma0 > 0 else 0.0
+
     return GaussianElectronBeam(
         bunch_charge_C=bunch_charge_C,
         kinetic_energy_eV=kinetic_energy_eV,
@@ -353,4 +629,5 @@ def fit_gaussian(bunch: MacroBunch) -> GaussianElectronBeam:
         emit_geom_x_m=emit_geom_x_m,
         emit_geom_y_m=emit_geom_y_m,
         sigma_t_s=sigma_t_s,
+        sigma_pz=sigma_pz,
     )

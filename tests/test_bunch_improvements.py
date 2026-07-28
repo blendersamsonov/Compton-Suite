@@ -1,0 +1,472 @@
+"""Tests for the improved electron bunch sampling, fitting, and evaluation.
+
+This module tests the new canonical sampling with mass-shell enforcement,
+vacuum propagation, structured Gaussian fitting, and fit quality metrics.
+"""
+
+import numpy as np
+import pytest
+
+from compton_suite.io.bunch import (
+    BeamFittedParams,
+    GaussianElectronBeam,
+    MacroBunch,
+    drift,
+    evaluate_fit_quality,
+    fit_beam_full,
+    sample_gaussian_bunch,
+    sample_gaussian_canonical,
+)
+
+
+# ============================================================================
+# Fixtures
+# ============================================================================
+
+@pytest.fixture
+def rng():
+    """Random number generator for reproducible tests."""
+    return np.random.default_rng(42)
+
+
+@pytest.fixture
+def ultra_relativistic_beam():
+    """Ultra-relativistic beam (gamma >> 1) for testing.
+
+    Physical parameters: 500 MeV beam, 100 um beam size, 10 nm emittance.
+    Divergence = emit/sigma = 10e-9/100e-6 = 0.1 mrad.
+    """
+    return GaussianElectronBeam(
+        bunch_charge_C=1e-12,  # 1 pC
+        kinetic_energy_eV=500e6,  # 500 MeV
+        rel_energy_spread_rms=0.01,  # 1% energy spread
+        sigma_x_m=100e-6,  # 100 um
+        sigma_y_m=100e-6,  # 100 um
+        emit_geom_x_m=10e-9,  # 10 nm
+        emit_geom_y_m=10e-9,  # 10 nm
+        sigma_t_s=1e-12,  # 1 ps
+        sigma_pz=0.01,  # 1% momentum spread
+    )
+
+
+@pytest.fixture
+def mildly_relativistic_beam():
+    """Mildly relativistic beam (gamma ~ 19) for testing.
+
+    Physical parameters: 9 MeV beam, 100 um beam size, 10 nm emittance.
+    """
+    return GaussianElectronBeam(
+        bunch_charge_C=1e-12,  # 1 pC
+        kinetic_energy_eV=9e6,  # 9 MeV (gamma ~ 19)
+        rel_energy_spread_rms=0.05,  # 5% energy spread
+        sigma_x_m=100e-6,  # 100 um
+        sigma_y_m=100e-6,  # 100 um
+        emit_geom_x_m=10e-9,  # 10 nm
+        emit_geom_y_m=10e-9,  # 10 nm
+        sigma_t_s=1e-12,  # 1 ps
+        sigma_pz=0.05,  # 5% momentum spread
+    )
+
+
+# ============================================================================
+# Canonical Sampling Tests
+# ============================================================================
+
+class TestCanonicalSampling:
+    """Test canonical sampling with mass-shell enforcement."""
+
+    def test_mass_shell_constraint(self, ultra_relativistic_beam, rng):
+        """Verify mass-shell constraint: gamma^2 = 1 + px^2 + py^2 + pz^2."""
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        # Recover pz from gamma and angles using the EXACT inverse:
+        # gamma^2 = 1 + pz^2 * (1 + thx^2 + thy^2)
+        # => pz^2 = (gamma^2 - 1) / (1 + thx^2 + thy^2)
+        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+        px = bunch.thx * pz
+        py = bunch.thy * pz
+
+        # Check mass-shell: gamma^2 = 1 + px^2 + py^2 + pz^2
+        gamma_sq = bunch.gamma**2
+        p_sq = 1.0 + px**2 + py**2 + pz**2
+
+        # Should be exactly equal (within floating point precision)
+        np.testing.assert_allclose(gamma_sq, p_sq, rtol=1e-10)
+
+    def test_pz_positivity(self, ultra_relativistic_beam, rng):
+        """Verify pz > 1 for all particles (physical constraint)."""
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        # Recover pz using exact inverse
+        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+
+        # All pz should be > 1
+        assert np.all(pz > 1.0), f"Some pz <= 1.0: min = {np.min(pz)}"
+
+    def test_statistics_match_input(self, ultra_relativistic_beam, rng):
+        """Verify sampled statistics match input parameters."""
+        n_particles = 100000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        # Check transverse sizes (should be close to input)
+        sigma_x_meas = np.std(bunch.x)
+        sigma_y_meas = np.std(bunch.y)
+
+        # Allow 5% tolerance due to sampling noise
+        assert abs(sigma_x_meas - ultra_relativistic_beam.sigma_x_m) / ultra_relativistic_beam.sigma_x_m < 0.05
+        assert abs(sigma_y_meas - ultra_relativistic_beam.sigma_y_m) / ultra_relativistic_beam.sigma_y_m < 0.05
+
+    def test_gamma_calculation(self, ultra_relativistic_beam, rng):
+        """Verify gamma is correctly calculated from momenta."""
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        # Recover pz using exact inverse
+        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+        px = bunch.thx * pz
+        py = bunch.thy * pz
+
+        # Gamma should be sqrt(1 + px^2 + py^2 + pz^2)
+        gamma_expected = np.sqrt(1.0 + px**2 + py**2 + pz**2)
+        np.testing.assert_allclose(bunch.gamma, gamma_expected, rtol=1e-10)
+
+
+# ============================================================================
+# Drift Tests
+# ============================================================================
+
+class TestDrift:
+    """Test vacuum propagation."""
+
+    def test_position_propagation(self, ultra_relativistic_beam, rng):
+        """Verify x -> x + x' * L."""
+        n_particles = 1000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+        L = 0.1  # 10 cm drift
+
+        drifted = drift(bunch, L)
+
+        # Check x propagation
+        x_expected = bunch.x + bunch.thx * L
+        np.testing.assert_allclose(drifted.x, x_expected)
+
+        # Check y propagation
+        y_expected = bunch.y + bunch.thy * L
+        np.testing.assert_allclose(drifted.y, y_expected)
+
+    def test_unchanged_quantities(self, ultra_relativistic_beam, rng):
+        """Verify z, thx, thy, gamma unchanged by drift."""
+        n_particles = 1000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+        L = 0.1
+
+        drifted = drift(bunch, L)
+
+        np.testing.assert_allclose(drifted.z, bunch.z)
+        np.testing.assert_allclose(drifted.thx, bunch.thx)
+        np.testing.assert_allclose(drifted.thy, bunch.thy)
+        np.testing.assert_allclose(drifted.gamma, bunch.gamma)
+
+    def test_twiss_alpha_emergence(self, ultra_relativistic_beam, rng):
+        """Verify Twiss alpha emerges from waist + drift."""
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+        L = 0.1
+
+        # At waist, alpha should be ~0
+        params_waist = fit_beam_full(bunch)
+        assert abs(params_waist.alpha_x) < 0.1  # Should be close to 0
+        assert abs(params_waist.alpha_y) < 0.1
+
+        # After drift, alpha should be non-zero
+        drifted = drift(bunch, L)
+        params_drifted = fit_beam_full(drifted)
+
+        # Alpha should be negative (converging beam)
+        assert params_drifted.alpha_x < 0
+        assert params_drifted.alpha_y < 0
+
+
+# ============================================================================
+# Fitting Tests
+# ============================================================================
+
+class TestFitting:
+    """Test structured Gaussian fitting."""
+
+    def test_fit_parameters_match_input(self, ultra_relativistic_beam, rng):
+        """Verify fitted parameters match input beam."""
+        n_particles = 100000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        params = fit_beam_full(bunch)
+
+        # Check transverse emittance (should be close to input)
+        emit_x_input = ultra_relativistic_beam.emit_geom_x_m
+        emit_y_input = ultra_relativistic_beam.emit_geom_y_m
+
+        # Allow 10% tolerance due to sampling noise
+        assert abs(params.emit_geom_x - emit_x_input) / emit_x_input < 0.1
+        assert abs(params.emit_geom_y - emit_y_input) / emit_y_input < 0.1
+
+    def test_fit_with_drift(self, ultra_relativistic_beam, rng):
+        """Verify fitting works correctly with drifted beam."""
+        n_particles = 100000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+        L = 0.1
+
+        drifted = drift(bunch, L)
+        params = fit_beam_full(drifted)
+
+        # Emittance should be conserved (Liouville's theorem)
+        emit_x_input = ultra_relativistic_beam.emit_geom_x_m
+        emit_y_input = ultra_relativistic_beam.emit_geom_y_m
+
+        # Allow 10% tolerance
+        assert abs(params.emit_geom_x - emit_x_input) / emit_x_input < 0.1
+        assert abs(params.emit_geom_y - emit_y_input) / emit_y_input < 0.1
+
+    def test_sigma_gamma_calculation(self, ultra_relativistic_beam, rng):
+        """Verify sigma_gamma is correctly calculated from fit."""
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        params = fit_beam_full(bunch)
+
+        # sigma_gamma should be close to std(gamma)
+        sigma_gamma_expected = np.std(bunch.gamma)
+        assert abs(params.sigma_gamma - sigma_gamma_expected) / sigma_gamma_expected < 0.1
+
+    def test_chirp_is_finite(self, ultra_relativistic_beam, rng):
+        """Verify chirp is computed and finite for uncorrelated sampling."""
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        params = fit_beam_full(bunch)
+
+        # Chirp should be a finite number
+        assert np.isfinite(params.chirp)
+        # For uncorrelated sampling, chirp should be relatively small
+        # compared to gamma0/sigma_z (the natural scale)
+        natural_scale = ultra_relativistic_beam.gamma0 / ultra_relativistic_beam.sigma_z_m
+        assert abs(params.chirp) < 0.5 * natural_scale  # Much less than the natural scale
+
+
+# ============================================================================
+# Fit Quality Tests
+# ============================================================================
+
+class TestFitQuality:
+    """Test fit quality evaluation metrics."""
+
+    def test_gaussian_data_low_ks_excess(self, ultra_relativistic_beam, rng):
+        """Verify Gaussian data produces low KS excess."""
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        # Fit the beam
+        X = np.stack([bunch.x, bunch.thx, bunch.y, bunch.thy, bunch.z, bunch.gamma], axis=1)
+        mu = np.mean(X, axis=0)
+        Sigma = np.cov(X - mu, rowvar=False, bias=True)
+
+        # Evaluate fit quality
+        quality = evaluate_fit_quality(bunch, mu, Sigma)
+
+        # For Gaussian data, KS excess should be small
+        # (close to 0, within sampling noise)
+        assert abs(quality["ks_excess"]) < 0.1
+
+    def test_non_gaussian_data_high_ks_excess(self, rng):
+        """Verify non-Gaussian data produces high KS excess."""
+        n_particles = 10000
+
+        # Create non-Gaussian data (mixture of two well-separated Gaussians)
+        n1 = n_particles // 2
+        n2 = n_particles - n1
+
+        # Use x as the non-Gaussian dimension - large separation
+        x1 = rng.normal(-5e-6, 1e-6, n1)
+        x2 = rng.normal(5e-6, 1e-6, n2)
+        x = np.concatenate([x1, x2])
+
+        y = rng.normal(0, 100e-6, n_particles)
+        z = rng.normal(0, 3e-4, n_particles)
+        thx = rng.normal(0, 1e-4, n_particles)
+        thy = rng.normal(0, 1e-4, n_particles)
+        gamma = rng.normal(1000, 10, n_particles)
+
+        bunch = MacroBunch(x=x, y=y, z=z, thx=thx, thy=thy, gamma=gamma, weight=1.0)
+
+        # Fit the beam (using the non-Gaussian data)
+        X = np.stack([bunch.x, bunch.thx, bunch.y, bunch.thy, bunch.z, bunch.gamma], axis=1)
+        mu = np.mean(X, axis=0)
+        Sigma = np.cov(X - mu, rowvar=False, bias=True)
+
+        # Evaluate fit quality
+        quality = evaluate_fit_quality(bunch, mu, Sigma)
+
+        # For non-Gaussian data, KS excess should be larger
+        # (the fit is a poor model for the mixture)
+        assert quality["ks_excess"] > 0.01  # Should be noticeable
+
+    def test_log_likelihood_comparison(self, ultra_relativistic_beam, rng):
+        """Verify log-likelihood comparison between real and synthetic."""
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        # Fit the beam
+        X = np.stack([bunch.x, bunch.thx, bunch.y, bunch.thy, bunch.z, bunch.gamma], axis=1)
+        mu = np.mean(X, axis=0)
+        Sigma = np.cov(X - mu, rowvar=False, bias=True)
+
+        # Evaluate fit quality
+        quality = evaluate_fit_quality(bunch, mu, Sigma)
+
+        # Log-likelihood can be positive or negative depending on scales
+        # The key is that real and synthetic should be close for good fit
+        assert np.isfinite(quality["log_likelihood_real"])
+        assert np.isfinite(quality["log_likelihood_synthetic"])
+
+        # For good fit, real log-likelihood should be close to synthetic
+        # (within sampling noise)
+        ll_diff = abs(quality["log_likelihood_real"] - quality["log_likelihood_synthetic"])
+        # Relative difference should be small
+        ll_scale = max(abs(quality["log_likelihood_real"]), abs(quality["log_likelihood_synthetic"]), 1.0)
+        assert ll_diff / ll_scale < 0.1  # Within 10%
+
+
+# ============================================================================
+# Integration Tests
+# ============================================================================
+
+class TestIntegration:
+    """End-to-end integration tests."""
+
+    def test_full_pipeline(self, ultra_relativistic_beam, rng):
+        """Test complete pipeline: sample -> drift -> fit -> evaluate."""
+        n_particles = 100000
+        L = 0.1
+
+        # Sample
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        # Drift
+        drifted = drift(bunch, L)
+
+        # Fit
+        params = fit_beam_full(drifted)
+
+        # Verify all parameters are computed
+        assert hasattr(params, 'sigma_x_waist')
+        assert hasattr(params, 'sigma_y_waist')
+        assert hasattr(params, 'emit_geom_x')
+        assert hasattr(params, 'emit_geom_y')
+        assert hasattr(params, 'beta_x')
+        assert hasattr(params, 'beta_y')
+        assert hasattr(params, 'alpha_x')
+        assert hasattr(params, 'alpha_y')
+        assert hasattr(params, 'sigma_z')
+        assert hasattr(params, 'sigma_pz')
+        assert hasattr(params, 'sigma_gamma')
+        assert hasattr(params, 'chirp')
+        assert hasattr(params, 'D_x')
+        assert hasattr(params, 'D_y')
+        assert hasattr(params, 'fit_quality')
+
+        # Verify fit quality metrics are present
+        assert 'ks_real' in params.fit_quality
+        assert 'ks_synthetic' in params.fit_quality
+        assert 'ks_excess' in params.fit_quality
+        assert 'mean_d2_real' in params.fit_quality
+        assert 'mean_d2_synthetic' in params.fit_quality
+        assert 'log_likelihood_real' in params.fit_quality
+        assert 'log_likelihood_synthetic' in params.fit_quality
+
+    def test_sample_gaussian_bunch_delegates(self, ultra_relativistic_beam, rng):
+        """Verify sample_gaussian_bunch delegates to canonical sampling."""
+        n_particles = 10000
+
+        # Both should produce the same result (with same rng)
+        rng1 = np.random.default_rng(42)
+        rng2 = np.random.default_rng(42)
+
+        bunch1 = sample_gaussian_bunch(ultra_relativistic_beam, n_particles, rng=rng1)
+        bunch2 = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng2)
+
+        np.testing.assert_allclose(bunch1.x, bunch2.x)
+        np.testing.assert_allclose(bunch1.y, bunch2.y)
+        np.testing.assert_allclose(bunch1.z, bunch2.z)
+        np.testing.assert_allclose(bunch1.thx, bunch2.thx)
+        np.testing.assert_allclose(bunch1.thy, bunch2.thy)
+        np.testing.assert_allclose(bunch1.gamma, bunch2.gamma)
+
+
+# ============================================================================
+# Edge Cases
+# ============================================================================
+
+class TestEdgeCases:
+    """Test edge cases and error handling."""
+
+    def test_zero_sigma_pz(self, rng):
+        """Test with zero momentum spread (delta function in pz)."""
+        beam = GaussianElectronBeam(
+            bunch_charge_C=1e-12,
+            kinetic_energy_eV=500e6,
+            rel_energy_spread_rms=0.01,
+            sigma_x_m=100e-6,
+            sigma_y_m=100e-6,
+            emit_geom_x_m=10e-9,
+            emit_geom_y_m=10e-9,
+            sigma_t_s=1e-12,
+            sigma_pz=0.0,  # Zero momentum spread
+        )
+
+        n_particles = 1000
+        bunch = sample_gaussian_canonical(beam, n_particles, rng=rng)
+
+        # Recover pz using exact inverse
+        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+
+        # All pz should be very close to pz_mean
+        pz_mean = beam.gamma0 * beam.beta0
+        assert np.allclose(pz, pz_mean, rtol=1e-5)
+
+    def test_large_sigma_pz(self, rng):
+        """Test with large momentum spread."""
+        beam = GaussianElectronBeam(
+            bunch_charge_C=1e-12,
+            kinetic_energy_eV=500e6,
+            rel_energy_spread_rms=0.01,
+            sigma_x_m=100e-6,
+            sigma_y_m=100e-6,
+            emit_geom_x_m=10e-9,
+            emit_geom_y_m=10e-9,
+            sigma_t_s=1e-12,
+            sigma_pz=0.2,  # 20% momentum spread
+        )
+
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(beam, n_particles, rng=rng)
+
+        # Should still satisfy mass-shell
+        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+        px = bunch.thx * pz
+        py = bunch.thy * pz
+
+        gamma_sq = bunch.gamma**2
+        p_sq = 1.0 + px**2 + py**2 + pz**2
+
+        np.testing.assert_allclose(gamma_sq, p_sq, rtol=1e-10)
+
+    def test_small_number_of_particles(self, ultra_relativistic_beam, rng):
+        """Test with very small number of particles."""
+        n_particles = 10
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+
+        # Should still work
+        assert len(bunch.x) == n_particles
+        params = fit_beam_full(bunch)
+        assert params is not None

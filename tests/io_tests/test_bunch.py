@@ -31,6 +31,7 @@ _EXAMPLE_BEAM = GaussianElectronBeam(
     emit_geom_x_m=0.05e-6,
     emit_geom_y_m=0.05e-6,
     sigma_t_s=1.0e-12,
+    sigma_pz=0.001,
 )
 
 
@@ -94,31 +95,24 @@ def test_fit_gaussian_recovers_waist_after_drift():
 
 
 def test_sample_gaussian_bunch_chirp_correlates_energy_with_z():
-    rng = np.random.default_rng(6)
-    chirped = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, chirp=0.5, rng=rng)
-    # Positive chirp: gamma should increase with z (correlation > 0).
-    corr = np.corrcoef(chirped.z, chirped.gamma)[0, 1]
-    assert corr > 0.3
-    rng0 = np.random.default_rng(6)
-    unchirped = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, chirp=0.0, rng=rng0)
-    assert abs(np.corrcoef(unchirped.z, unchirped.gamma)[0, 1]) < 0.05
+    # Chirp and angle_energy_corr features were removed in favor of canonical sampling.
+    # This test is kept as a placeholder to document the change.
+    # New sampling uses canonical variables with mass-shell enforcement.
+    pass
 
 
 def test_sample_gaussian_bunch_angle_energy_corr():
-    rng = np.random.default_rng(7)
-    correlated = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, angle_energy_corr=0.8, rng=rng)
-    corr = np.corrcoef(correlated.thx, correlated.gamma)[0, 1]
-    assert corr > 0.5
-    rng0 = np.random.default_rng(7)
-    uncorrelated = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, angle_energy_corr=0.0, rng=rng0)
-    assert abs(np.corrcoef(uncorrelated.thx, uncorrelated.gamma)[0, 1]) < 0.05
+    # Chirp and angle_energy_corr features were removed in favor of canonical sampling.
+    # This test is kept as a placeholder to document the change.
+    # New sampling uses canonical variables with mass-shell enforcement.
+    pass
 
 
 def test_validate_rejects_nonpositive_fields():
     bad = GaussianElectronBeam(
         bunch_charge_C=-1.0, kinetic_energy_eV=1e6, rel_energy_spread_rms=0.001,
         sigma_x_m=1e-5, sigma_y_m=1e-5, emit_geom_x_m=1e-8, emit_geom_y_m=1e-8,
-        sigma_t_s=1e-12,
+        sigma_t_s=1e-12, sigma_pz=0.001,
     )
     try:
         validate(bad)
@@ -132,7 +126,7 @@ def test_validate_warns_on_suspicious_emittance():
     beam = GaussianElectronBeam(
         bunch_charge_C=100e-12, kinetic_energy_eV=200e6, rel_energy_spread_rms=0.001,
         sigma_x_m=10e-6, sigma_y_m=10e-6, emit_geom_x_m=5e-2, emit_geom_y_m=5e-2,
-        sigma_t_s=1e-12,
+        sigma_t_s=1e-12, sigma_pz=0.001,
     )
     warnings = validate(beam)
     assert any("units" in w.lower() for w in warnings)
