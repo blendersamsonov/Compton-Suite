@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "tests/test_analytical.py": {
-    "mtime": 1785224802.6972468,
-    "ast_hash": "e4f203b909a9a75db3f3418147878bd0",
+    "mtime": 1785238050.5945177,
+    "ast_hash": "d0a571cb193705d456b845d7fca73656",
     "semantic_hash": ""
   },
   ".opencode/opencode.json": {
@@ -25,13 +25,13 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1785224693.2434974,
-    "ast_hash": "a0ef1ea83c4fa79ee2009b0649568d61",
+    "mtime": 1785238528.5260131,
+    "ast_hash": "ca790f0b3c38313db39c5115b48d8396",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785224693.2434974,
-    "ast_hash": "a0ef1ea83c4fa79ee2009b0649568d61",
+    "mtime": 1785238528.5260131,
+    "ast_hash": "ca790f0b3c38313db39c5115b48d8396",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/gui/app.py": {
-    "mtime": 1785228709.0573156,
-    "ast_hash": "9c56cca9ad5e3d6886b7e40b756e9b12",
+    "mtime": 1785234442.7089045,
+    "ast_hash": "7bec9596d4a26165ba73bbdb4e76320f",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/model_api.py": {
@@ -90,8 +90,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/io/bunch.py": {
-    "mtime": 1785224802.6828442,
-    "ast_hash": "a4f4f3307fc139f5eb0657d34d66346d",
+    "mtime": 1785238085.7716131,
+    "ast_hash": "a31d29a1bf8e19fb3718886eed4f5f81",
     "semantic_hash": ""
   },
   "src/compton_suite/io/canonical.py": {
@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/io/io_formats/yaml_spec.py": {
-    "mtime": 1785224802.6787202,
-    "ast_hash": "bef2207d862cb4c16b0b53f9e701633a",
+    "mtime": 1785238124.6595392,
+    "ast_hash": "5b39aa9c52f262ee4652289b3383d485",
     "semantic_hash": ""
   },
   "src/compton_suite/io/laser.py": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/analytical/analytical_adapter.py": {
-    "mtime": 1785228896.591509,
-    "ast_hash": "266bcb9dc2cb7e3e6a6a9184c7c421ee",
+    "mtime": 1785234625.586068,
+    "ast_hash": "021cf92f06aee290b596b985901b5c5b",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/__init__.py": {
@@ -210,8 +210,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/kascade_adapter.py": {
-    "mtime": 1785228741.1294687,
-    "ast_hash": "5acf677d9617b02508ea2d7182473c70",
+    "mtime": 1785234572.187961,
+    "ast_hash": "2836821716bbbbd8729364faa4a65b7a",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/__init__.py": {
@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/gui_adapter.py": {
-    "mtime": 1785228811.4151218,
-    "ast_hash": "02e724b9d0837900996e387c95f60f34",
+    "mtime": 1785234583.3379834,
+    "ast_hash": "4c627a0b00638f1cc399de01d82ae017",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/params/__init__.py": {
@@ -335,8 +335,8 @@
     "semantic_hash": ""
   },
   "tests/io_tests/test_bunch.py": {
-    "mtime": 1785224802.697841,
-    "ast_hash": "9b53084baa9ae215d391fd41edbf4777",
+    "mtime": 1785238156.2879891,
+    "ast_hash": "6c989dfc1c18173787bfb77ecf3fe9bf",
     "semantic_hash": ""
   },
   "tests/io_tests/test_constants.py": {
@@ -350,8 +350,8 @@
     "semantic_hash": ""
   },
   "tests/io_tests/test_io_formats.py": {
-    "mtime": 1785224802.6993747,
-    "ast_hash": "5238f01100e8677858023f7eb82f9842",
+    "mtime": 1785238002.9753335,
+    "ast_hash": "7a5bcbcfc99afb301d20337ec8071d9c",
     "semantic_hash": ""
   },
   "tests/io_tests/test_laser.py": {
@@ -360,8 +360,8 @@
     "semantic_hash": ""
   },
   "tests/io_tests/test_propagation.py": {
-    "mtime": 1785224802.7004166,
-    "ast_hash": "04abf15bc9c3c767fb385fc631b7507b",
+    "mtime": 1785238036.765134,
+    "ast_hash": "a6b7fbedd5459f85e0d897fd28973659",
     "semantic_hash": ""
   },
   "docs/gui/AGENTS.md": {
@@ -375,8 +375,8 @@
     "semantic_hash": ""
   },
   "docs/io/AGENTS.md": {
-    "mtime": 1785159797.5801783,
-    "ast_hash": "b9a6b83fbf96ebfaf2f7f7c880771d6b",
+    "mtime": 1785238575.1607,
+    "ast_hash": "5a6de99ddbc29e5d7bc0474bc5ba7481",
     "semantic_hash": ""
   },
   "docs/io/specs/electron_beam_io_v0.1_full.md": {
@@ -450,13 +450,18 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/delta/gui_adapter.py": {
-    "mtime": 1785229061.036268,
-    "ast_hash": "f36dfe30e8eb787d43395bc3bdfd57aa",
+    "mtime": 1785234610.4820378,
+    "ast_hash": "91c887a610405df20964b8caf8091f17",
     "semantic_hash": ""
   },
   "docs/refactor/better-gaussian-bunches.md": {
     "mtime": 1785158627.3339734,
     "ast_hash": "7a4790729011ccdb27a36bfdbe73643d",
+    "semantic_hash": ""
+  },
+  "tests/test_bunch_improvements.py": {
+    "mtime": 1785237921.0805187,
+    "ast_hash": "6f2412d7458ac8401f105abd31d204e6",
     "semantic_hash": ""
   }
 }

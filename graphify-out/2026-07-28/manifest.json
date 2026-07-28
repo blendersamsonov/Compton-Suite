@@ -55,13 +55,13 @@
     "semantic_hash": ""
   },
   "src/compton_suite/gui/app.py": {
-    "mtime": 1785224918.2606862,
-    "ast_hash": "ce2cfb192e38d62a09eaa31db9e819b2",
+    "mtime": 1785228709.0573156,
+    "ast_hash": "9c56cca9ad5e3d6886b7e40b756e9b12",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/model_api.py": {
-    "mtime": 1785224802.6876302,
-    "ast_hash": "4271b54eb380822dba8cb51ff159c699",
+    "mtime": 1785228558.699019,
+    "ast_hash": "757b838b0561653b64cc5287199cfe08",
     "semantic_hash": ""
   },
   "src/compton_suite/gui/models.py": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/analytical/analytical_adapter.py": {
-    "mtime": 1785224802.668833,
-    "ast_hash": "f9db91081585cdeeb6f3539a6adb055d",
+    "mtime": 1785228896.591509,
+    "ast_hash": "266bcb9dc2cb7e3e6a6a9184c7c421ee",
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/__init__.py": {
@@ -210,8 +210,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/kascade/kascade_adapter.py": {
-    "mtime": 1785224802.6575909,
-    "ast_hash": "956a0f71e1b4136f2876719087c0696c",
+    "mtime": 1785228741.1294687,
+    "ast_hash": "5acf677d9617b02508ea2d7182473c70",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/__init__.py": {
@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/gui_adapter.py": {
-    "mtime": 1785224802.6670756,
-    "ast_hash": "c136d3746c12a7f1fbfd89c088cf2383",
+    "mtime": 1785228811.4151218,
+    "ast_hash": "02e724b9d0837900996e387c95f60f34",
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/params/__init__.py": {
@@ -295,8 +295,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/validation/runners.py": {
-    "mtime": 1785225416.817104,
-    "ast_hash": "c43c5c3707906f73a83381a3a31f03e4",
+    "mtime": 1785228384.7065778,
+    "ast_hash": "a841357862f7bf833702458f26420889",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/scenarios.py": {
@@ -450,8 +450,8 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/delta/gui_adapter.py": {
-    "mtime": 1785224802.6706095,
-    "ast_hash": "4b197c3b4112f097889c9e1cea4c69b6",
+    "mtime": 1785229061.036268,
+    "ast_hash": "f36dfe30e8eb787d43395bc3bdfd57aa",
     "semantic_hash": ""
   },
   "docs/refactor/better-gaussian-bunches.md": {
