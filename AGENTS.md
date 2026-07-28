@@ -200,6 +200,11 @@ computation. Only trivial unit conversions (gamma → MeV) remain.
 - **Stale top-level `validation/` directory**: contains only runtime
   artifacts (`__pycache__/`, `.cache/`, `.ele`, `plots/`) — safe to
   `rm -rf` from the main repo.
+- **CUDA OOM with large electron bunches in xigma_i/delta**: GPU
+  memory exhaustion when running large n_mc values (e.g. 200k+).
+  `particles.push_and_sample` processes all electrons at once with no
+  batching/streaming. Need to investigate chunked GPU processing or
+  automatic CPU fallback for large bunches.
 
 ---
 
