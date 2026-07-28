@@ -275,14 +275,26 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
     rep_rate_hz = g("pulse_frequency_Hz")
     crossing_angle = g("crossing_angle")
 
+    # Map GUI convention labels to enum members
+    _CONV_MAP = {
+        "RMS": _TimeConvention.SIGMA_INTENSITY_RMS,
+        "FWHM": _TimeConvention.FWHM_INTENSITY,
+    }
+    duration_conv = _CONV_MAP.get(fields.get("_duration_convention", "RMS"),
+                                   _TimeConvention.SIGMA_INTENSITY_RMS)
+    pulse_conv = _CONV_MAP.get(fields.get("_pulse_convention", "RMS"),
+                               _TimeConvention.SIGMA_INTENSITY_RMS)
+
     durations = _params_to_floats(_adapt_to_model({
         "sigma_par_e": _PhysicalQuantity(
             g("bunch_duration_ps"), "picosecond",
-            _PhysicalMeaning.BUNCH_LENGTH, _TimeConvention.SIGMA_INTENSITY_RMS,
+            _PhysicalMeaning.BUNCH_LENGTH,
+            duration_conv,
         ),
         "sigma_par_L": _PhysicalQuantity(
             g("pulse_duration_ps"), "picosecond",
-            _PhysicalMeaning.PULSE_DURATION, _TimeConvention.SIGMA_INTENSITY_RMS,
+            _PhysicalMeaning.PULSE_DURATION,
+            pulse_conv,
         ),
     }, _DURATION_SPEC))
     sigma_par_e, sigma_par_L = durations["sigma_par_e"], durations["sigma_par_L"]

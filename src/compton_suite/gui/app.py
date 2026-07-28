@@ -88,6 +88,9 @@ def peak_a0(fields: dict):
     Delegates to :func:`compton_suite.io.laser.a0_from_fields` -- the
     single source of truth for a0 computation.
     """
+    from compton_suite.io.converters import fwhm_to_sigma_intensity
+    from compton_suite.io.enums import TimeConvention
+
     lam_nm = _float_or_none(fields["laser_wavelength_nm"])
     e_mJ = _float_or_none(fields["laser_energy_mJ"])
     dur_ps = _float_or_none(fields["pulse_duration_ps"])
@@ -95,11 +98,24 @@ def peak_a0(fields: dict):
     if None in (lam_nm, e_mJ, dur_ps, R_m) or min(lam_nm, e_mJ, dur_ps, R_m) <= 0:
         return None
     sigma0_l = 0.5 * np.sqrt(R_m * lam_nm * 1e-9 / np.pi)
+
+    # Convert duration based on convention (RMS or FWHM)
+    # Check if we're in GUI context (has _pulse_convention_var)
+    if hasattr(peak_a0, '_pulse_convention_var') and peak_a0._pulse_convention_var is not None:
+        convention = peak_a0._pulse_convention_var.get()
+    else:
+        convention = "RMS"  # Default for non-GUI usage
+
+    if convention == "FWHM":
+        duration_rms_s = C_LIGHT * fwhm_to_sigma_intensity(dur_ps * 1e-12)
+    else:  # RMS
+        duration_rms_s = C_LIGHT * (dur_ps * 1e-12)
+
     return float(a0_from_fields(
         wavelength_m=lam_nm * 1e-9,
         pulse_energy_J=e_mJ * 1e-3,
         waist_rms_m=sigma0_l,
-        duration_rms_s=C_LIGHT * (dur_ps * 1e-12),
+        duration_rms_s=duration_rms_s,
     ))
 
 
@@ -502,22 +518,44 @@ class ComptonGuideApp(tk.Tk):
         ]
         self._electron_entries = add_field_grid(
             p, specs, self.fields, n_cols=4, bg=BLUE, width=5)
-        # derived transverse sizes
-        self.sigma_ex_lbl = tk.Label(p, text="sigma_x = --", bg=BLUE, anchor="w")
-        self.sigma_ex_lbl.grid(row=0, column=8, sticky="w", padx=(15, 5), pady=3)
 
-        self.sigma_ey_lbl = tk.Label(p, text="sigma_y = --", bg=BLUE, anchor="w")
-        self.sigma_ey_lbl.grid(row=1, column=8, sticky="w", padx=(15, 5), pady=3)
+        # Duration convention selector (RMS or FWHM)
+        tk.Label(p, text="Duration convention:", bg=BLUE, anchor="w").grid(
+            row=0, column=10, sticky="w", padx=(15, 3), pady=3)
+        self._duration_convention_var = tk.StringVar(value="RMS")
+        duration_convention_menu = tk.OptionMenu(p, self._duration_convention_var,
+                                                  "RMS", "FWHM")
+        duration_convention_menu.config(bg=BLUE, width=6)
+        duration_convention_menu.grid(row=0, column=11, padx=(0, 10), pady=3)
 
-        # MC sample count & seed (row 2, below the sigma labels)
+        # derived transverse sizes - show multiple conventions
+        self.sigma_ex_frame = tk.Frame(p, bg=BLUE)
+        self.sigma_ex_frame.grid(row=1, column=10, columnspan=2, sticky="w", padx=(15, 5), pady=3)
+        self.sigma_ex_lbl = tk.Label(self.sigma_ex_frame, text="sigma_x = --", bg=BLUE, anchor="w")
+        self.sigma_ex_lbl.pack(side="left")
+        self.sigma_ex_fwhm_lbl = tk.Label(self.sigma_ex_frame, text="(FWHM: --)", bg=BLUE, anchor="w", fg="#456")
+        self.sigma_ex_fwhm_lbl.pack(side="left", padx=(5, 0))
+        self.sigma_ex_1e2_lbl = tk.Label(self.sigma_ex_frame, text="(1/e²: --)", bg=BLUE, anchor="w", fg="#456")
+        self.sigma_ex_1e2_lbl.pack(side="left", padx=(5, 0))
+
+        self.sigma_ey_frame = tk.Frame(p, bg=BLUE)
+        self.sigma_ey_frame.grid(row=2, column=10, columnspan=2, sticky="w", padx=(15, 5), pady=3)
+        self.sigma_ey_lbl = tk.Label(self.sigma_ey_frame, text="sigma_y = --", bg=BLUE, anchor="w")
+        self.sigma_ey_lbl.pack(side="left")
+        self.sigma_ey_fwhm_lbl = tk.Label(self.sigma_ey_frame, text="(FWHM: --)", bg=BLUE, anchor="w", fg="#456")
+        self.sigma_ey_fwhm_lbl.pack(side="left", padx=(5, 0))
+        self.sigma_ey_1e2_lbl = tk.Label(self.sigma_ey_frame, text="(1/e²: --)", bg=BLUE, anchor="w", fg="#456")
+        self.sigma_ey_1e2_lbl.pack(side="left", padx=(5, 0))
+
+        # MC sample count & seed (row 3, below the sigma labels)
         for col, (label, default, key) in enumerate([
                 ("# electrons (MC)", 200000, "n_mc"),
                 ("Random seed", 1, "seed")]):
             tk.Label(p, text=label, bg=BLUE, anchor="w").grid(
-                row=2, column=col * 2, sticky="w", padx=(8, 3), pady=3)
+                row=3, column=col * 2, sticky="w", padx=(8, 3), pady=3)
             var = tk.StringVar(value=str(default))
             ent = tk.Entry(p, textvariable=var, width=11, justify="right")
-            ent.grid(row=2, column=col * 2 + 1, padx=(0, 10), pady=3)
+            ent.grid(row=3, column=col * 2 + 1, padx=(0, 10), pady=3)
             self.fields[key] = var
             self._sample_entries.append((ent, key))
 
@@ -526,7 +564,7 @@ class ComptonGuideApp(tk.Tk):
             p, text="(input mode - edit the fields above to define the bunch)",
             bg=BLUE, anchor="w", fg="#234",
             font=("TkDefaultFont", 9, "italic"))
-        self.electron_mode_lbl.grid(row=3, column=0, columnspan=10, sticky="w",
+        self.electron_mode_lbl.grid(row=4, column=0, columnspan=12, sticky="w",
                                     padx=10, pady=(2, 2))
 
     # ---- Laser panel (red) --------------------------------------------
@@ -534,25 +572,88 @@ class ComptonGuideApp(tk.Tk):
         p = tk.LabelFrame(self._left_frame, text="LASER", bg=RED, fg="#123",
                           font=("TkDefaultFont", 14, "bold"))
         p.pack(side="top", fill="x", padx=6, pady=3)
+
+        # Primary laser parameters
         specs = [
             ("Laser wavelength [nm]", 1000, "laser_wavelength_nm"),
             ("Laser energy [mJ]", 300, "laser_energy_mJ"),
             ("Pulse duration [ps]", 3, "pulse_duration_ps"),
-            ("Rayleigh length [m]", 0.00126, "rayleigh_length_m"),
             ("Pulse frequency [Hz]", 100, "pulse_frequency_Hz"),
             ("Crossing angle [rad]", 0, "crossing_angle"),
+        ]
+        laser_entries = add_field_grid(p, specs, self.fields, n_cols=5, bg=RED, width=5)
+        self._laser_entry_by_key = {key: ent for ent, key in laser_entries}
+
+        # Duration convention selector for pulse duration
+        tk.Label(p, text="Pulse convention:", bg=RED, anchor="w").grid(
+            row=0, column=10, sticky="w", padx=(15, 3), pady=3)
+        self._pulse_convention_var = tk.StringVar(value="RMS")
+        pulse_convention_menu = tk.OptionMenu(p, self._pulse_convention_var,
+                                               "RMS", "FWHM")
+        pulse_convention_menu.config(bg=RED, width=6)
+        pulse_convention_menu.grid(row=0, column=11, padx=(0, 10), pady=3)
+
+        # Laser waist input section (row 1)
+        waist_frame = tk.LabelFrame(p, text="Laser Waist", bg=RED, fg="#123",
+                                     font=("TkDefaultFont", 10, "bold"))
+        waist_frame.grid(row=1, column=0, columnspan=12, sticky="we", padx=4, pady=(6, 2))
+
+        # Waist diameter input with convention selector
+        tk.Label(waist_frame, text="Waist diameter [um]:", bg=RED, anchor="w").grid(
+            row=0, column=0, sticky="w", padx=(8, 3), pady=3)
+        self._waist_diameter_var = tk.StringVar(value="10")
+        waist_entry = tk.Entry(waist_frame, textvariable=self._waist_diameter_var,
+                               width=11, justify="right")
+        waist_entry.grid(row=0, column=1, padx=(0, 6), pady=3)
+        self.fields["waist_diameter_um"] = self._waist_diameter_var
+
+        tk.Label(waist_frame, text="Convention:", bg=RED, anchor="w").grid(
+            row=0, column=2, sticky="w", padx=(8, 3), pady=3)
+        self._waist_convention_var = tk.StringVar(value="FWHM")
+        waist_convention_menu = tk.OptionMenu(waist_frame, self._waist_convention_var,
+                                               "RMS", "FWHM", "1/e²")
+        waist_convention_menu.config(bg=RED, width=6)
+        waist_convention_menu.grid(row=0, column=3, padx=(0, 6), pady=3)
+
+        # Alternative: Rayleigh length input
+        tk.Label(waist_frame, text="OR Rayleigh length [m]:", bg=RED, anchor="w").grid(
+            row=0, column=4, sticky="w", padx=(15, 3), pady=3)
+        self._rayleigh_var = tk.StringVar(value="0.00126")
+        rayleigh_entry = tk.Entry(waist_frame, textvariable=self._rayleigh_var,
+                                   width=11, justify="right")
+        rayleigh_entry.grid(row=0, column=5, padx=(0, 6), pady=3)
+        self.fields["rayleigh_length_m"] = self._rayleigh_var
+
+        # Radio buttons to select waist input mode
+        self._waist_input_mode = tk.StringVar(value="diameter")
+        tk.Radiobutton(waist_frame, text="Use diameter", variable=self._waist_input_mode,
+                       value="diameter", bg=RED, anchor="w").grid(
+            row=1, column=0, columnspan=2, sticky="w", padx=(8, 0), pady=2)
+        tk.Radiobutton(waist_frame, text="Use Rayleigh length", variable=self._waist_input_mode,
+                       value="rayleigh", bg=RED, anchor="w").grid(
+            row=1, column=2, columnspan=2, sticky="w", padx=(8, 0), pady=2)
+
+        # Mismatch fields (row 2)
+        mismatch_specs = [
             ("t-mismatch [ps]", 0, "time_mismatch_ps"),
             ("X-mismatch [mm]", 0, "x_mismatch_mm"),
             ("Y-mismatch [mm]", 0, "y_mismatch_mm"),
             ("Z-mismatch [mm]", 0, "z_mismatch_mm"),
         ]
-        # laser fields fill row 0 (5 cols); mismatch fields start on row 1
-        laser_entries = add_field_grid(p, specs, self.fields, n_cols=5, bg=RED,
-                                       width=5, group_starts={6})
-        self._laser_entry_by_key = {key: ent for ent, key in laser_entries}
+        mismatch_frame = tk.Frame(p, bg=RED)
+        mismatch_frame.grid(row=2, column=0, columnspan=12, sticky="we", padx=4, pady=2)
+        for i, (label, default, key) in enumerate(mismatch_specs):
+            tk.Label(mismatch_frame, text=label, bg=RED, anchor="w").grid(
+                row=0, column=i*2, sticky="w", padx=(8, 3), pady=2)
+            var = tk.StringVar(value=str(default))
+            ent = tk.Entry(mismatch_frame, textvariable=var, width=8, justify="right")
+            ent.grid(row=0, column=i*2+1, padx=(0, 6), pady=2)
+            self.fields[key] = var
+
+        # a0 and laser radius display (row 3)
         self.a0_lbl = tk.Label(p, text="a_0 : --", bg=RED, anchor="w",
                                font=("TkDefaultFont", 10, "bold"))
-        self.a0_lbl.grid(row=2, column=0, columnspan=2, sticky="w", padx=8,
+        self.a0_lbl.grid(row=3, column=0, columnspan=2, sticky="w", padx=8,
                          pady=(4, 2))
 
         self.laser_radius_lbls = []
@@ -560,7 +661,7 @@ class ComptonGuideApp(tk.Tk):
                              (4, "FWHM radius = --"),
                              (6, "e^{-1/2} radius = --")):
             label = tk.Label(p, text=text, bg=RED, anchor="w")
-            label.grid(row=2, column=column, columnspan=2, sticky="w",
+            label.grid(row=3, column=column, columnspan=2, sticky="w",
                        padx=8, pady=(4, 2))
             self.laser_radius_lbls.append(label)
 
@@ -803,27 +904,88 @@ class ComptonGuideApp(tk.Tk):
                 "write", lambda *a: self._update_derived())
             self._electron_traces.append((self.fields[k], tname))
         for k in ("laser_wavelength_nm", "laser_energy_mJ", "pulse_duration_ps",
-                  "rayleigh_length_m"):
+                  "rayleigh_length_m", "waist_diameter_um"):
             self.fields[k].trace_add("write", lambda *a: self._update_derived())
+        # Trace convention selectors
+        self._duration_convention_var.trace_add("write", lambda *a: self._update_derived())
+        self._pulse_convention_var.trace_add("write", lambda *a: self._update_derived())
+        self._waist_convention_var.trace_add("write", lambda *a: self._update_derived())
+        self._waist_input_mode.trace_add("write", lambda *a: self._update_derived())
+        for k in ("theta_x_col_mrad", "theta_y_col_mrad"):
+            self.fields[k].trace_add("write", lambda *a: self._update_outputs())
         for k in ("theta_x_col_mrad", "theta_y_col_mrad"):
             self.fields[k].trace_add("write", lambda *a: self._update_outputs())
 
     def _update_derived(self):
         """Refresh electron and laser values derived from the current fields."""
+        from compton_suite.io.converters import sigma_intensity_to_fwhm, sigma_intensity_to_w0
+        from compton_suite.io.enums import WidthConvention
+        from compton_suite.io.units import Q_
+
         energy_mev = _float_or_none(self.fields["mean_energy_MeV"])
         gamma = energy_mev * 1e6 / MEC2_EV if energy_mev is not None else None
         sx = sigma_e(_float_or_none(self.fields["emit_x_mmmrad"]),
                      _float_or_none(self.fields["beta_x_m"]), gamma)
         sy = sigma_e(_float_or_none(self.fields["emit_y_mmmrad"]),
                      _float_or_none(self.fields["beta_y_m"]), gamma)
-        self.sigma_ex_lbl.config(text=f"sigma_x = {sx*1e6:.3f} um" if sx else "sigma_x = --")
-        self.sigma_ey_lbl.config(text=f"sigma_y = {sy*1e6:.3f} um" if sy else "sigma_y = --")
+
+        # Show beam size in multiple conventions (RMS, FWHM, 1/e²)
+        if sx:
+            sx_fwhm = sigma_intensity_to_fwhm(sx) * 1e6
+            sx_1e2 = sigma_intensity_to_w0(sx) * 1e6
+            self.sigma_ex_lbl.config(text=f"sigma_x = {sx*1e6:.3f} um")
+            self.sigma_ex_fwhm_lbl.config(text=f"(FWHM: {sx_fwhm:.3f} um)")
+            self.sigma_ex_1e2_lbl.config(text=f"(1/e²: {sx_1e2:.3f} um)")
+        else:
+            self.sigma_ex_lbl.config(text="sigma_x = --")
+            self.sigma_ex_fwhm_lbl.config(text="(FWHM: --)")
+            self.sigma_ex_1e2_lbl.config(text="(1/e²: --)")
+
+        if sy:
+            sy_fwhm = sigma_intensity_to_fwhm(sy) * 1e6
+            sy_1e2 = sigma_intensity_to_w0(sy) * 1e6
+            self.sigma_ey_lbl.config(text=f"sigma_y = {sy*1e6:.3f} um")
+            self.sigma_ey_fwhm_lbl.config(text=f"(FWHM: {sy_fwhm:.3f} um)")
+            self.sigma_ey_1e2_lbl.config(text=f"(1/e²: {sy_1e2:.3f} um)")
+        else:
+            self.sigma_ey_lbl.config(text="sigma_y = --")
+            self.sigma_ey_fwhm_lbl.config(text="(FWHM: --)")
+            self.sigma_ey_1e2_lbl.config(text="(1/e²: --)")
+
+        # Handle waist diameter / Rayleigh length conversion
+        wavelength_m = _float_or_none(self.fields["laser_wavelength_nm"])
+        if wavelength_m is not None:
+            wavelength_m *= 1e-9
+
+        if self._waist_input_mode.get() == "diameter":
+            # Convert diameter to Rayleigh length
+            waist_diameter_um = _float_or_none(self.fields["waist_diameter_um"])
+            if waist_diameter_um is not None and wavelength_m is not None:
+                waist_convention = self._waist_convention_var.get()
+                waist_diameter_m = waist_diameter_um * 1e-6
+                # Convert diameter to sigma_intensity (RMS radius)
+                if waist_convention == "RMS":
+                    sigma_intensity = waist_diameter_m / 2.0
+                elif waist_convention == "FWHM":
+                    from compton_suite.io.converters import fwhm_to_sigma_intensity
+                    sigma_intensity = fwhm_to_sigma_intensity(waist_diameter_m / 2.0)
+                else:  # 1/e²
+                    from compton_suite.io.converters import w0_to_sigma_intensity
+                    sigma_intensity = w0_to_sigma_intensity(waist_diameter_m / 2.0)
+                # Rayleigh length: z_R = pi * w0^2 / lambda, where w0 = 2 * sigma_intensity
+                w0 = 2 * sigma_intensity
+                z_R = np.pi * w0**2 / wavelength_m
+                self._rayleigh_var.set(f"{z_R:.6g}")
+            else:
+                z_R = None
+        else:
+            # Use Rayleigh length directly
+            z_R = _float_or_none(self.fields["rayleigh_length_m"])
+
         a0 = peak_a0(self.fields)
         self.a0_lbl.config(text=f"a_0 : {a0:.4g}" if a0 is not None else "a_0 : --")
 
-        radii = laser_focal_radii(
-            _float_or_none(self.fields["laser_wavelength_nm"]),
-            _float_or_none(self.fields["rayleigh_length_m"]))
+        radii = laser_focal_radii(wavelength_m / 1e-9 if wavelength_m else None, z_R)
         radius_names = ("RMS", "FWHM", "e^{-1/2}")
         for label, name, radius in zip(
                 self.laser_radius_lbls, radius_names,
@@ -837,7 +999,11 @@ class ComptonGuideApp(tk.Tk):
             return
         adapter = self.active_adapter
         try:
-            cfg, extra = adapter.params_to_config(self.fields, self.quantum_var.get())
+            # Add convention selectors to fields for adapters to use
+            fields_with_conventions = dict(self.fields)
+            fields_with_conventions["_duration_convention"] = self._duration_convention_var.get()
+            fields_with_conventions["_pulse_convention"] = self._pulse_convention_var.get()
+            cfg, extra = adapter.params_to_config(fields_with_conventions, self.quantum_var.get())
         except Exception as e:
             messagebox.showerror("Invalid parameter", str(e))
             return
@@ -889,7 +1055,7 @@ class ComptonGuideApp(tk.Tk):
         if self.preview_adapter is not None:
             try:
                 preview_cfg, preview_extra = self.preview_adapter.params_to_config(
-                    self.fields, self.quantum_var.get())
+                    fields_with_conventions, self.quantum_var.get())
             except Exception:
                 preview_cfg = None
 
