@@ -36,7 +36,7 @@ exact shape -- see ``CommonResults`` field docs below.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from compton_suite.io.bunch import MacroBunch
@@ -54,6 +54,32 @@ from compton_suite.io.photons import (
 )
 from compton_suite.io.results import CommonResults, validate_results
 
+
+@dataclass(frozen=True)
+class OutputSpec:
+    """Model-agnostic output resolution specification.
+
+    Models receive this in their ``run()`` method and fulfill the fields
+    they support (e.g. kascade returns sampled data, xigma_i returns binned).
+    The GUI uses these values to control display binning and plotting resolution.
+    """
+
+    # Spectrum
+    n_energy_bins: int = 256          # for BinnedSpectrum (xigma_i, delta, analytical)
+    n_energy_samples: int = 1024      # for SampledSpectrum (kascade) -- GUI bins to this
+
+    # Temporal envelope
+    n_time_bins: int = 128            # for BinnedTemporalEnvelope
+
+    # Spatial distribution
+    n_spatial_bins_x: int = 64        # for BinnedSpatialDistribution
+    n_spatial_bins_y: int = 64
+
+    # Angular distribution
+    n_angular_bins_x: int = 64        # for BinnedAngularSpectrum
+    n_angular_bins_y: int = 64
+
+
 __all__ = [
     "MacroBunch",
     "SampledSpectrum",
@@ -68,6 +94,7 @@ __all__ = [
     "AngularRangeSpectrumResult",
     "CommonResults",
     "validate_results",
+    "OutputSpec",
     "ModelCapabilities",
     "ModelAdapter",
     "UnavailableAdapter",
@@ -101,11 +128,6 @@ class ModelCapabilities:
     supports_angular_range_spectrum: bool = False
     is_fast_preview: bool = False   # True only for the always-on analytical
                                       # model (models/analytical/analytical_adapter.py)
-    uses_shared_sample_count: bool = True  # False for models with their own
-                                              # particle-count field (xigma_i,
-                                              # delta) -- the shared "Number of
-                                              # macroelectrons" field is then
-                                              # greyed out in the GUI.
 
 
 class ModelAdapter(Protocol):
@@ -139,7 +161,7 @@ class ModelAdapter(Protocol):
     def params_to_config(self, fields: dict, quantum: bool) -> tuple[Any, dict]: ...
 
     def run(self, cfg: Any, n_mc: int, seed: int,
-            *, electrons: MacroBunch) -> CommonResults:
+            *, electrons: MacroBunch, output: OutputSpec | None = None) -> CommonResults:
         """``electrons`` is required: electron sampling is the IO layer's
         (caller's) job, not any individual model's -- no adapter has its
         own internal sampler; there's exactly one
@@ -148,7 +170,12 @@ class ModelAdapter(Protocol):
         ``compton_suite.io.bunch.beam_from_shared_fields`` from whichever
         model's ``Config`` the caller already has -- see ``app.py``'s
         ``on_start()`` for the GUI's own draw-once-pass-to-every-model
-        pattern)."""
+        pattern).
+
+        ``output`` is an optional ``OutputSpec`` specifying desired resolution
+        for binned outputs (spectrum, temporal, spatial, angular). Models should
+        fulfill the fields they support and ignore the rest. If ``None``, the
+        model uses its own defaults."""
         ...
 
     def load_ele_file(self, path: str) -> MacroBunch:
@@ -202,7 +229,7 @@ class UnavailableAdapter:
     def params_to_config(self, fields, quantum):
         raise NotImplementedError(f"{self._name}: {self._reason}")
 
-    def run(self, cfg, n_mc, seed, *, electrons=None):
+    def run(self, cfg, n_mc, seed, *, electrons=None, output=None):
         raise NotImplementedError(f"{self._name}: {self._reason}")
 
     def load_ele_file(self, path):

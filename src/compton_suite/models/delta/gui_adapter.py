@@ -200,7 +200,6 @@ def capabilities() -> dict:
         supports_spatial_distribution=True,
         supports_angular_distribution=True,
         supports_angular_range_spectrum=True,
-        uses_shared_sample_count=False,  # sizes Stage 0 from its own n_particles_01
         trust_level="production",
         trust_note=_TRUST_NOTE,
     )
@@ -220,7 +219,6 @@ def extra_params() -> list[tuple[str, float | str, str]]:
         ("Flying-focus factor (0=static, 1=co-moving)", 0.0, "beta_ff"),
         ("Polarization angle [rad]", 0.0, "phi_pol"),
         ("Device (auto/gpu/cpu)", "auto", "device_preference"),
-        ("Stage 0 particles", 20_000, "n_particles_01"),
         ("Stage 0 trajectory steps", 64, "n_steps_0"),
         ("Angular-spectrum grid points/axis", 9, "n_theta_grid"),
     ]
@@ -332,7 +330,6 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
         ),
         Theta_x=theta_x_col, Theta_y=theta_y_col,
         beta_ff=g("beta_ff"), phi_pol=g("phi_pol"),
-        n_particles_01=max(1, int(round(g("n_particles_01")))),
         n_steps_0=max(1, int(round(g("n_steps_0")))),
         n_theta_grid=max(3, int(round(g("n_theta_grid")))),
     )
@@ -598,7 +595,11 @@ class DeltaAdapter:
     def params_to_config(self, fields: dict, quantum: bool = False):
         return params_to_config(fields, quantum)
 
-    def run(self, cfg: DirectConfig, n_mc: int, seed: int, *, electrons: MacroBunch):
+    def run(self, cfg: DirectConfig, n_mc: int, seed: int, *, electrons: MacroBunch, output=None):
+        # Use OutputSpec values if provided, otherwise use defaults
+        # Note: delta's run_simulation has hardcoded temporal/spatial bins
+        # (line 420: n_time_bins, n_spatial_bins = 128, (64, 64))
+        # TODO: pass output spec to run_simulation when it's refactored
         res = run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=electrons)
         self._last_results = res
         return res

@@ -113,7 +113,6 @@ class AnalyticalAdapter:
                        "no crossing angle, no quantum recoil). Fast preview / base "
                        "validation, not a substitute for a real per-particle model.",
             is_fast_preview=True,
-            uses_shared_sample_count=False,  # analytical model doesn't run electrons
         )
 
     def available(self) -> tuple[bool, str]:
@@ -184,7 +183,7 @@ class AnalyticalAdapter:
         extra = dict(n_mc=5000, seed=0, rep_rate_hz=g("pulse_frequency_Hz"), warnings=warnings)
         return cfg, extra
 
-    def run(self, cfg: AnalyticalConfig, n_mc: int, seed: int, *, electrons: MacroBunch):
+    def run(self, cfg: AnalyticalConfig, n_mc: int, seed: int, *, electrons: MacroBunch, output=None):
         beam = fit_gaussian(electrons)
         self._last_beam = beam
         pulse = cfg.pulse
@@ -222,7 +221,9 @@ class AnalyticalAdapter:
 
         omega0 = 2.0 * np.pi * C_LIGHT / pulse.wavelength_m
         Wph_eV = HBAR * omega0 / E_CHARGE
-        s_grid = np.linspace(1e-3, 1.0 - 1e-3, 256)
+        # Use OutputSpec if provided, otherwise default to 256
+        n_bins = output.n_energy_bins if output is not None else 256
+        s_grid = np.linspace(1e-3, 1.0 - 1e-3, n_bins)
         dNds = analytical.angle_integrated_spectrum(gamma_arr, weight_arr, s_grid)
         E_eV = 4.0 * beam.gamma0**2 * Wph_eV * s_grid
         dNdE_per_eV = dNds / (4.0 * Wph_eV)

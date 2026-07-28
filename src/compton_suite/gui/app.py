@@ -247,6 +247,7 @@ class ComptonGuideApp(tk.Tk):
         self._build_laser_panel()
         self._build_compton_panel()
         self._build_model_params_panel()
+        self._build_output_panel()
         self._build_preview_panel()
 
         # Right pane: plot area
@@ -279,6 +280,10 @@ class ComptonGuideApp(tk.Tk):
         modelmenu = tk.Menu(menubar, tearoff=0)
         for name, adapter in self.models.items():
             caps = adapter.capabilities()
+            # Skip the analytical model -- it runs always in the background
+            # as a preview, not as a user-selectable model.
+            if caps.is_fast_preview:
+                continue
             modelmenu.add_radiobutton(
                 label=caps.display_name, variable=self.model_var, value=name,
                 command=self._on_model_selected)
@@ -359,14 +364,9 @@ class ComptonGuideApp(tk.Tk):
                 "clearing the loaded file.")
             self._clear_loaded_ele()
 
-        # shared sample-count field: grey out when the model sizes particles
-        # from its own extra_params() field (xigma_i/delta have n_particles_01)
-        n_mc_entry = self._sample_entries[0][0] if self._sample_entries else None
-        if n_mc_entry is not None:
-            if caps.uses_shared_sample_count:
-                n_mc_entry.config(state="normal")
-            else:
-                n_mc_entry.config(state="disabled")
+        # n_mc is always editable -- it's a model-agnostic electron bunch
+        # parameter, not model-specific. IO module uses it to sample the
+        # MacroBunch that gets passed to every model's run().
 
         # new-observable tabs
         for tab, supported in (
@@ -662,6 +662,39 @@ class ComptonGuideApp(tk.Tk):
         add_field_grid(self.model_params_frame, seeded, self.fields,
                        n_cols=4, bg=GREY, width=8, choices=choices)
 
+    # ---- output resolution panel (model-agnostic) -----------------------
+    def _build_output_panel(self):
+        """Panel for configuring output resolution (spectrum, temporal,
+        spatial, angular bins). These values are passed to models via
+        OutputSpec."""
+        p = tk.LabelFrame(
+            self._left_frame, text="OUTPUT RESOLUTION", bg=GREY, fg="#123",
+            font=("TkDefaultFont", 14, "bold"))
+        p.pack(side="top", fill="x", padx=6, pady=3)
+
+        # Default values matching OutputSpec
+        output_specs = [
+            ("Energy bins", 256, "n_energy_bins"),
+            ("Time bins", 128, "n_time_bins"),
+            ("Spatial bins X", 64, "n_spatial_bins_x"),
+            ("Spatial bins Y", 64, "n_spatial_bins_y"),
+            ("Angular bins X", 64, "n_angular_bins_x"),
+            ("Angular bins Y", 64, "n_angular_bins_y"),
+        ]
+        add_field_grid(p, output_specs, self.fields, n_cols=4, bg=GREY, width=8)
+
+    def _get_output_spec(self):
+        """Build an OutputSpec from the GUI fields."""
+        from compton_suite.gui.model_api import OutputSpec
+        return OutputSpec(
+            n_energy_bins=max(1, int(float(self.fields["n_energy_bins"].get()))),
+            n_time_bins=max(1, int(float(self.fields["n_time_bins"].get()))),
+            n_spatial_bins_x=max(1, int(float(self.fields["n_spatial_bins_x"].get()))),
+            n_spatial_bins_y=max(1, int(float(self.fields["n_spatial_bins_y"].get()))),
+            n_angular_bins_x=max(1, int(float(self.fields["n_angular_bins_x"].get()))),
+            n_angular_bins_y=max(1, int(float(self.fields["n_angular_bins_y"].get()))),
+        )
+
     # ---- analytical preview panel (always-on, independent of the
     # selected model) --------------------------------------------------
     def _build_preview_panel(self):
@@ -826,13 +859,10 @@ class ComptonGuideApp(tk.Tk):
             electrons = self.loaded_bunch
             n_mc = self.loaded_bunch.n_particles
         else:
-            # xigma-i/delta size their own Stage 0 sample from
-            # their model-specific "Stage 0/1 particles"/n_particles_01
-            # field, not the shared "Number of macroelectrons" field (see
-            # their own params_to_config warning) -- sample that many
-            # particles for them so this IO-owned draw doesn't silently
-            # override that already-established, deliberate distinction.
-            n_sample = int(getattr(cfg, "n_particles_01", n_mc))
+            # IO module samples n_mc particles into a MacroBunch that gets
+            # passed to every model's run(). Models read electrons.n_particles
+            # if they need the count.
+            n_sample = n_mc
             beam = beam_from_shared_fields(
                 eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
                 emit_x=cfg.emit_x, emit_y=cfg.emit_y,
@@ -863,10 +893,13 @@ class ComptonGuideApp(tk.Tk):
             except Exception:
                 preview_cfg = None
 
+        # Build OutputSpec from GUI fields
+        output_spec = self._get_output_spec()
+
         def work():
             try:
                 res = adapter.run(cfg, n_mc=n_mc, seed=extra["seed"],
-                                  electrons=electrons)
+                                  electrons=electrons, output=output_spec)
                 problems = validate_results(res)
                 if problems:
                     raise RuntimeError(
@@ -881,7 +914,8 @@ class ComptonGuideApp(tk.Tk):
                 try:
                     preview_res = self.preview_adapter.run(
                         preview_cfg, n_mc=int(preview_extra["n_mc"]),
-                        seed=int(preview_extra["seed"]), electrons=electrons)
+                        seed=int(preview_extra["seed"]), electrons=electrons,
+                        output=output_spec)
                 except Exception:
                     preview_res = None  # preview is best-effort, never fatal
 

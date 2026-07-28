@@ -95,32 +95,30 @@ def run_kascade(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: i
     return result
 
 
-def run_xigma(scenario: Scenario = BASELINE, seed: int = DEFAULT_SEED):
+def run_xigma(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
     from compton_suite.models.xigma_i import gui_adapter
     cfg = build_xigma_config(scenario)
-    n_particles = int(cfg.n_particles_01)
 
     def _compute():
-        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_particles,
+        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc,
                                       rng=np.random.default_rng(seed))
         return gui_adapter.run_simulation(cfg, seed=seed, electrons=bunch)
 
-    key = _RunKey(scenario=scenario, n_mc=n_particles, seed=seed)
+    key = _RunKey(scenario=scenario, n_mc=n_mc, seed=seed)
     result, _ = cache.get_or_compute("xigma", key, _compute)
     return result
 
 
-def run_delta(scenario: Scenario = BASELINE, seed: int = DEFAULT_SEED):
+def run_delta(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
     from compton_suite.models.delta import gui_adapter
     cfg = build_delta_config(scenario)
-    n_particles = int(cfg.n_particles_01)
 
     def _compute():
-        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_particles,
+        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc,
                                       rng=np.random.default_rng(seed))
         return gui_adapter.run_simulation(cfg, seed=seed, electrons=bunch)
 
-    key = _RunKey(scenario=scenario, n_mc=n_particles, seed=seed)
+    key = _RunKey(scenario=scenario, n_mc=n_mc, seed=seed)
     result, _ = cache.get_or_compute("delta", key, _compute)
     return result
 

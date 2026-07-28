@@ -263,7 +263,6 @@ def capabilities():
         supports_angular_distribution=True,
         supports_angular_range_spectrum=True,
         is_fast_preview=False,
-        uses_shared_sample_count=False,  # sizes Stage 0 from its own n_particles_01
         trust_level="production",
         trust_note=_TRUST_NOTE,
     )
@@ -305,7 +304,6 @@ def extra_params() -> list[tuple[str, float | str, str]]:
         ("Flying-focus factor (0=static, 1=co-moving)", 0.0, "beta_ff"),
         ("Polarization angle [rad]", 0.0, "phi_pol"),
         ("Device (auto/gpu/cpu)", "auto", "device_preference"),
-        ("Stage 0/1 particles", 60_000, "n_particles_01"),
         ("Stage 0 trajectory steps", 64, "n_steps_0"),
         ("Grid bins: gamma", 48, "n_bins_gamma"),
         ("Grid bins: theta_x", 48, "n_bins_theta_x"),
@@ -313,9 +311,6 @@ def extra_params() -> list[tuple[str, float | str, str]]:
         ("Grid bins: a0", 12, "n_bins_a0"),
         ("a0_max (model valid range)", 0.5, "a0_max"),
         ("Stage 2 samples/point", 32, "samples_per_point_2"),
-        ("Temporal envelope bins", 128, "n_time_bins"),
-        ("Spatial bins: x", 64, "n_spatial_bins_x"),
-        ("Spatial bins: y", 64, "n_spatial_bins_y"),
     ]
 
 
@@ -398,13 +393,6 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
     # negative GUI entry can't crash Stage 0/1/2 (e.g. an empty table or a
     # zero-size histogram) rather than raising a clear ParamError; there's
     # no physical reason to allow smaller values.
-    # Upper-clamped against _N_PARTICLES_SANITY_MAX too (not just floored at
-    # 1): electron sampling is the caller's job (run_simulation requires an
-    # already-sampled ``electrons`` bunch -- see its docstring), so this
-    # fat-fingered-value guard lives here instead, at the one point this
-    # adapter still owns: parsing the field a caller will size its sample
-    # from.
-    n_particles_01 = min(max(1, int(round(g("n_particles_01")))), _N_PARTICLES_SANITY_MAX)
     n_steps_0 = max(1, int(round(g("n_steps_0"))))
     n_bins_gamma = max(1, int(round(g("n_bins_gamma"))))
     n_bins_theta_x = max(1, int(round(g("n_bins_theta_x"))))
@@ -412,9 +400,6 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
     n_bins_a0 = max(1, int(round(g("n_bins_a0"))))
     a0_max = g("a0_max")
     samples_per_point_2 = max(1, int(round(g("samples_per_point_2"))))
-    n_time_bins = max(1, int(round(g("n_time_bins"))))
-    n_spatial_bins_x = max(1, int(round(g("n_spatial_bins_x"))))
-    n_spatial_bins_y = max(1, int(round(g("n_spatial_bins_y"))))
 
     warnings = []
     if crossing_angle != 0.0:
@@ -452,11 +437,10 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
         ),
         Theta_x=theta_x_col, Theta_y=theta_y_col,
         beta_ff=beta_ff, phi_pol=phi_pol,
-        n_particles_01=n_particles_01, n_steps_0=n_steps_0,
+        n_steps_0=n_steps_0,
         n_bins_gamma=n_bins_gamma, n_bins_theta_x=n_bins_theta_x,
         n_bins_theta_y=n_bins_theta_y, n_bins_a0=n_bins_a0, a0_max=a0_max,
-        samples_per_point_2=samples_per_point_2, n_time_bins=n_time_bins,
-        n_spatial_bins_x=n_spatial_bins_x, n_spatial_bins_y=n_spatial_bins_y,
+        samples_per_point_2=samples_per_point_2,
     )
     extra = dict(n_mc=int(g("n_mc")), seed=int(g("seed")),
                  rep_rate_hz=rep_rate_hz, warnings=warnings)
@@ -745,7 +729,22 @@ class XigmaAdapter:
     def params_to_config(self, fields: dict, quantum: bool = False):
         return params_to_config(fields, quantum)
 
-    def run(self, cfg: Config, n_mc: int, seed: int, *, electrons: MacroBunch):
+    def run(self, cfg: Config, n_mc: int, seed: int, *, electrons: MacroBunch, output=None):
+        # Use OutputSpec values if provided, otherwise use Config defaults
+        if output is not None:
+            cfg = Config(
+                interaction=cfg.interaction,
+                Theta_x=cfg.Theta_x, Theta_y=cfg.Theta_y,
+                beta_ff=cfg.beta_ff, phi_pol=cfg.phi_pol,
+                n_steps_0=cfg.n_steps_0,
+                n_bins_gamma=cfg.n_bins_gamma, n_bins_theta_x=cfg.n_bins_theta_x,
+                n_bins_theta_y=cfg.n_bins_theta_y, n_bins_a0=cfg.n_bins_a0, a0_max=cfg.a0_max,
+                samples_per_point_2=cfg.samples_per_point_2,
+                device_preference=cfg.device_preference,
+                n_time_bins=output.n_time_bins,
+                n_spatial_bins_x=output.n_spatial_bins_x,
+                n_spatial_bins_y=output.n_spatial_bins_y,
+            )
         res = run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=electrons)
         self._last_results = res
         return res
