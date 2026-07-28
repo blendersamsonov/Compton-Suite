@@ -14,14 +14,14 @@ of importing it through this package. ``detect_device`` moved there too
 a thin re-export so this package's own internal callers
 (spectrum4d.py, gui_adapter.py) don't need to change their import path.
 
-`hbar`/`me`/`c`/`el` below come from `compton_io.constants` rather than
+`hbar`/`me`/`c`/`el` below come from `compton_suite.io.constants` rather than
 local literals -- the single shared source of truth also used by
-`compton_guide`/`kascade`/`compton_io.collision`, see `compton_io`'s own
+`compton_suite.gui`/`kascade`/`compton_suite.io.collision`, see `compton_suite.io`'s own
 CLAUDE.md. Only `sigma_T` (Thomson cross section, used by `particles.py`)
 still needs deriving locally in CGS; classical-electron-radius and
-fine-structure-constant now come from `compton_io.constants` directly
+fine-structure-constant now come from `compton_suite.io.constants` directly
 (`R_E_CM`/`ALPHA`) wherever something outside this module needs them
-(`compton_io.collision`'s `a0` formula).
+(`compton_suite.io.collision`'s `a0` formula).
 """
 from dataclasses import dataclass, field
 
@@ -82,7 +82,7 @@ R_MAX_NUDGE = 128
 
 # particles.py's push_and_sample: how many pulse-duration Gaussian widths /
 # Rayleigh-range Lorentzian widths out a particle's trajectory is
-# considered "possibly inside the pulse" (compton_io.propagation.
+# considered "possibly inside the pulse" (compton_suite.io.propagation.
 # laser_overlap_time_window's gauss_width/lorentz_width).
 GAUSS_WIDTH   = CP_FLOAT(3)
 LORENTZ_WIDTH = CP_FLOAT(8)

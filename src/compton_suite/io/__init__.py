@@ -58,7 +58,7 @@ each, that every consumer imports directly (never vendors or re-derives):
 
 Typical use:
 
-    from compton_io import (
+    from compton_suite.io import (
         PhysicalQuantity, PhysicalMeaning, WidthConvention, adapt_to_model,
     )
     from xigma_i.params import XIGMA_SPEC

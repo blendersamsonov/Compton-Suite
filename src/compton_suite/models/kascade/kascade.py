@@ -70,10 +70,10 @@ from compton_suite.io.io_formats.sdds import save_elegant_ele as _save_elegant_e
 from compton_suite.io.laser_envelope import gaussian_pulse_envelope as _gaussian_pulse_envelope
 
 # ---------------------------------------------------------------------------
-# Physical constants (SI) -- from compton_io.constants (shared, pint-
-# derived source of truth also used by compton_guide/xigma_i) rather than
+# Physical constants (SI) -- from compton_suite.io.constants (shared, pint-
+# derived source of truth also used by compton_suite.gui/xigma_i) rather than
 # hand-typed literals. Zero numeric change here: this module's previous
-# literals already agreed with compton_io's values to their quoted
+# literals already agreed with compton_suite.io's values to their quoted
 # precision (unlike xigma_i's older-CODATA-vintage hbar/electron mass,
 # which did need an actual, deliberate numeric update).
 # ---------------------------------------------------------------------------
@@ -316,7 +316,7 @@ def laser_density(x, y, z, t, cfg: Config):
     and delta = 0.  The waist is at the focus point ``delta`` and the pulse
     centre passes the focus at ``t = 0``.
 
-    Thin SI wrapper over compton_io.laser_envelope.gaussian_pulse_envelope
+    Thin SI wrapper over compton_suite.io.laser_envelope.gaussian_pulse_envelope
     (the shared, unit-convention-agnostic evaluator this formula was
     extracted into -- see that function's docstring) -- ``t`` (seconds) is
     converted to ``C_LIGHT * t`` (a length) at this boundary, since the
@@ -625,8 +625,8 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         ``y_w``, ``thx``, ``thy`` (per-particle arrays, all in SI units
         apart from ``eps`` which is Lorentz gamma). Required: electron
         sampling is the caller's job, not this engine's -- build a
-        ``compton_io.bunch.GaussianElectronBeam`` and draw one via
-        ``compton_io.bunch.sample_gaussian_bunch``, then convert the
+        ``compton_suite.io.bunch.GaussianElectronBeam`` and draw one via
+        ``compton_suite.io.bunch.sample_gaussian_bunch``, then convert the
         resulting ``MacroBunch`` to this dict shape (see
         ``kascade_adapter._macrobunch_to_kascade_electrons``
         or ``validation/runners.py`` for the conversion). Passing

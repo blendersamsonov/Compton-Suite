@@ -1,6 +1,6 @@
 """Cross-checks for the parameter-semantics/convention framework
 (enums/quantities/canonical/converters/schema/adapter), self-contained --
-does not need xigma_i or compton_guide's own ModelSpecs, just an inline
+does not need xigma_i or compton_suite.gui's own ModelSpecs, just an inline
 example one, so this suite is runnable on its own.
 
 No cupy/GPU/tkinter needed. Run with `python3 -m pytest tests/` or

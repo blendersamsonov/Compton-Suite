@@ -35,7 +35,7 @@ hardcoded import. Model-specific controls (crossing angle, quantum toggle,
 .ele loading, new-observable tabs, ...) are greyed out per the active
 model's ``capabilities()``; see ``_apply_model_capabilities``.
 
-Run: ``python3 -m compton_guide.app`` or ``scripts/run_gui.py``.
+Run: ``python3 -m compton_suite.gui.app`` or ``scripts/run_gui.py``.
 """
 
 from __future__ import annotations
@@ -217,7 +217,7 @@ class ComptonGuideApp(tk.Tk):
         # arrays + header parameters in ``.meta``) and is fed to the
         # adapter's ``run`` as the ``electrons`` argument.  ``loaded_path``
         # is the source filename shown in the menu.
-        self.loaded_bunch = None  # compton_io.bunch.MacroBunch | None
+        self.loaded_bunch = None  # compton_suite.io.bunch.MacroBunch | None
         self.loaded_path: str | None = None
         # Cached list of (Entry widget, key) tuples for the Electron panel
         # input fields, so we can flip their state when the panel switches
@@ -1116,8 +1116,7 @@ class ComptonGuideApp(tk.Tk):
         if sd is None:
             self._render_unavailable(
                 self.ax_s, self.canvas_s, self.fig_s, "Spatial distribution",
-                "N/A for this model\n(no spatial-deposition kernel yet -- "
-                "see docs/new-features-plan.md)")
+                "N/A for this model\n(no spatial-deposition kernel)")
             return
         self.ax_s.clear()
         # Duck-typed on shape, not isinstance -- see _render_temporal_envelope.

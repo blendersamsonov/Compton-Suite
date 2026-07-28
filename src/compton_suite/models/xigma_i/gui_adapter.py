@@ -9,10 +9,10 @@ Design notes:
     that ``import xigma_i.gui_adapter`` degrades gracefully -- the
     consuming GUI wraps that import in a broad ``try/except Exception`` and
     shows the model disabled rather than crashing when cupy/CUDA isn't
-    available. ``cupy``/``compton_io.collision.build_params``/
+    available. ``cupy``/``compton_suite.io.collision.build_params``/
     ``tabulated_engine`` are only imported inside ``available()`` and
-    ``run_simulation()``. ``compton_io`` itself has no cupy dependency, so
-    ``compton_io.bunch``/``compton_io.constants`` etc. are safe to import at
+    ``run_simulation()``. ``compton_suite.io`` itself has no cupy dependency, so
+    ``compton_suite.io.bunch``/``compton_suite.io.constants`` etc. are safe to import at
     module scope unconditionally (see below).
   * ``Config`` mirrors ``dfe5_compton_mc.Config``'s field names and SI units
     wherever a physical mapping exists (``cfg.eps0``, ``cfg.sigma_eps_rel``,
@@ -194,7 +194,7 @@ class Config:
 def _attach_private_cache(res: CommonResults, *, params, gamma_0, sigma_gamma_0,
                            engine, device, angular_rescale) -> CommonResults:
     """Stash this adapter's own private recompute cache on a
-    ``compton_io.results.CommonResults`` instance (a plain, non-frozen
+    ``compton_suite.io.results.CommonResults`` instance (a plain, non-frozen
     dataclass -- arbitrary extra attributes work fine set after
     construction, without needing to be declared as part of the shared
     class). ``_params`` is ``TabulatedEngine``'s config source (never
@@ -272,7 +272,7 @@ def capabilities():
 def available() -> tuple[bool, str]:
     """True if either supported backend can actually run: a real CUDA GPU
     (cupy + a visible device), or the CPU/numba fallback (see
-    compton_io.collision.detect_device). Only returns False -- greying out
+    compton_suite.io.collision.detect_device). Only returns False -- greying out
     the model in the GUI -- if neither works."""
     try:
         from compton_suite.io.collision import detect_device
@@ -509,14 +509,14 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     but unused: xigma-i sizes Stage 0/1 from ``electrons``'s own particle
     count instead (the caller is expected to have sampled it to
     ``cfg.n_particles_01`` particles -- see extra_params()/Config's
-    numerical-control fields above; ``compton_guide.app.py``'s
+    numerical-control fields above; ``compton_suite.gui.app.py``'s
     ``on_start()`` and ``ComptonSuite/validation/runners.py`` both already
     do this).
 
     ``electrons`` is required: electron sampling is the caller's job, not
     this adapter's, or this package's at all -- there's exactly one place
     electrons get drawn from a beam description
-    (``compton_io.bunch.sample_gaussian_bunch``), not one per model.
+    (``compton_suite.io.bunch.sample_gaussian_bunch``), not one per model.
     ``electrons`` is passed straight through to ``TabulatedEngine.run()``,
     which converts it to this pipeline's own CGS convention inline (see
     ``particles.push_and_sample``)."""

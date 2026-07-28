@@ -1,14 +1,14 @@
 """ModelAdapter for the fast, always-on analytical model.
 
-Duck-typed against ``compton_guide.model_api`` (never imports it) --
+Duck-typed against ``compton_suite.gui.model_api`` (never imports it) --
 same decoupling discipline ``xigma_i.gui_adapter`` already uses, now made
-easy because the actual result types (``compton_io.photons.*``) are a
-shared dependency both this module and ``compton_guide`` import directly,
+easy because the actual result types (``compton_suite.io.photons.*``) are a
+shared dependency both this module and ``compton_suite.gui`` import directly,
 not something either side has to define a lookalike of.
 
-No physics lives in ``compton_guide`` -- this adapter is pure GUI-field
+No physics lives in ``compton_suite.gui`` -- this adapter is pure GUI-field
 parsing glue around ``compton_suite.analytical``'s plain functions and
-``compton_io.bunch``/``compton_io.laser``'s representations, all of which
+``compton_suite.io.bunch``/``compton_suite.io.laser``'s representations, all of which
 are independently importable and usable outside the GUI entirely.
 """
 
@@ -204,7 +204,7 @@ class AnalyticalAdapter:
         # instead of drawing a second, independent one.
         #
         # Particle-count check: every real caller sizes ``electrons`` far
-        # above the old max(n_mc, 2000) floor -- compton_guide.app.py's
+        # above the old max(n_mc, 2000) floor -- compton_suite.gui.app.py's
         # on_start() samples it to whichever *other* active model's own
         # convention (kascade's shared n_mc field, default 200_000; xigma-
         # i/-direct's n_particles_01, default 60_000/20_000), and

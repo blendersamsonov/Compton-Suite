@@ -2,13 +2,13 @@
 temporal-envelope/spatial-distribution dataclasses every model reports
 results through, and the GUI renders from directly.
 
-Moved (not duplicated) from ``compton_guide.model_api`` -- every model now
+Moved (not duplicated) from the GUI's ``model_api`` -- every model now
 imports these same classes directly (this package is already a shared
 dependency of every model, for units), instead of each model defining its
 own structurally-identical-but-separate lookalikes. That duplication used
 to exist specifically so a physics-engine repo wouldn't have to depend on
 the GUI repo; now that these types live here instead, that reason is gone.
-See ``GUIde/CLAUDE.md``, "The ModelAdapter contract, and the bug it
+See ``docs/gui/AGENTS.md``, "The ModelAdapter contract, and the bug it
 caused" for the isinstance-vs-duck-typing history this consolidation
 resolves at the root.
 """

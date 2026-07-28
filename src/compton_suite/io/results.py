@@ -2,7 +2,7 @@
 returns.
 
 Lives here (not in the GUI package) for the same reason ``photons.py``'s
-observable dataclasses do: every model already depends on ``compton_io``
+observable dataclasses do: every model already depends on ``compton_suite.io``
 (for units/constants), so constructing this shared class directly costs
 nothing, whereas depending on the GUI package would be a real, avoidable
 coupling in the wrong direction (a physics model has no business needing

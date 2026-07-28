@@ -1,6 +1,6 @@
 # CollisionParams pruning + finishing the PhysicalQuantity/ModelSpec migration
 
-**Status**: Planned -- not yet implemented.
+**Status**: Phase 1 complete. Phase 2 planned -- not yet implemented.
 **Location**: `docs/refactor/parameter-framework-and-collision-params.md`
 
 ## Context
@@ -30,7 +30,13 @@ honest nuance that needs deciding before writing code (see Phase 2's "the
 sigma0_x/sigma0_l wrinkle" section) -- do not treat it as a mechanical
 find-and-replace.
 
-## Phase 1: Prune `CollisionParams`'s dead fields
+## Phase 1: Prune `CollisionParams`'s dead fields ✅
+
+Done. The 11 dead fields (`emit_x`, `emit_y`, `sigma_ez`, `beta_x`,
+`beta_y`, `sigma_thx`, `sigma_thy`, `lambda_l`, `delta_x`, `delta_y`,
+`delta_z`) and their associated computations in `build_params()` have
+been removed from `io/collision.py`. The `geometry` parameter to
+`build_params` was kept per the design decision below.
 
 ### Evidence
 

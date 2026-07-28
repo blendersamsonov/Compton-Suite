@@ -1,17 +1,17 @@
 """This model's own parameter contract, built on the shared
-``compton_io`` framework.
+``compton_suite.io`` framework.
 
 The parameter-semantics/units framework itself (``PhysicalQuantity``, the
 ``PhysicalMeaning``/``WidthConvention``/``TimeConvention``/
 ``AmplitudeConvention`` enums, canonical conversion, ``ParameterSpec``/
-``ModelSpec``, ``adapt_to_model``) lives in ``compton_io`` and is
+``ModelSpec``, ``adapt_to_model``) lives in ``compton_suite.io`` and is
 re-exported here unchanged, so ``xigma_i.params.PhysicalQuantity`` and (say)
-``compton_guide.physics_params.PhysicalQuantity`` are the *same* class, not
+``compton_suite.gui.physics_params.PhysicalQuantity`` are the *same* class, not
 two independently-defined look-alikes. Only ``spec.py``'s ``XIGMA_SPEC``/
 ``XIGMA_DIAGNOSTIC_SPEC`` -- this model's own parameter contract instance --
 is defined here.
 
-Typical use (see ``spec.py`` for the concrete spec, and compton-gui's
+Typical use (see ``spec.py`` for the concrete spec, and compton_suite.gui's
 ``scripts/physics_params_demo.py`` for a full example):
 
     from xigma_i.params import (

@@ -7,7 +7,7 @@ is self-verifying (no risk of a transcription typo silently drifting from
 the real CODATA value) and means "physical constants" and "the shared pint
 registry" are one mechanism, not two independently-maintained ones.
 
-**SI values are canonical.** ``compton_guide`` and ``kascade`` are SI
+**SI values are canonical.** ``compton_suite.gui`` and ``kascade`` are SI
 throughout and can use the top block directly. ``xigma_i`` is CGS-Gaussian
 throughout (see its own ``CLAUDE.md``, "Units are CGS") and needs the
 second block -- CGS-Gaussian isn't a pure unit re-scaling of SI for
@@ -21,9 +21,9 @@ registry can't convert electromagnetic quantities between them directly
 This module replaces the physical-constants blocks previously duplicated
 (with a real, ~1.6e-8 relative numeric disagreement on ``hbar``/electron
 mass between ``xigma_i``'s older-CODATA-vintage copy and the
-``compton_guide``/``kascade`` copies, which already agreed with each other
+``compton_suite.gui``/``kascade`` copies, which already agreed with each other
 and with pint's built-in values) in ``xigma_i/config.py``,
-``xigma_i/gui_adapter.py``, ``compton_guide/physics_constants.py``, and
+``xigma_i/gui_adapter.py``, ``compton_suite.gui/physics_constants.py``, and
 ``kascade.py``.
 """
 
@@ -34,7 +34,7 @@ from .units import ureg
 _Q = ureg.Quantity
 
 # ---------------------------------------------------------------------------
-# SI (canonical) -- for compton_guide and kascade
+# SI (canonical) -- for compton_suite.gui and kascade
 # ---------------------------------------------------------------------------
 C_LIGHT = _Q(1, "speed_of_light").to("meter / second").magnitude
 E_CHARGE = _Q(1, "elementary_charge").to("coulomb").magnitude
@@ -47,7 +47,7 @@ R_E_M = _Q(1, "classical_electron_radius").to("meter").magnitude
 SIGMA_T_M2 = _Q(1, "thomson_cross_section").to("meter ** 2").magnitude
 
 # ---------------------------------------------------------------------------
-# CGS-Gaussian views -- for xigma_i's config.py and compton_io.collision
+# CGS-Gaussian views -- for xigma_i's config.py and compton_suite.io.collision
 # (the CGS CollisionParams/build_params convention those pipelines share).
 # Only the primitives actually needed as literals move here.
 # ---------------------------------------------------------------------------

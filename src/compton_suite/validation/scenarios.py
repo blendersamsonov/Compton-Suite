@@ -94,7 +94,7 @@ def _baseline() -> Scenario:
 
     kinetic_energy_eV = (gamma0 - 1.0) * MEC2_EV
     sigma_gamma = sigma_gamma_rel * gamma0
-    # rel_energy_spread_rms is relative to KINETIC energy (compton_io's
+    # rel_energy_spread_rms is relative to KINETIC energy (compton_suite.io's
     # convention, spec Sec.10) -- converted exactly from params.py's
     # relative-to-gamma sigma_gamma_rel, not assumed equal (they agree to
     # ~1/gamma0 here, but computed correctly rather than approximated).
@@ -132,8 +132,8 @@ BASELINE = _baseline()
 # Same beam, scaled laser pulse energy -- a0 scales ~linearly with
 # pulse_energy_J (N_l), so this is the simplest lever to move the
 # scenario's regime while holding the electron bunch fixed. Calibrated
-# empirically against compton_io.collision.build_params's own a0 (the value the
-# engines actually use, not compton_io's independent formula -- see
+# empirically against compton_suite.io.collision.build_params's own a0 (the value the
+# engines actually use, not compton_suite.io's independent formula -- see
 # tier0_wiring.py's flagged a0-formula discrepancy): baseline itself sits
 # at a0~0.093; LOW_A0 at ~0.009 (deep in the classical linear regime,
 # a0 << a0_max=0.5); NEAR_A0_MAX at ~0.46 (close to xigma's documented

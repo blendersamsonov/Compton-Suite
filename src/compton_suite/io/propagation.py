@@ -14,7 +14,7 @@ this codebase, and this module is deliberately explicit about which is
 which rather than conflating them into one "generic" formula that would
 silently be wrong for one side:
 
-* :class:`~compton_io.bunch.MacroBunch`'s ``x``/``y``/``z`` are each
+* :class:`~compton_suite.io.bunch.MacroBunch`'s ``x``/``y``/``z`` are each
   particle's REAL, simultaneous position at one common reference time
   (``t=0``) -- see that class's own docstring. :func:`propagate`/
   :func:`stream` below, built on :func:`ballistic_position_simultaneous`,
@@ -24,7 +24,7 @@ silently be wrong for one side:
   ``push_and_sample``, no longer a separate class -- see that module's
   ``_normalise_bunch``) are instead each particle's transverse position
   extrapolated to ``z=0`` along its own straight-line trajectory
-  (``compton_io.bunch.sample_gaussian_bunch`` draws ``x``/``y``
+  (``compton_suite.io.bunch.sample_gaussian_bunch`` draws ``x``/``y``
   independently of ``z``, i.e. as the beam's transverse profile AT the
   waist/interaction plane, carried straight through unchanged into
   ``x0``/``y0``) -- while ``z0`` is that same particle's real,
@@ -72,7 +72,7 @@ def ballistic_position_simultaneous(x0, y0, z0, thx, thy, dt):
     """Straight-line position at time offset ``dt`` later, given a
     per-particle reference ``(x0, y0, z0, thx, thy)`` that describes each
     particle's REAL, simultaneous position at ``dt=0`` (the
-    :class:`~compton_io.bunch.MacroBunch` convention -- see module
+    :class:`~compton_suite.io.bunch.MacroBunch` convention -- see module
     docstring). ``thx``/``thy`` are (small-angle) transverse velocity
     fractions, ``vz = sqrt(1 - thx**2 - thy**2)``. Returns ``(x, y, z)``,
     each the same shape as the broadcast of the inputs.
@@ -150,7 +150,7 @@ def laser_overlap_time_window(z0, *, k0_las, sigma_lz, sigma_lr0,
         radius, as raw lengths in whatever unit ``1/k0_las`` is (e.g. cm
         for xigma_i) -- *not* pre-normalised; this function does that.
     beta_ff: flying-focus factor (0 = static focus, 1 = co-moving) -- an
-        engine-specific laser extra (see ``compton_io.laser``'s module
+        engine-specific laser extra (see ``compton_suite.io.laser``'s module
         docstring on why this isn't part of the shared laser
         representation), passed through as a plain scalar.
     gauss_width, lorentz_width: how many pulse-duration Gaussian widths /

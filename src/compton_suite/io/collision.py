@@ -14,7 +14,7 @@ this finishes the rest of the bundle.
 ``beta_ff``/``ellipticity`` are laser extras specific to this CGS/``k0_las``
 convention (flying-focus factor, polarization ellipticity), not currently
 consumed by any other model -- kept here as plain scalar fields on
-``CollisionParams``, not on ``compton_io.laser.GaussianParaxialLaser``
+``CollisionParams``, not on ``compton_suite.io.laser.GaussianParaxialLaser``
 (which deliberately excludes them, see that module's own docstring), since
 :func:`build_params` is their only constructor.
 
@@ -22,7 +22,7 @@ consumed by any other model -- kept here as plain scalar fields on
 against ``GaussianParaxialLaser.a0_focus`` (see ``validation/
 tier0_wiring.py``'s ``check_a0_formula_agreement``) -- carried over
 unreconciled: this is xigma's own convention, not yet reconciled with
-``compton_io.laser``'s. Not something to silently pick a side on via this
+``compton_suite.io.laser``'s. Not something to silently pick a side on via this
 move.
 
 Runs no compute of its own: ``.xp``/``.asnumpy`` are a thin numpy/cupy-
@@ -74,7 +74,7 @@ def detect_device() -> str:
     else:
         return 'cpu'
     raise RuntimeError(
-        "compton_io.collision: no usable backend -- no CUDA-capable GPU "
+        "compton_suite.io.collision: no usable backend -- no CUDA-capable GPU "
         "detected (or cupy isn't installed), and numba isn't installed for "
         "the CPU fallback. Install numba (pip install numba) for CPU-only "
         "use, or a working cupy+CUDA setup for GPU use.")
@@ -117,11 +117,11 @@ def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
                   beta_ff: float = 0.0, ellipticity: float = 0.0,
                   device: str | None = None) -> CollisionParams:
     """Derive this convention's CGS :class:`CollisionParams` from
-    ``compton_io``'s SI beam/laser/geometry description -- the pipeline's
+    ``compton_suite.io``'s SI beam/laser/geometry description -- the pipeline's
     only "interaction" step: one pure function call, not three ``set_*``
     mutations on a persistent object. ``beta_ff``/``ellipticity`` are
     extras specific to this convention, with no shared-representation
-    analogue (see ``compton_io.laser``'s module docstring), passed as
+    analogue (see ``compton_suite.io.laser``'s module docstring), passed as
     plain scalars.
     """
     device = device or detect_device()

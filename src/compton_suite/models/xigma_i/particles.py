@@ -6,8 +6,8 @@ consumed by Stage 1 deposition (see deposition.py) to build the 4D overlap
 table H[gamma, theta_x, theta_y, a0].
 
 This model holds no complex internal representation of the electron bunch:
-``push_and_sample`` takes a ``compton_io.bunch.MacroBunch`` (SI units,
-sampled/loaded by the caller via ``compton_io.bunch``) directly and
+``push_and_sample`` takes a ``compton_suite.io.bunch.MacroBunch`` (SI units,
+sampled/loaded by the caller via ``compton_suite.io.bunch``) directly and
 converts to this pipeline's CGS/k0_las-normalised convention inline, at
 the top of the function -- there is no separate, persistent "Bunch" class
 duplicating what ``MacroBunch`` already provides.
@@ -143,7 +143,7 @@ def _bin_spatial(contribution, x, y, spatial_edges, n_spatial_bins, k0_las, para
 
 
 def _normalise_bunch(params, macrobunch, xp):
-    """Convert a ``compton_io.bunch.MacroBunch`` (SI, external/engine-
+    """Convert a ``compton_suite.io.bunch.MacroBunch`` (SI, external/engine-
     agnostic) into this pipeline's CGS, ``k0_las``-normalised position
     arrays. ``gamma``/``theta_x``/``theta_y`` pass through unchanged --
     both kascade and xigma_i use the same position-at-a-reference-slice-
@@ -152,9 +152,9 @@ def _normalise_bunch(params, macrobunch, xp):
 
     ``weight`` is deliberately NOT taken from ``macrobunch.weight`` --
     recomputed as ``params.N_e / macrobunch.n_particles`` instead, so the
-    caller's charge/N_e (via ``compton_io.bunch.beam_from_shared_fields``)
+    caller's charge/N_e (via ``compton_suite.io.bunch.beam_from_shared_fields``)
     stays authoritative, matching how a loaded ``.ele`` file carries no
-    charge information of its own (see ``compton_io.io_formats.sdds``'s
+    charge information of its own (see ``compton_suite.io.io_formats.sdds``'s
     module docstring) and how kascade's own ``run_simulation`` already
     ignores a loaded bunch's weight the same way.
 
@@ -176,9 +176,9 @@ def push_and_sample(params, macrobunch, n_steps=200, backend='numpy', *,
                      n_spatial_bins=None, spatial_edges=None):
     """Ballistically push each macroparticle and emit one sample per particle.
 
-    params: a ``compton_io.collision.CollisionParams`` (see ``build_params``).
-    macrobunch: a ``compton_io.bunch.MacroBunch`` (SI) -- electron sampling
-        is the caller's job (``compton_io.bunch.sample_gaussian_bunch``),
+    params: a ``compton_suite.io.collision.CollisionParams`` (see ``build_params``).
+    macrobunch: a ``compton_suite.io.bunch.MacroBunch`` (SI) -- electron sampling
+        is the caller's job (``compton_suite.io.bunch.sample_gaussian_bunch``),
         not this pipeline's; converted to this pipeline's own CGS/
         k0_las-normalised convention inline (see ``_normalise_bunch``).
 
@@ -322,7 +322,7 @@ def _push_and_sample_vectorized(params, macrobunch, n_steps, xp,
         x0[:, None], y0[:, None], z0[:, None], theta_x[:, None], theta_y[:, None], t)
 
     # n_ph_shape: this pipeline's own CGS/k0_las-normalised call into the
-    # shared spatiotemporal envelope (compton_io.laser_envelope) -- axis/
+    # shared spatiotemporal envelope (compton_suite.io.laser_envelope) -- axis/
     # focus left at their defaults (head-on, no offset), matching this
     # pipeline's own convention (see gaussian_pulse_envelope's docstring on
     # why CollisionParams.delta_x/y/z aren't threaded through here).
@@ -407,7 +407,7 @@ def _get_numba_kernel():
                 z = z0[i] + vz[i] * t
 
                 # Scalar, numba-compatible hand-inlining of
-                # compton_io.laser_envelope.gaussian_pulse_envelope (head-on,
+                # compton_suite.io.laser_envelope.gaussian_pulse_envelope (head-on,
                 # focus=(0,0,0) case: u=-z, perp2=x^2+y^2, u_spot=-z+beta_ff*t
                 # -- see that function's docstring for the general form).
                 # numba's nopython mode can't accept that function's `xp`

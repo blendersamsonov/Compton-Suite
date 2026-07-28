@@ -33,9 +33,10 @@ xigma-i/delta's private on-demand-recompute caches when run with
 pickle -- fine for this single-machine dev cache, not intended to be
 portable across machines.
 
-Not yet wired into ``runners.py``'s ``run_kascade``/``run_xigma``/
-``run_delta``/``run_analytical`` -- wiring lands as a follow-up,
-via the ``get_or_compute`` entry point below.
+Wired into ``runners.py``'s ``run_kascade``/``run_xigma``/``run_delta``/
+``run_analytical`` via ``get_or_compute``. Each runner wraps its compute
+body in a closure and passes it to ``get_or_compute``, which skips
+recomputation on a clean tree when the commit hash matches.
 """
 
 from __future__ import annotations
@@ -145,10 +146,9 @@ def get_or_compute(model_name: str, scenario: Any,
     compute_fn() and -- if the dependency state was trustworthy -- caches
     the result for next time.
 
-    This is the intended integration point for runners.py's run_kascade/
-    run_xigma/run_delta/run_analytical: wrap each model's existing
-    compute body in a zero-arg closure and call this instead of calling
-    the model directly. Not wired in yet -- see module docstring.
+    This is the integration point for ``runners.py``'s ``run_kascade``/
+    ``run_xigma``/``run_delta``/``run_analytical``: each wraps its compute
+    body in a zero-arg closure and calls this instead of computing directly.
     """
     key = cache_key(model_name, scenario)
     if key is not None:

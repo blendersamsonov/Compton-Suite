@@ -48,7 +48,7 @@ build_table's batching still assumes the full (gamma, theta_x, theta_y, a0,
 weight) sample set already exists as one array -- it only bounds the
 *deposition* side. build_table_streaming bounds Stage 0 too: it draws and
 pushes `chunk_particles` macroparticles at a time
-(compton_io.bunch.sample_gaussian_bunch + particles.push_and_sample) and
+(compton_suite.io.bunch.sample_gaussian_bunch + particles.push_and_sample) and
 deposits+discards each chunk before drawing the next,
 so push_and_sample's own O(n_chunk*n_steps) internal trajectory-integration
 arrays -- not just the (small, O(n_particles)) samples it returns -- never
@@ -586,7 +586,7 @@ def build_table_streaming(params, beam, n_particles, n_steps, *, chunk_particles
                            gamma_quantile=1e-4, a0_kind='ahat', quiet=True, **scheme_kwargs):
     """Stage 0+1 combined, for n_particles too large (times n_steps) to draw
     and push in one call: draws and pushes `chunk_particles` macroparticles
-    at a time (compton_io.bunch.sample_gaussian_bunch +
+    at a time (compton_suite.io.bunch.sample_gaussian_bunch +
     particles.push_and_sample), deposits each chunk immediately, and
     accumulates -- so push_and_sample's own O(n_chunk*n_steps) internal
     trajectory-integration arrays never scale with the full n_particles,
@@ -595,18 +595,18 @@ def build_table_streaming(params, beam, n_particles, n_steps, *, chunk_particles
     already-materialised sample array). Deriving the grid from the first
     chunk if not supplied, so every chunk deposits into the same fixed grid.
 
-    params: this pipeline's compton_io.collision.CollisionParams (see build_params).
-    beam: a compton_io.bunch.GaussianElectronBeam (SI) describing the
+    params: this pipeline's compton_suite.io.collision.CollisionParams (see build_params).
+    beam: a compton_suite.io.bunch.GaussianElectronBeam (SI) describing the
         electron beam to sample -- electron sampling happens here via
-        compton_io, not internally to this model (see
-        compton_io.bunch.sample_gaussian_bunch); each chunk's SI MacroBunch
+        compton_suite.io, not internally to this model (see
+        compton_suite.io.bunch.sample_gaussian_bunch); each chunk's SI MacroBunch
         is passed straight to particles.push_and_sample, which converts to
         this pipeline's own CGS convention inline.
     chunk_particles: particles drawn+pushed+deposited per iteration -- size
         this so chunk_particles*n_steps fits comfortably in push_backend's
         memory (GPU memory for 'cupy', system RAM for 'numpy'/'numba').
     chirp, angle_energy_corr, rng: passed to
-        compton_io.bunch.sample_gaussian_bunch for each chunk; rng is
+        compton_suite.io.bunch.sample_gaussian_bunch for each chunk; rng is
         shared/advanced across chunks (a fresh `np.random.default_rng()`
         if not supplied).
     push_backend: passed to particles.push_and_sample for each chunk --

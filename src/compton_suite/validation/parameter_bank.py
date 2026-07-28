@@ -17,30 +17,6 @@ of constructing one from raw electron/laser numbers.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from scenarios import Scenario  # noqa: E402
-
-# Example (delete once real entries are added):
-#
-# from compton_io.bunch import GaussianElectronBeam
-# from compton_io.laser import GaussianParaxialLaser
-#
-# MY_SCENARIO = Scenario(
-#     name="my_scenario",
-#     beam=GaussianElectronBeam(
-#         bunch_charge_C=1e-9, kinetic_energy_eV=1e9, rel_energy_spread_rms=1e-3,
-#         sigma_x_m=1e-5, sigma_y_m=1e-5, emit_geom_x_m=1e-10, emit_geom_y_m=1e-10,
-#         sigma_t_s=1e-12,
-#     ),
-#     pulse=GaussianParaxialLaser(
-#         pulse_energy_J=0.3, wavelength_m=1e-6,
-#         waist_rms_x_m=1e-5, waist_rms_y_m=1e-5, duration_rms_s=3e-12,
-#     ),
-# )
-# PARAMETER_BANK = [MY_SCENARIO]
+from compton_suite.validation.scenarios import Scenario
 
 PARAMETER_BANK: list[Scenario] = []

@@ -2,8 +2,8 @@
 
 Every model's Config, built from the same Scenario, must derive the same
 gamma0/N_e/lambda_L/beta_x/beta_y -- and each engine's own a0/N_l
-computation (via compton_io.collision.build_params, CGS) must agree with
-compton_io.laser.GaussianParaxialLaser's independent SI derivation. This
+computation (via compton_suite.io.collision.build_params, CGS) must agree with
+compton_suite.io.laser.GaussianParaxialLaser's independent SI derivation. This
 is exactly the bug class already found and fixed this session
 (AnalyticalConfig/DirectConfig missing shared fields, the sigma_eps_rel
 semantics distinction) -- fast, no simulation run needed, should always
@@ -100,8 +100,8 @@ def check_beta_xy_agreement(scenario: Scenario = BASELINE) -> bool:
 
 
 def check_a0_formula_agreement(scenario: Scenario = BASELINE) -> bool:
-    """compton_io.collision.build_params's CGS a0 derivation vs
-    compton_io.laser.GaussianParaxialLaser's independent SI formula --
+    """compton_suite.io.collision.build_params's CGS a0 derivation vs
+    compton_suite.io.laser.GaussianParaxialLaser's independent SI formula --
     the exact class of cross-check that verified estimate_yield's port
     this session; here applied to a0 itself."""
     xcfg = build_xigma_config(scenario)
@@ -110,7 +110,7 @@ def check_a0_formula_agreement(scenario: Scenario = BASELINE) -> bool:
     a0_io = scenario.pulse.a0_focus
     rel = _rel(a0_engine, a0_io)
     if rel > FORMULA_TOL:
-        # FLAGGED, not a hard failure: compton_io.collision.build_params's CGS a0
+        # FLAGGED, not a hard failure: compton_suite.io.collision.build_params's CGS a0
         # derivation and GaussianParaxialLaser's independent SI derivation
         # disagree by a real, as-yet-unexplained factor (~1.95x for the
         # baseline scenario) -- both are internally self-consistent with

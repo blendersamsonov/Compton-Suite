@@ -376,26 +376,22 @@ Result: no ambiguity, no hidden mismatches, and safe interoperability between in
 
 Implemented in two layers now, not one. The framework itself (enums,
 quantities, canonical, converters, validation, schema, adapter, units --
-sections 1-10 above) plus physical constants live in a separate shared
-sibling repo, `compton_suite`, imported by every consumer (this GUI,
-`xigma_i`, and -- for constants only so far -- `kascade`) via the same
-content-based sys.path bootstrap this repo already used for `kascade`/
-`xigma_i` discovery. `src/compton_guide/physics_params/` and
+sections 1-10 above) plus physical constants live in `compton_suite.io`,
+imported by every consumer (this GUI, xigma_i, delta, analytical, and
+kascade). `src/compton_suite/gui/physics_params/` and
 `physics_constants.py` are now thin re-export shims over
-`compton_suite`, not independent definitions.
+`compton_suite.io`, not independent definitions.
 
 Section 8A's "each model MUST provide a schema" has been taken further
-than a `get_model_spec()` function: xigma-i's `ModelSpec` (`XIGMA_SPEC`)
-lives inside that model's own repo, as `xigma_i.params` -- the model owns
-its schema directly rather than the GUI declaring it on the model's
-behalf, built on top of `compton_suite`'s shared framework rather than a
-copy of it. `kascade` hasn't had the same schema-ownership move yet, so
-`schemas/kascade.py`'s `KASCADE_SPEC` still lives here (also built on
-`compton_suite` directly, not a local copy).
+than a `get_model_spec()` function: both models' `ModelSpec` instances
+(`XIGMA_SPEC`/`KASCADE_SPEC`) live inside each model's own package
+(`xigma_i/params/spec.py` and `models/kascade/params/spec.py`) -- each
+model owns its schema directly rather than the GUI declaring it on the
+model's behalf, built on top of `compton_suite.io`'s shared framework
+rather than a copy of it.
 
 This resolves an earlier intermediate state where `xigma_i` had its own
 full copy of the framework (structurally identical to this repo's, but
-not the same Python classes) -- `compton_suite` exists specifically so
-that never has to happen again. See this repo's `CLAUDE.md` ("Parameter
-semantics & units") and `compton_suite`'s own `CLAUDE.md` for the
-up-to-date picture.
+not the same Python classes) -- `compton_suite.io` exists specifically so
+that never has to happen again. See the root `AGENTS.md` and
+`docs/gui/AGENTS.md` for the up-to-date picture.

@@ -23,10 +23,10 @@ derived from other unambiguous fields (see
 "sigma0_x/sigma0_l wrinkle" for why, and ``scripts/physics_params_demo.py``
 for what fully wiring them would look like).
 
-Originally lived in compton-gui as ``schemas/xigma.py`` (one of several
+Originally lived in compton_suite.gui as ``schemas/xigma.py`` (one of several
 per-model schemas in a GUI-side, multi-model framework); moved here so
 this model declares its own parameter contract directly, on top of the
-shared ``compton_io`` framework -- see this package's ``__init__.py``
+shared ``compton_suite.io`` framework -- see this package's ``__init__.py``
 docstring.
 """
 

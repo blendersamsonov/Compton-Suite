@@ -5,8 +5,8 @@ preview, and is directly importable by any other model for its own quick
 sanity check.
 
 ``estimate_yield``/``estimate_spectrum_width`` were originally ported
-(re-parametrized off ``compton_io.bunch.GaussianElectronBeam``/
-``compton_io.laser.GaussianParaxialLaser`` instead of a CGS
+(re-parametrized off ``compton_suite.io.bunch.GaussianElectronBeam``/
+``compton_suite.io.laser.GaussianParaxialLaser`` instead of a CGS
 ``CollisionParams`` instance -- SI throughout, otherwise unchanged) from
 ``xigma_i.config.CollisionParams.estimate_yield``/``estimate_spectrum_width``,
 already documented there as "cheap analytic estimate, for sanity-checking
@@ -21,7 +21,7 @@ independent rather than imported, since that xigma_i module is
 production code for a different model with its own (optional cupy)
 dispatch this fast-preview model doesn't need.
 
-LINEAR POLARIZATION ONLY, same caveat as ``compton_io.laser.GaussianParaxialLaser
+LINEAR POLARIZATION ONLY, same caveat as ``compton_suite.io.laser.GaussianParaxialLaser
 .a0_at()`` -- these formulas use ``pulse.a0_interaction``, so they inherit
 that limitation unchanged.
 """
@@ -89,7 +89,7 @@ def angle_integrated_spectrum(gamma: np.ndarray, particle_weight: np.ndarray, s)
     angle-independent Compton edge shape alone -- no table, no quadrature.
 
     ``gamma``, ``particle_weight``: 1D arrays, one entry per macroparticle
-    (e.g. from ``compton_io.bunch.sample_gaussian_bunch``). ``s``: scalar
+    (e.g. from ``compton_suite.io.bunch.sample_gaussian_bunch``). ``s``: scalar
     or 1D array of normalized photon energies (``s = E / E_max``, ``E_max
     = 4*gamma**2*E_laser`` at the Compton edge). Returns an array matching
     ``s``'s shape (or a scalar if ``s`` was scalar).

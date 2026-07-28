@@ -1,4 +1,4 @@
-"""External-format I/O for compton_io's bunch/laser representations."""
+"""External-format I/O for compton_suite.io's bunch/laser representations."""
 
 from . import sdds, yaml_spec
 

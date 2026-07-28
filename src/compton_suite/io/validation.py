@@ -1,6 +1,6 @@
 """Fail-fast checks. Every error below is meant to be raised, not logged --
 a convention/unit mismatch must never be silently "fixed" by guessing (see
-compton-gui's ``Conventions-and-units.md``, section 10, the design doc this
+compton_suite.gui's ``Conventions-and-units.md``, section 10, the design doc this
 package implements)."""
 
 from __future__ import annotations

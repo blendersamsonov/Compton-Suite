@@ -142,7 +142,7 @@ python3 src/compton_suite/validation/run_cross_validation.py
 
 - `models/kascade/AGENTS.md` — engine internals, Config/Results fields,
   .ele file I/O, units.
-- `models/xigma_i/AGENTS.md` — the four-stage pipeline, physics
+- `docs/models/xigma.md` — the four-stage pipeline, physics
   conventions, documented traps (a0 trajectory-averaging, 1/(1+a0)
   Jacobian, shared-memory aliasing).
 - `docs/refactor/` — historical refactor notes (parameter framework,

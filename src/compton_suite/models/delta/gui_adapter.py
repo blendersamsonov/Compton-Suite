@@ -67,9 +67,9 @@ _TRUST_NOTE = (
     "angular_spectrum integrated over solid angle to reproduce total_yield "
     "exactly. Same head-on-only, no-crossing-angle limitation as xigma-i "
     "(shares its Stage 0 physics), and inherits xigma-i's own unresolved "
-    "~49% a0-formula discrepancy against compton_io.laser.GaussianParaxial"
+    "~49% a0-formula discrepancy against compton_suite.io.laser.GaussianParaxial"
     "Laser.a0_focus (validation/tier0_wiring.py) since both build "
-    "CollisionParams via compton_io.collision.build_params."
+    "CollisionParams via compton_suite.io.collision.build_params."
 )
 
 
@@ -354,7 +354,7 @@ def _theta_grid(cfg: DirectConfig, n_points: int, theta_range: tuple[float, floa
 def _attach_private_cache(res: CommonResults, *, gamma, theta_x, theta_y, a0, weight,
                            s_edges, s_scale_MeV, phi_pol, angular_rescale) -> CommonResults:
     """Stash this adapter's own private recompute cache on a
-    ``compton_io.results.CommonResults`` instance (a plain, non-frozen
+    ``compton_suite.io.results.CommonResults`` instance (a plain, non-frozen
     dataclass -- arbitrary extra attributes work fine set after
     construction, without needing to be declared as part of the shared
     class), for ``spectrum_in_angular_range()``'s on-demand recompute.

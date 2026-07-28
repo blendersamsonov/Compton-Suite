@@ -27,14 +27,13 @@ src/compton_suite/gui/
                        # validate_results(), MODEL_REGISTRY.
   physics_constants.py  # Re-export of compton_suite.io.constants (C_LIGHT, HBAR,
                          # MEC2_EV, ...) for the GUI's local formula helpers.
-  adapters/kascade_adapter.py  # KascadeAdapter — wraps kascade.py with zero
-                                # changes to that package's own code.
 scripts/
   run_gui.py           # Entry point: python3 scripts/run_gui.py
   headless_test.py     # No-display smoke test — see "Testing" below.
-docs/new-features-plan.md  # Status table of which observable is ready /
-                            # needs-adapter-change / needs-core-change, per
-                            # model. Keep updated when adding new observables.
+```
+scripts/
+  run_gui.py           # Entry point: python3 scripts/run_gui.py
+  headless_test.py     # No-display smoke test — see "Testing" below.
 ```
 
 Note: `xigma_i`'s adapter (`gui_adapter.py`) lives in the `xigma_i` package itself,
@@ -104,7 +103,7 @@ representation of `c` floating around this codebase.
 
 **Both models' schemas now live in their own packages, not here.**
 `xigma_i/params/spec.py`'s `XIGMA_SPEC`/`XIGMA_DIAGNOSTIC_SPEC` (see
-`models/xigma/CLAUDE.md`, "Parameter semantics & units") and
+`docs/models/xigma.md`, "Conventions") and
 `models/kascade/params/spec.py`'s `KASCADE_SPEC`/`KASCADE_DIAGNOSTIC_SPEC`
 (moved out of this package's own `physics_params/schemas/`, which no
 longer exists) — each model declares its own parameter contract instead of
@@ -198,7 +197,7 @@ distribution, angular distribution, angular-range spectrum):
    the existing duck-typing convention (not `isinstance` against both variants),
    and gate it via `_apply_model_capabilities`'s tab-disabling loop.
 4. Extend `headless_test.py`'s `test_model()` to check the new field.
-5. Update `docs/new-features-plan.md`'s status table.
+5. Run `headless_test.py` to verify.
 
 ## Known gaps
 
@@ -211,9 +210,8 @@ distribution, angular distribution, angular-range spectrum):
   widget tree needs a display (or Xvfb), which hasn't been set up.
 - `Conventions-and-units.md` in this directory is implemented as `compton_suite.io/`
   (framework + constants), re-exported here as
-  `physics_params/`/`physics_constants.py`, plus, for xigma-i
-  specifically, `xigma_i.params` (its own `XIGMA_SPEC`, built on
-  `compton_suite.io`) in that model's own package — but not yet wired into
-  either adapter's `params_to_config`, so it doesn't change any current
-  behavior yet. `kascade`'s own schema (`KASCADE_SPEC`) hasn't had the
-  same schema-ownership move as xigma-i's, and still lives here.
+  `physics_params/`/`physics_constants.py`. Both models' schemas now live
+  in their own packages (`xigma_i/params/spec.py` and
+  `models/kascade/params/spec.py`), partially wired into `params_to_config`
+  via `adapt_to_model`/`params_to_floats` for the `sigma_par_e`/`sigma_par_L`
+  duration inputs.

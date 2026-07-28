@@ -4,8 +4,8 @@ everything gui_adapter.py needs: total yield, angle-integrated spectrum,
 angular spectrum, angular-range spectrum, temporal envelope, spatial
 distribution.
 
-`TabulatedEngine` wraps an already-built `compton_io.collision.
-CollisionParams` instance (see `compton_io.collision.build_params`) purely
+`TabulatedEngine` wraps an already-built `compton_suite.io.collision.
+CollisionParams` instance (see `compton_suite.io.collision.build_params`) purely
 for its plain-data properties (k0_las, Wph, N_l, a0, beta_ff, ellipticity,
 sigma_ex/sigma_ey, ...) --
 particles.push_and_sample already takes a `CollisionParams` instance as
@@ -77,10 +77,10 @@ class TabulatedEngine:
         t_edges/spatial_edges override exposed here; construct via
         particles.push_and_sample directly if a specific window is needed).
 
-        bunch: a compton_io.bunch.MacroBunch (SI) to push -- required,
+        bunch: a compton_suite.io.bunch.MacroBunch (SI) to push -- required,
         keyword-only. Electron sampling is the caller's job, not this
         engine's: there is exactly one place electron bunches get drawn
-        from a beam description (compton_io.bunch.sample_gaussian_bunch),
+        from a beam description (compton_suite.io.bunch.sample_gaussian_bunch),
         not one per model (mirrors kascade's run_simulation: electrons is
         mandatory, no internal sampling fallback).
         """

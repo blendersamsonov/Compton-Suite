@@ -1,4 +1,4 @@
-"""Elegant / SDDS ``.ele`` file I/O for :class:`compton_io.bunch.MacroBunch`.
+"""Elegant / SDDS ``.ele`` file I/O for :class:`compton_suite.io.bunch.MacroBunch`.
 
 Relocated from ``kascade.load_ele_file``/``save_ele_file`` (moved, not
 duplicated -- that repo's own CLI never used these; their only caller was

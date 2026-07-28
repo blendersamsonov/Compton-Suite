@@ -24,14 +24,21 @@ defaults to 60_000, delta to 20_000 -- so this isn't guaranteed,
 just a byproduct of both being sized off the same deterministic
 convention); kascade and analytical always draw bit-identical bunches
 from each other, since both use the same (DEFAULT_N_MC, seed) pair.
+
+Results are cached per (model, scenario, repo commit) via
+``cache.get_or_compute`` -- a clean-tree re-run with the same scenario
+skips recomputation entirely. Dirty trees always recompute.
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 import numpy as np
 
 from compton_suite.io.bunch import sample_gaussian_bunch
 
+from . import cache
 from .scenarios import (
     BASELINE,
     DEFAULT_N_MC,
@@ -44,6 +51,15 @@ from .scenarios import (
 )
 
 __all__ = ["run_kascade", "run_xigma", "run_delta", "run_analytical"]
+
+
+@dataclass(frozen=True)
+class _RunKey:
+    """Composite cache key that includes sampling parameters (n_mc, seed)
+    alongside the scenario, so different seed/n_mc combos don't collide."""
+    scenario: Scenario
+    n_mc: int
+    seed: int
 
 
 def _kascade_electrons(bunch) -> dict:
@@ -66,29 +82,59 @@ def _kascade_electrons(bunch) -> dict:
 
 def run_kascade(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
     from compton_suite.models.kascade import kascade
-    cfg = build_kascade_config(scenario)
-    bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc, rng=np.random.default_rng(seed))
-    return kascade.run_simulation(cfg, n_mc=n_mc, seed=seed, electrons=_kascade_electrons(bunch))
+
+    def _compute():
+        cfg = build_kascade_config(scenario)
+        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc,
+                                      rng=np.random.default_rng(seed))
+        return kascade.run_simulation(cfg, n_mc=n_mc, seed=seed,
+                                      electrons=_kascade_electrons(bunch))
+
+    key = _RunKey(scenario=scenario, n_mc=n_mc, seed=seed)
+    result, _ = cache.get_or_compute("kascade", key, _compute)
+    return result
 
 
 def run_xigma(scenario: Scenario = BASELINE, seed: int = DEFAULT_SEED):
     from compton_suite.models.xigma_i import gui_adapter
     cfg = build_xigma_config(scenario)
-    bunch = sample_gaussian_bunch(scenario.beam, n_particles=int(cfg.n_particles_01),
-                                   rng=np.random.default_rng(seed))
-    return gui_adapter.run_simulation(cfg, seed=seed, electrons=bunch)
+    n_particles = int(cfg.n_particles_01)
+
+    def _compute():
+        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_particles,
+                                      rng=np.random.default_rng(seed))
+        return gui_adapter.run_simulation(cfg, seed=seed, electrons=bunch)
+
+    key = _RunKey(scenario=scenario, n_mc=n_particles, seed=seed)
+    result, _ = cache.get_or_compute("xigma", key, _compute)
+    return result
 
 
 def run_delta(scenario: Scenario = BASELINE, seed: int = DEFAULT_SEED):
     from compton_suite.models.delta import gui_adapter
     cfg = build_delta_config(scenario)
-    bunch = sample_gaussian_bunch(scenario.beam, n_particles=int(cfg.n_particles_01),
-                                   rng=np.random.default_rng(seed))
-    return gui_adapter.run_simulation(cfg, seed=seed, electrons=bunch)
+    n_particles = int(cfg.n_particles_01)
+
+    def _compute():
+        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_particles,
+                                      rng=np.random.default_rng(seed))
+        return gui_adapter.run_simulation(cfg, seed=seed, electrons=bunch)
+
+    key = _RunKey(scenario=scenario, n_mc=n_particles, seed=seed)
+    result, _ = cache.get_or_compute("delta", key, _compute)
+    return result
 
 
 def run_analytical(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
     from compton_suite.models.analytical import analytical_adapter
-    cfg = build_analytical_config(scenario)
-    bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc, rng=np.random.default_rng(seed))
-    return analytical_adapter.AnalyticalAdapter().run(cfg, n_mc=n_mc, seed=seed, electrons=bunch)
+
+    def _compute():
+        cfg = build_analytical_config(scenario)
+        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc,
+                                      rng=np.random.default_rng(seed))
+        return analytical_adapter.AnalyticalAdapter().run(cfg, n_mc=n_mc, seed=seed,
+                                                          electrons=bunch)
+
+    key = _RunKey(scenario=scenario, n_mc=n_mc, seed=seed)
+    result, _ = cache.get_or_compute("analytical", key, _compute)
+    return result

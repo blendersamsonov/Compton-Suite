@@ -144,8 +144,8 @@ class ModelAdapter(Protocol):
         (caller's) job, not any individual model's -- no adapter has its
         own internal sampler; there's exactly one
         place electrons get drawn from a beam description
-        (``compton_io.bunch.sample_gaussian_bunch``, typically via
-        ``compton_io.bunch.beam_from_shared_fields`` from whichever
+        (``compton_suite.io.bunch.sample_gaussian_bunch``, typically via
+        ``compton_suite.io.bunch.beam_from_shared_fields`` from whichever
         model's ``Config`` the caller already has -- see ``app.py``'s
         ``on_start()`` for the GUI's own draw-once-pass-to-every-model
         pattern)."""

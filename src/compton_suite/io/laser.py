@@ -89,7 +89,7 @@ class GaussianParaxialLaser:
         plane-wave relation (spec Sec. 9): ``a0 = (e/(me*c*omega0)) *
         sqrt(2*I0/(eps0*c))``, ``omega0 = 2*pi*c/wavelength``. Uses the
         exact formula (not the spec's ``a0 ~= 0.855 * lambda_um *
-        sqrt(I0/1e18 W/cm^2)`` practical shortcut), since compton_io
+        sqrt(I0/1e18 W/cm^2)`` practical shortcut), since compton_suite.io
         already carries precise, pint-derived constants.
 
         LINEAR POLARIZATION ONLY. This intensity<->E0 relation
@@ -177,7 +177,7 @@ def laser_from_shared_fields(*, lambda_L: float, sigma0_l: float, sigma_par_L: f
     model's own ``Config`` already derives and agrees on (``lambda_L``,
     ``sigma0_l``, ``sigma_par_L``, ``pulse_energy_J`` -- see
     ``ComptonSuite/validation/scenarios.py``'s ``scenario_to_shared_fields``,
-    this function's exact inverse). Mirrors :func:`compton_io.bunch.
+    this function's exact inverse). Mirrors :func:`compton_suite.io.bunch.
     beam_from_shared_fields`'s role for the electron beam.
 
     ``sigma0_l`` is a single round-beam transverse width, applied to both

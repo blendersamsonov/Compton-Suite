@@ -1,7 +1,7 @@
 """Cross-checks for analytical.py's estimate_yield/estimate_spectrum_width/
 angle_integrated_spectrum.
 
-Needs the dev-install (see this repo's top-level CLAUDE.md) so compton_io
+Needs the dev-install (see this repo's top-level CLAUDE.md) so compton_suite.io
 and analytical are importable. Run with `python3 -m pytest tests/` or
 `python3 tests/test_analytical.py` directly (plain asserts).
 """

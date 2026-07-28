@@ -1,6 +1,6 @@
 """Shared pint unit registry.
 
-**One registry for the whole suite** -- every consumer (``compton_guide``,
+**One registry for the whole suite** -- every consumer (``compton_suite.gui``,
 ``xigma_i``, ``kascade``) imports this exact ``ureg``/``Quantity``, not one
 of its own, because pint quantities built from different registries can't
 interoperate. ``constants.py`` also derives every physical constant from

@@ -1,5 +1,5 @@
 """Shared spatiotemporal Gaussian-pulse envelope -- the piece
-``compton_io.laser.GaussianParaxialLaser`` deliberately doesn't provide.
+``compton_suite.io.laser.GaussianParaxialLaser`` deliberately doesn't provide.
 
 ``laser.py``'s module docstring is explicit that v0.1's
 ``GaussianParaxialLaser`` is on-axis-peak-only: head-on, no transverse
@@ -52,7 +52,7 @@ def gaussian_pulse_envelope(x, y, z, ct, *, sigma0, rayleigh_range, sigma_ct,
     sigma0: RMS transverse (photon-density) width at the waist, same
         length unit as x/y/z/ct. Round beam only (matches every current
         consumer's own round-beam convention, e.g.
-        ``compton_io.collision.build_params``'s ``sigma_lr0``) -- kascade's
+        ``compton_suite.io.collision.build_params``'s ``sigma_lr0``) -- kascade's
         ``cfg.sigma0_l``, xigma_i's ``k0_las * params.sigma_lr0``.
     rayleigh_range: Rayleigh-range-like transverse-spreading scale, same
         length unit. Plain Rayleigh range at ``beta_ff=0`` (kascade's
@@ -83,7 +83,7 @@ def gaussian_pulse_envelope(x, y, z, ct, *, sigma0, rayleigh_range, sigma_ct,
         from xigma_i's own ``zr_term = z - beta_ff*t`` construction
         (head-on: ``u = -z``, so ``u_spot = -z + beta_ff*ct = -(z -
         beta_ff*ct)``, squared -> matches exactly). An engine-specific
-        extra (see ``compton_io.laser``'s and ``compton_io.collision``'s
+        extra (see ``compton_suite.io.laser``'s and ``compton_suite.io.collision``'s
         module docstrings on why it isn't part of ``GaussianParaxialLaser``
         itself), exposed here as a plain generic optional scalar -- same
         treatment ``propagation.laser_overlap_time_window`` already gives

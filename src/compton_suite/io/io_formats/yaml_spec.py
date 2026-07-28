@@ -6,8 +6,8 @@ Reads/writes exactly the shape shown in each spec's minimal example
 (``electron_beam: {model: gaussian_6d_waist, version: "0.1", ...}`` /
 ``laser: {model: gaussian_paraxial, version: "0.1", ...}``), including the
 spec's own unit choices at the file boundary. Conversion to/from SI happens
-only here; the in-memory dataclasses (:class:`~compton_io.bunch.
-GaussianElectronBeam`, :class:`~compton_io.laser.GaussianParaxialLaser`)
+only here; the in-memory dataclasses (:class:`~compton_suite.io.bunch.
+GaussianElectronBeam`, :class:`~compton_suite.io.laser.GaussianParaxialLaser`)
 always stay SI.
 """
 

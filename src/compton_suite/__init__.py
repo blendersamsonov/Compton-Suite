@@ -2,7 +2,7 @@
 
 Subpackages:
 - compton_suite.io: shared constants, units, parameter conventions, beam/laser representations
-- compton_suite.gui: Tkinter GUI (compton_guide)
+- compton_suite.gui: Tkinter GUI (compton_suite.gui)
 - compton_suite.models.kascade: sequential multi-photon Monte Carlo engine
 - compton_suite.models.xigma_i: GPU/CPU tabulated overlap-table engine
 - compton_suite.models.delta: brute-force per-macroparticle binning engine
