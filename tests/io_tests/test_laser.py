@@ -12,15 +12,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from compton_suite.io.constants import C_LIGHT  # noqa: E402
+from compton_suite.io.enums import NoConvention, PhysicalMeaning, TimeConvention, WidthConvention  # noqa: E402
 from compton_suite.io.laser import GaussianParaxialLaser, laser_from_shared_fields, validate  # noqa: E402
+from compton_suite.io.quantities import PhysicalQuantity  # noqa: E402
 
 _EXAMPLE_PULSE = GaussianParaxialLaser(
-    pulse_energy_J=0.05,
-    wavelength_m=0.8e-6,
-    waist_rms_x_m=2.5e-6,
-    waist_rms_y_m=2.5e-6,
-    duration_rms_s=12.74e-15,
-    focus_z_m=0.0,
+    pulse_energy_J=PhysicalQuantity(0.05, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
+    wavelength_m=PhysicalQuantity(0.8e-6, "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
+    waist_rms_x_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+    waist_rms_y_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+    duration_rms_s=PhysicalQuantity(12.74e-15, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
+    focus_z_m=PhysicalQuantity(0.0, "meter", PhysicalMeaning.DISPLACEMENT, NoConvention.PLAIN),
 )
 
 
@@ -41,7 +43,7 @@ def test_a0_matches_practical_approximation():
     # Cross-check the exact SI formula against this approximation (should
     # agree to a few tenths of a percent -- the 0.855 coefficient is itself
     # rounded).
-    lambda_um = _EXAMPLE_PULSE.wavelength_m * 1e6
+    lambda_um = _EXAMPLE_PULSE._wl_m * 1e6
     I0_W_cm2 = _EXAMPLE_PULSE.peak_intensity_focus_W_m2 * 1e-4
     approx = 0.855 * lambda_um * (I0_W_cm2 / 1e18) ** 0.5
     assert abs(_EXAMPLE_PULSE.a0_focus / approx - 1.0) < 5e-3
@@ -55,10 +57,12 @@ def test_a0sq_is_a0_squared():
 
 def test_defocused_interaction_intensity_is_lower():
     defocused = GaussianParaxialLaser(
-        pulse_energy_J=0.05, wavelength_m=0.8e-6,
-        waist_rms_x_m=2.5e-6, waist_rms_y_m=2.5e-6,
-        duration_rms_s=12.74e-15,
-        focus_z_m=500e-6,  # well past a few-micron Rayleigh range
+        pulse_energy_J=PhysicalQuantity(0.05, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
+        wavelength_m=PhysicalQuantity(0.8e-6, "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
+        waist_rms_x_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        waist_rms_y_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        duration_rms_s=PhysicalQuantity(12.74e-15, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
+        focus_z_m=PhysicalQuantity(500e-6, "meter", PhysicalMeaning.DISPLACEMENT, NoConvention.PLAIN),  # well past a few-micron Rayleigh range
     )
     assert defocused.peak_intensity_at(0.0) < defocused.peak_intensity_focus_W_m2
     assert defocused.a0_interaction < defocused.a0_focus
@@ -68,8 +72,11 @@ def test_defocused_interaction_intensity_is_lower():
 
 def test_validate_rejects_nonpositive_fields():
     bad = GaussianParaxialLaser(
-        pulse_energy_J=-1.0, wavelength_m=0.8e-6,
-        waist_rms_x_m=2.5e-6, waist_rms_y_m=2.5e-6, duration_rms_s=12.74e-15,
+        pulse_energy_J=PhysicalQuantity(-1.0, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
+        wavelength_m=PhysicalQuantity(0.8e-6, "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
+        waist_rms_x_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        waist_rms_y_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        duration_rms_s=PhysicalQuantity(12.74e-15, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
     )
     try:
         validate(bad)
@@ -80,24 +87,27 @@ def test_validate_rejects_nonpositive_fields():
 
 def test_laser_from_shared_fields_round_trips():
     rebuilt = laser_from_shared_fields(
-        lambda_L=_EXAMPLE_PULSE.wavelength_m,
-        sigma0_l=_EXAMPLE_PULSE.waist_rms_x_m,
-        sigma_par_L=_EXAMPLE_PULSE.duration_rms_s * C_LIGHT,
-        pulse_energy_J=_EXAMPLE_PULSE.pulse_energy_J,
-        focus_z_m=_EXAMPLE_PULSE.focus_z_m,
+        lambda_L=_EXAMPLE_PULSE._wl_m,
+        sigma0_l=_EXAMPLE_PULSE._wx_m,
+        sigma_par_L=_EXAMPLE_PULSE._dur_s * C_LIGHT,
+        pulse_energy_J=_EXAMPLE_PULSE._E_J,
+        focus_z_m=_EXAMPLE_PULSE._fz_m,
     )
-    assert abs(rebuilt.wavelength_m - _EXAMPLE_PULSE.wavelength_m) < 1e-12 * _EXAMPLE_PULSE.wavelength_m
-    assert abs(rebuilt.waist_rms_x_m - _EXAMPLE_PULSE.waist_rms_x_m) < 1e-12 * _EXAMPLE_PULSE.waist_rms_x_m
-    assert abs(rebuilt.waist_rms_y_m - _EXAMPLE_PULSE.waist_rms_y_m) < 1e-12 * _EXAMPLE_PULSE.waist_rms_y_m
-    assert abs(rebuilt.duration_rms_s - _EXAMPLE_PULSE.duration_rms_s) < 1e-12 * _EXAMPLE_PULSE.duration_rms_s
-    assert abs(rebuilt.pulse_energy_J - _EXAMPLE_PULSE.pulse_energy_J) < 1e-12 * _EXAMPLE_PULSE.pulse_energy_J
+    assert abs(rebuilt._wl_m - _EXAMPLE_PULSE._wl_m) < 1e-12 * _EXAMPLE_PULSE._wl_m
+    assert abs(rebuilt._wx_m - _EXAMPLE_PULSE._wx_m) < 1e-12 * _EXAMPLE_PULSE._wx_m
+    assert abs(rebuilt._wy_m - _EXAMPLE_PULSE._wy_m) < 1e-12 * _EXAMPLE_PULSE._wy_m
+    assert abs(rebuilt._dur_s - _EXAMPLE_PULSE._dur_s) < 1e-12 * _EXAMPLE_PULSE._dur_s
+    assert abs(rebuilt._E_J - _EXAMPLE_PULSE._E_J) < 1e-12 * _EXAMPLE_PULSE._E_J
     assert abs(rebuilt.a0_focus - _EXAMPLE_PULSE.a0_focus) < 1e-9 * _EXAMPLE_PULSE.a0_focus
 
 
 def test_validate_warns_on_astigmatism():
     astig = GaussianParaxialLaser(
-        pulse_energy_J=0.05, wavelength_m=0.8e-6,
-        waist_rms_x_m=2.5e-6, waist_rms_y_m=5.0e-6, duration_rms_s=12.74e-15,
+        pulse_energy_J=PhysicalQuantity(0.05, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
+        wavelength_m=PhysicalQuantity(0.8e-6, "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
+        waist_rms_x_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        waist_rms_y_m=PhysicalQuantity(5.0e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        duration_rms_s=PhysicalQuantity(12.74e-15, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
     )
     warnings = validate(astig)
     assert any("elliptical" in w.lower() for w in warnings)

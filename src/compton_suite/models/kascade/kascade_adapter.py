@@ -15,6 +15,7 @@ from . import kascade as _kascade
 from .params import KASCADE_SPEC as _KASCADE_SPEC
 from compton_suite.io import constants as _io_constants
 from compton_suite.io import (
+    NoConvention as _NoConvention,
     PhysicalMeaning as _PhysicalMeaning,
     PhysicalQuantity as _PhysicalQuantity,
     TimeConvention as _TimeConvention,
@@ -187,8 +188,10 @@ class KascadeAdapter:
             sigma_par_L=max(sigma_par_L, 1e-9), pulse_energy_J=pulse_energy_J,
         )
         geometry = _InteractionGeometry(
-            delta_x_m=delta_x, delta_y_m=delta_y, delta_z_m=delta_z,
-            crossing_angle_rad=crossing_angle,
+            delta_x_m=_PhysicalQuantity(delta_x, "meter", _PhysicalMeaning.DISPLACEMENT, _NoConvention.PLAIN),
+            delta_y_m=_PhysicalQuantity(delta_y, "meter", _PhysicalMeaning.DISPLACEMENT, _NoConvention.PLAIN),
+            delta_z_m=_PhysicalQuantity(delta_z, "meter", _PhysicalMeaning.DISPLACEMENT, _NoConvention.PLAIN),
+            crossing_angle_rad=_PhysicalQuantity(crossing_angle, "radian", _PhysicalMeaning.ANGLE, _NoConvention.PLAIN),
         )
         cfg = _kascade.Config(
             interaction=_InteractionParameters(
@@ -233,15 +236,15 @@ class KascadeAdapter:
     def ele_file_summary(self, bunch: MacroBunch) -> dict:
         beam = _fit_gaussian(bunch)
         return dict(
-            mean_energy_MeV=beam.kinetic_energy_eV * 1e-6,
+            mean_energy_MeV=beam._KE_eV * 1e-6,
             rel_spread_pct=beam.rel_energy_spread_rms * 100.0,
-            bunch_duration_ps=beam.sigma_t_s * 1e12,
+            bunch_duration_ps=beam._st_s * 1e12,
             beta_x_m=beam.beta_star_x_m,
             beta_y_m=beam.beta_star_y_m,
             emit_x_mmmrad=beam.emit_norm_x_m * 1e6,
             emit_y_mmmrad=beam.emit_norm_y_m * 1e6,
-            sigma_ex_um=beam.sigma_x_m * 1e6,
-            sigma_ey_um=beam.sigma_y_m * 1e6,
+            sigma_ex_um=beam._sx_m * 1e6,
+            sigma_ey_um=beam._sy_m * 1e6,
             eps0=beam.gamma0,
             N_e=bunch.n_particles,
         )

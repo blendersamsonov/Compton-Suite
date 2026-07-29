@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from .enums import PhysicalMeaning
+from .enums import NoConvention, PhysicalMeaning
 from .units import Quantity, ureg
 
 
@@ -20,7 +20,7 @@ class PhysicalQuantity:
     magnitude: float
     unit: str
     meaning: PhysicalMeaning
-    convention: Enum
+    convention: Enum | None = None
 
     @property
     def quantity(self) -> Quantity:
@@ -35,3 +35,12 @@ class PhysicalQuantity:
         q = self.quantity
         converted = q.to(unit, context) if context else q.to(unit)
         return PhysicalQuantity(float(converted.magnitude), unit, self.meaning, self.convention)
+
+    @property
+    def si_magnitude(self) -> float:
+        """Convenience: magnitude in the SI base unit for this quantity's
+        dimension.  Raises if the pint dimension can't be expressed in a
+        single SI base unit (dimensionless values already are; tagged units
+        like ``"hour"`` work fine)."""
+        from .units import ureg as _ureg
+        return float(self.quantity.to_base_units().magnitude)

@@ -53,6 +53,11 @@ from .laser import GaussianParaxialLaser
 from .units import ureg
 
 _Q = ureg.Quantity
+_M_TO_CM = _constants.M_TO_CM
+_C_CM_S = _constants.C_CM_S
+_HBAR_ERG_S = _constants.HBAR_ERG_S
+_R_E_CM = _constants.R_E_CM
+_ALPHA = _constants.ALPHA
 
 __all__ = ["CollisionParams", "build_params", "detect_device"]
 
@@ -131,25 +136,30 @@ def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
         raise ValueError(f"device must be 'gpu', 'cpu', or None, got {device!r}")
     geometry = geometry if geometry is not None else InteractionGeometry()
 
-    def _m_to_cm(x_m: float) -> float:
-        return x_m * _constants.M_TO_CM
+    # Extract raw SI floats from PhysicalQuantity-based beam/laser.
+    sx_m = beam._sx_m
+    sy_m = beam._sy_m
+    wl_m = laser._wl_m
+    wx_m = laser._wx_m
+    dur_s = laser._dur_s
+    energy_J = laser._E_J
 
-    sigma_ex = _m_to_cm(beam.sigma_x_m)
-    sigma_ey = _m_to_cm(beam.sigma_y_m)
+    sigma_ex = sx_m * _M_TO_CM
+    sigma_ey = sy_m * _M_TO_CM
 
-    lambda_l = _m_to_cm(laser.wavelength_m)
+    lambda_l = wl_m * _M_TO_CM
     # sigma_lr0: RMS radius of the *photon density* distribution (round-
     # beam approximation -- waist_rms_y_m is not separately modelled here,
     # matching every current consumer's own round-beam convention).
-    sigma_lr0 = _m_to_cm(laser.waist_rms_x_m)
-    sigma_lz = _m_to_cm(laser.duration_rms_s * _constants.C_LIGHT)
-    WL = _Q(laser.pulse_energy_J, "joule").to("erg").magnitude  # pulse energy, erg
-    omega_las = 2 * np.pi * _constants.C_CM_S / lambda_l
-    k0_las = omega_las / _constants.C_CM_S
-    Wph_erg = _constants.HBAR_ERG_S * omega_las  # photon energy, erg
+    sigma_lr0 = wx_m * _M_TO_CM
+    sigma_lz = dur_s * _C_CM_S
+    WL = _Q(energy_J, "joule").to("erg").magnitude  # pulse energy, erg
+    omega_las = 2 * np.pi * _C_CM_S / lambda_l
+    k0_las = omega_las / _C_CM_S
+    Wph_erg = _HBAR_ERG_S * omega_las  # photon energy, erg
     Wph = _Q(Wph_erg, "erg").to("MeV").magnitude  # photon energy, MeV
     N_l = WL / Wph_erg
-    a0 = (4 * _constants.R_E_CM**2 * lambda_l / _constants.ALPHA * N_l
+    a0 = (2 * _R_E_CM**2 * lambda_l / _ALPHA * N_l
           / (np.power(np.pi, 3 / 2) * sigma_lr0**2 * sigma_lz))
 
     return CollisionParams(

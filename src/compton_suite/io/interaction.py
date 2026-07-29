@@ -18,6 +18,9 @@ included here anyway since they're still physically meaningful collision
 parameters, just sometimes unsupported by a particular model (that model's
 own ``params_to_config`` is responsible for rejecting what it can't do,
 same as today).
+
+Every physical parameter travels as a :class:`PhysicalQuantity` (never a
+bare float).
 """
 
 from __future__ import annotations
@@ -28,19 +31,47 @@ import numpy as np
 
 from .bunch import GaussianElectronBeam
 from .constants import C_LIGHT, E_CHARGE, HBAR, MEC2_EV
+from .enums import NoConvention, PhysicalMeaning
 from .laser import GaussianParaxialLaser
+from .quantities import PhysicalQuantity
 
 __all__ = ["InteractionGeometry", "InteractionParameters", "recoil_parameter"]
 
 
+def _pq(value: float, unit: str, meaning: PhysicalMeaning) -> PhysicalQuantity:
+    return PhysicalQuantity(value, unit, meaning, NoConvention.PLAIN)
+
+
 @dataclass(frozen=True)
 class InteractionGeometry:
-    """Collision geometry: foci displacement and crossing angle. SI units."""
+    """Collision geometry: foci displacement and crossing angle.
 
-    delta_x_m: float = 0.0
-    delta_y_m: float = 0.0
-    delta_z_m: float = 0.0
-    crossing_angle_rad: float = 0.0
+    Every field is a :class:`PhysicalQuantity` carrying its unit and physical
+    meaning. All carry ``NoConvention.PLAIN`` since displacement and angle
+    have no convention ambiguity.
+    """
+
+    delta_x_m: PhysicalQuantity = _pq(0.0, "meter", PhysicalMeaning.DISPLACEMENT)
+    delta_y_m: PhysicalQuantity = _pq(0.0, "meter", PhysicalMeaning.DISPLACEMENT)
+    delta_z_m: PhysicalQuantity = _pq(0.0, "meter", PhysicalMeaning.DISPLACEMENT)
+    crossing_angle_rad: PhysicalQuantity = _pq(0.0, "radian", PhysicalMeaning.ANGLE)
+
+    # -- SI convenience helpers ---------------------------------------------
+    @property
+    def _dx_m(self) -> float:
+        return self.delta_x_m.to_unit("meter").magnitude
+
+    @property
+    def _dy_m(self) -> float:
+        return self.delta_y_m.to_unit("meter").magnitude
+
+    @property
+    def _dz_m(self) -> float:
+        return self.delta_z_m.to_unit("meter").magnitude
+
+    @property
+    def _cr_rad(self) -> float:
+        return self.crossing_angle_rad.to_unit("radian").magnitude
 
 
 @dataclass(frozen=True)

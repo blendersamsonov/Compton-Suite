@@ -21,16 +21,18 @@ from compton_suite.io.bunch import (  # noqa: E402
     sample_gaussian_bunch,
     validate,
 )
+from compton_suite.io.enums import PhysicalMeaning, TimeConvention, WidthConvention  # noqa: E402
+from compton_suite.io.quantities import PhysicalQuantity  # noqa: E402
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
-    bunch_charge_C=100.0e-12,
-    kinetic_energy_eV=200.0e6,
+    bunch_charge_C=PhysicalQuantity(100e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+    kinetic_energy_eV=PhysicalQuantity(200e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
     rel_energy_spread_rms=0.001,
-    sigma_x_m=10.0e-6,
-    sigma_y_m=10.0e-6,
-    emit_geom_x_m=0.05e-6,
-    emit_geom_y_m=0.05e-6,
-    sigma_t_s=1.0e-12,
+    sigma_x_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    sigma_y_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    emit_geom_x_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    emit_geom_y_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    sigma_t_s=PhysicalQuantity(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
     sigma_pz=0.001,
 )
 
@@ -41,14 +43,14 @@ def test_derived_quantities_are_sane():
     assert 0.0 < _EXAMPLE_BEAM.beta0 < 1.0
     assert _EXAMPLE_BEAM.N_e > 0
     assert _EXAMPLE_BEAM.beta_star_x_m > 0
-    assert abs(_EXAMPLE_BEAM.beta_star_x_m - _EXAMPLE_BEAM.sigma_x_m**2 / _EXAMPLE_BEAM.emit_geom_x_m) < 1e-30
+    assert abs(_EXAMPLE_BEAM.beta_star_x_m - _EXAMPLE_BEAM._sx_m**2 / _EXAMPLE_BEAM._ex_m) < 1e-30
 
 
 def test_sample_gaussian_bunch_matches_beam_moments():
     rng = np.random.default_rng(0)
     bunch = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, rng=rng)
     assert bunch.n_particles == 200_000
-    assert abs(np.std(bunch.x) / _EXAMPLE_BEAM.sigma_x_m - 1.0) < 0.02
+    assert abs(np.std(bunch.x) / _EXAMPLE_BEAM._sx_m - 1.0) < 0.02
     assert abs(np.std(bunch.thx) / _EXAMPLE_BEAM.divergence_x_rad - 1.0) < 0.02
     assert abs(np.mean(bunch.gamma) - _EXAMPLE_BEAM.gamma0) / _EXAMPLE_BEAM.gamma0 < 1e-3
     assert abs(np.std(bunch.gamma) / _EXAMPLE_BEAM.sigma_gamma - 1.0) < 0.02
@@ -61,9 +63,9 @@ def test_fit_gaussian_round_trips_at_the_waist():
     bunch = sample_gaussian_bunch(_EXAMPLE_BEAM, 500_000, rng=rng)
     fit = fit_gaussian(bunch)
 
-    assert abs(fit.sigma_x_m / _EXAMPLE_BEAM.sigma_x_m - 1.0) < 0.02
-    assert abs(fit.emit_geom_x_m / _EXAMPLE_BEAM.emit_geom_x_m - 1.0) < 0.03
-    assert abs(fit.kinetic_energy_eV / _EXAMPLE_BEAM.kinetic_energy_eV - 1.0) < 1e-3
+    assert abs(fit._sx_m / _EXAMPLE_BEAM._sx_m - 1.0) < 0.02
+    assert abs(fit._ex_m / _EXAMPLE_BEAM._ex_m - 1.0) < 0.03
+    assert abs(fit._KE_eV / _EXAMPLE_BEAM._KE_eV - 1.0) < 1e-3
     assert abs(fit.rel_energy_spread_rms / _EXAMPLE_BEAM.rel_energy_spread_rms - 1.0) < 0.05
 
 
@@ -90,8 +92,8 @@ def test_fit_gaussian_recovers_waist_after_drift():
     assert np.std(drifted.x) > np.std(bunch_at_waist.x) * 1.5
 
     fit = fit_gaussian(drifted)
-    assert abs(fit.sigma_x_m / _EXAMPLE_BEAM.sigma_x_m - 1.0) < 0.03
-    assert abs(fit.emit_geom_x_m / _EXAMPLE_BEAM.emit_geom_x_m - 1.0) < 0.03
+    assert abs(fit._sx_m / _EXAMPLE_BEAM._sx_m - 1.0) < 0.03
+    assert abs(fit._ex_m / _EXAMPLE_BEAM._ex_m - 1.0) < 0.03
 
 
 def test_sample_gaussian_bunch_chirp_correlates_energy_with_z():
@@ -110,9 +112,15 @@ def test_sample_gaussian_bunch_angle_energy_corr():
 
 def test_validate_rejects_nonpositive_fields():
     bad = GaussianElectronBeam(
-        bunch_charge_C=-1.0, kinetic_energy_eV=1e6, rel_energy_spread_rms=0.001,
-        sigma_x_m=1e-5, sigma_y_m=1e-5, emit_geom_x_m=1e-8, emit_geom_y_m=1e-8,
-        sigma_t_s=1e-12, sigma_pz=0.001,
+        bunch_charge_C=PhysicalQuantity(-1.0, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+        kinetic_energy_eV=PhysicalQuantity(1e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
+        rel_energy_spread_rms=0.001,
+        sigma_x_m=PhysicalQuantity(1e-5, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+        sigma_y_m=PhysicalQuantity(1e-5, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+        emit_geom_x_m=PhysicalQuantity(1e-8, "meter", PhysicalMeaning.EMITTANCE),
+        emit_geom_y_m=PhysicalQuantity(1e-8, "meter", PhysicalMeaning.EMITTANCE),
+        sigma_t_s=PhysicalQuantity(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
+        sigma_pz=0.001,
     )
     try:
         validate(bad)
@@ -124,9 +132,15 @@ def test_validate_rejects_nonpositive_fields():
 def test_validate_warns_on_suspicious_emittance():
     # emit_geom_x_m > sigma_x_m -- classic mm*mrad-entered-as-m*rad mistake.
     beam = GaussianElectronBeam(
-        bunch_charge_C=100e-12, kinetic_energy_eV=200e6, rel_energy_spread_rms=0.001,
-        sigma_x_m=10e-6, sigma_y_m=10e-6, emit_geom_x_m=5e-2, emit_geom_y_m=5e-2,
-        sigma_t_s=1e-12, sigma_pz=0.001,
+        bunch_charge_C=PhysicalQuantity(100e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+        kinetic_energy_eV=PhysicalQuantity(200e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
+        rel_energy_spread_rms=0.001,
+        sigma_x_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+        sigma_y_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+        emit_geom_x_m=PhysicalQuantity(5e-2, "meter", PhysicalMeaning.EMITTANCE),
+        emit_geom_y_m=PhysicalQuantity(5e-2, "meter", PhysicalMeaning.EMITTANCE),
+        sigma_t_s=PhysicalQuantity(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
+        sigma_pz=0.001,
     )
     warnings = validate(beam)
     assert any("units" in w.lower() for w in warnings)

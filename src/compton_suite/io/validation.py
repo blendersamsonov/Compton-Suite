@@ -39,8 +39,17 @@ class MeaningMismatchError(PhysicsParamsError):
 def validate_quantity(q: "PhysicalQuantity") -> None:
     if q.meaning is None:
         raise MissingConventionError(f"{q!r} has no PhysicalMeaning")
-    if q.convention is None:
-        raise MissingConventionError(f"{q!r} has no convention")
+    # Meaning without convention ambiguity may carry None convention;
+    # meanings with ambiguity must have one set.
+    from .enums import NoConvention, PhysicalMeaning as _PM
+
+    _NO_CONV = {_PM.PULSE_ENERGY, _PM.WAVELENGTH, _PM.BEAM_ENERGY,
+                 _PM.EMITTANCE, _PM.BUNCH_CHARGE, _PM.DISPLACEMENT, _PM.ANGLE}
+    if q.convention is None and q.meaning not in _NO_CONV:
+        raise MissingConventionError(
+            f"{q!r} has no convention, but {q.meaning!r} requires one "
+            f"(not a NoConvention meaning)"
+        )
 
 
 def validate_against_spec(params: dict[str, "PhysicalQuantity"], spec: dict[str, "ParameterSpec"]) -> None:

@@ -46,6 +46,7 @@ from compton_suite.io.photons import (
 )
 from compton_suite.io.results import CommonResults
 from compton_suite.io import (
+    NoConvention as _NoConvention,
     PhysicalMeaning as _PhysicalMeaning,
     PhysicalQuantity as _PhysicalQuantity,
     TimeConvention as _TimeConvention,
@@ -115,19 +116,19 @@ class Config:
 
     @property
     def emit_x(self) -> float:
-        return self.interaction.beam.emit_geom_x_m
+        return self.interaction.beam._ex_m
 
     @property
     def emit_y(self) -> float:
-        return self.interaction.beam.emit_geom_y_m
+        return self.interaction.beam._ey_m
 
     @property
     def sigma0_x(self) -> float:
-        return self.interaction.beam.sigma_x_m
+        return self.interaction.beam._sx_m
 
     @property
     def sigma0_y(self) -> float:
-        return self.interaction.beam.sigma_y_m
+        return self.interaction.beam._sy_m
 
     @property
     def sigma_par_e(self) -> float:
@@ -147,19 +148,19 @@ class Config:
 
     @property
     def lambda_L(self) -> float:
-        return self.interaction.laser.wavelength_m
+        return self.interaction.laser._wl_m
 
     @property
     def sigma0_l(self) -> float:
-        return self.interaction.laser.waist_rms_x_m
+        return self.interaction.laser._wx_m
 
     @property
     def sigma_par_L(self) -> float:
-        return self.interaction.laser.duration_rms_s * _C_LIGHT_M
+        return self.interaction.laser._dur_s * _C_LIGHT_M
 
     @property
     def pulse_energy_J(self) -> float:
-        return self.interaction.laser.pulse_energy_J
+        return self.interaction.laser._E_J
 
     @property
     def omega_L(self) -> float:
@@ -167,19 +168,19 @@ class Config:
 
     @property
     def delta_x(self) -> float:
-        return self.interaction.geometry.delta_x_m
+        return self.interaction.geometry._dx_m
 
     @property
     def delta_y(self) -> float:
-        return self.interaction.geometry.delta_y_m
+        return self.interaction.geometry._dy_m
 
     @property
     def delta_z(self) -> float:
-        return self.interaction.geometry.delta_z_m
+        return self.interaction.geometry._dz_m
 
     @property
     def crossing_angle(self) -> float:
-        return self.interaction.geometry.crossing_angle_rad
+        return self.interaction.geometry._cr_rad
 
     @property
     def quantum(self) -> bool:
@@ -445,8 +446,10 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
         sigma_par_L=max(sigma_par_L, 1e-9), pulse_energy_J=pulse_energy_J,
     )
     geometry = InteractionGeometry(
-        delta_x_m=delta_x, delta_y_m=delta_y, delta_z_m=delta_z,
-        crossing_angle_rad=crossing_angle,
+        delta_x_m=_PhysicalQuantity(delta_x, "meter", _PhysicalMeaning.DISPLACEMENT, _NoConvention.PLAIN),
+        delta_y_m=_PhysicalQuantity(delta_y, "meter", _PhysicalMeaning.DISPLACEMENT, _NoConvention.PLAIN),
+        delta_z_m=_PhysicalQuantity(delta_z, "meter", _PhysicalMeaning.DISPLACEMENT, _NoConvention.PLAIN),
+        crossing_angle_rad=_PhysicalQuantity(crossing_angle, "radian", _PhysicalMeaning.ANGLE, _NoConvention.PLAIN),
     )
     cfg = Config(
         interaction=_InteractionParameters(
@@ -782,15 +785,15 @@ class XigmaAdapter:
         from compton_suite.io.bunch import fit_gaussian
         beam = fit_gaussian(bunch)
         return dict(
-            mean_energy_MeV=beam.kinetic_energy_eV * 1e-6,
+            mean_energy_MeV=beam._KE_eV * 1e-6,
             rel_spread_pct=beam.rel_energy_spread_rms * 100.0,
-            bunch_duration_ps=beam.sigma_t_s * 1e12,
+            bunch_duration_ps=beam._st_s * 1e12,
             beta_x_m=beam.beta_star_x_m,
             beta_y_m=beam.beta_star_y_m,
             emit_x_mmmrad=beam.emit_norm_x_m * 1e6,
             emit_y_mmmrad=beam.emit_norm_y_m * 1e6,
-            sigma_ex_um=beam.sigma_x_m * 1e6,
-            sigma_ey_um=beam.sigma_y_m * 1e6,
+            sigma_ex_um=beam._sx_m * 1e6,
+            sigma_ey_um=beam._sy_m * 1e6,
             eps0=beam.gamma0,
             N_e=bunch.n_particles,
         )

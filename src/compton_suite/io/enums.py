@@ -22,6 +22,28 @@ class PhysicalMeaning(Enum):
     ELECTRON_BEAM_SIZE = auto()   # transverse electron-bunch size
     BUNCH_LENGTH = auto()         # electron-bunch longitudinal/temporal extent
 
+    # New meanings for 2026-07 quantity-aware refactor: parameters without
+    # convention ambiguity (see the schema's "PhysicalQuantity everywhere"
+    # design).  Every one of these carries NoConvention.PLAIN as its
+    # convention -- the value means what the meaning says, no further
+    # interpretation needed.
+    PULSE_ENERGY = auto()         # laser pulse energy (J) -- no convention
+    WAVELENGTH = auto()           # laser central wavelength (m) -- no convention
+    BEAM_ENERGY = auto()          # electron kinetic energy (eV) -- no convention
+    EMITTANCE = auto()           # geometric emittance (m*rad) -- no convention
+    BUNCH_CHARGE = auto()        # bunch charge (C) -- no convention
+    DISPLACEMENT = auto()        # spatial offset (m) -- no convention
+    ANGLE = auto()               # crossing/polarisation angle (rad) -- no convention
+
+
+class NoConvention(Enum):
+    """Sentinel for parameters whose meaning is unambiguous -- the value
+    means exactly what ``PhysicalMeaning`` says, with no RMS-vs-FWHM-vs-1/e^2
+    style ambiguity to resolve.  Used instead of ``None`` so the convention
+    slot on every ``PhysicalQuantity`` is a real ``Enum`` member, never
+    ``None``, keeping ``validate_quantity``'s check simple."""
+    PLAIN = auto()
+
 
 class WidthConvention(Enum):
     """Definitions of a transverse Gaussian width. Reused verbatim for

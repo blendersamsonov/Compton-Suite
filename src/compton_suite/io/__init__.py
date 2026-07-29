@@ -79,7 +79,7 @@ from . import (
 )
 from .adapter import adapt_to_model, params_to_floats
 from .canonical import CANONICAL_CONVENTIONS, CANONICAL_UNIT, from_canonical, to_canonical
-from .enums import AmplitudeConvention, PhysicalMeaning, TimeConvention, WidthConvention
+from .enums import AmplitudeConvention, NoConvention, PhysicalMeaning, TimeConvention, WidthConvention
 from .quantities import PhysicalQuantity
 from .schema import ModelSpec, ParameterSpec
 from .units import LIGHT_TIME_CONTEXT, Quantity, ureg
@@ -100,6 +100,7 @@ __all__ = [
     "LIGHT_TIME_CONTEXT",
     "PhysicalQuantity",
     "PhysicalMeaning",
+    "NoConvention",
     "WidthConvention",
     "TimeConvention",
     "AmplitudeConvention",

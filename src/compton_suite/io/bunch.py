@@ -17,6 +17,9 @@ data and its analytic description:
   parameters at each z independently. See :func:`fit_gaussian` for the
   concrete mechanism.
 
+Every physical parameter travels as a :class:`PhysicalQuantity` (never a bare
+float) -- models extract the value in whatever unit they need internally.
+
 Key functions:
 
 * :func:`sample_gaussian_bunch` / :func:`sample_gaussian_canonical` -- sample
@@ -37,12 +40,33 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .constants import C_LIGHT, E_CHARGE, MEC2_EV
+from .enums import NoConvention, PhysicalMeaning, TimeConvention, WidthConvention
+from .quantities import PhysicalQuantity
 
 __all__ = ["MacroBunch", "GaussianElectronBeam", "BeamFittedParams", "validate",
            "sample_gaussian_bunch", "sample_gaussian_canonical", "drift",
            "fit_gaussian", "fit_beam_full", "evaluate_fit_quality",
            "beam_from_shared_fields", "beta_star_from_sigma_emit",
            "divergence_from_sigma_emit", "sigma_from_emittance"]
+
+# ---------------------------------------------------------------------------
+# Internal helper: build a PhysicalQuantity shorthand.
+# ---------------------------------------------------------------------------
+_BEAM_WIDTH_CONV = WidthConvention.SIGMA_INTENSITY_RMS
+_BUNCH_LEN_CONV = TimeConvention.SIGMA_INTENSITY_RMS
+
+
+def _pq(value: float, unit: str, meaning: PhysicalMeaning, convention=None) -> PhysicalQuantity:
+    """Shortcut to build a PhysicalQuantity."""
+    return PhysicalQuantity(value, unit, meaning, convention)
+
+
+def _to_si_float(v: float | PhysicalQuantity, unit: str) -> float:
+    """Extract a raw float in the given unit from a value that may be a
+    PhysicalQuantity or a plain float (interpreted as already in *unit*)."""
+    if isinstance(v, PhysicalQuantity):
+        return v.to_unit(unit).magnitude
+    return float(v)
 
 
 def beta_star_from_sigma_emit(sigma_m: float, emit_geom_m: float) -> float:
@@ -115,27 +139,58 @@ class GaussianElectronBeam:
 
     A 6D factorized Gaussian defined at the beam waist (``alpha_x =
     alpha_y = 0`` there), waist located at the interaction point ``z=0``.
-    Field units are SI; ``rel_energy_spread_rms`` is relative to *kinetic*
-    energy, not gamma (spec Sec. 10) -- ``sigma_gamma`` below converts.
+    Every physical field is a :class:`PhysicalQuantity`; ``rel_energy_spread_rms``
+    and ``sigma_pz`` are plain floats because they are dimensionless relative
+    values (unitless), not physical quantities.
     """
 
-    bunch_charge_C: float
-    kinetic_energy_eV: float
+    bunch_charge_C: PhysicalQuantity
+    kinetic_energy_eV: PhysicalQuantity
     rel_energy_spread_rms: float
-    sigma_x_m: float
-    sigma_y_m: float
-    emit_geom_x_m: float
-    emit_geom_y_m: float
-    sigma_t_s: float
+    sigma_x_m: PhysicalQuantity
+    sigma_y_m: PhysicalQuantity
+    emit_geom_x_m: PhysicalQuantity
+    emit_geom_y_m: PhysicalQuantity
+    sigma_t_s: PhysicalQuantity
     sigma_pz: float  # Relative RMS dispersion for longitudinal momentum (dimensionless)
 
+    # -- SI convenience helpers (used by every derived property) ------------
+    @property
+    def _q_C(self) -> float:
+        return self.bunch_charge_C.to_unit("coulomb").magnitude
+
+    @property
+    def _KE_eV(self) -> float:
+        return self.kinetic_energy_eV.to_unit("electron_volt").magnitude
+
+    @property
+    def _sx_m(self) -> float:
+        return self.sigma_x_m.to_unit("meter").magnitude
+
+    @property
+    def _sy_m(self) -> float:
+        return self.sigma_y_m.to_unit("meter").magnitude
+
+    @property
+    def _ex_m(self) -> float:
+        return self.emit_geom_x_m.to_unit("meter").magnitude
+
+    @property
+    def _ey_m(self) -> float:
+        return self.emit_geom_y_m.to_unit("meter").magnitude
+
+    @property
+    def _st_s(self) -> float:
+        return self.sigma_t_s.to_unit("second").magnitude
+
+    # -- derived properties ------------------------------------------------
     @property
     def N_e(self) -> float:
-        return self.bunch_charge_C / E_CHARGE
+        return self._q_C / E_CHARGE
 
     @property
     def total_energy_eV(self) -> float:
-        return self.kinetic_energy_eV + MEC2_EV
+        return self._KE_eV + MEC2_EV
 
     @property
     def gamma0(self) -> float:
@@ -148,7 +203,7 @@ class GaussianElectronBeam:
 
     @property
     def sigma_E_kin_eV(self) -> float:
-        return self.rel_energy_spread_rms * self.kinetic_energy_eV
+        return self.rel_energy_spread_rms * self._KE_eV
 
     @property
     def sigma_gamma(self) -> float:
@@ -160,7 +215,7 @@ class GaussianElectronBeam:
 
     @property
     def sigma_z_m(self) -> float:
-        return self.beta0 * C_LIGHT * self.sigma_t_s
+        return self.beta0 * C_LIGHT * self._st_s
 
     @property
     def sigma_pz_abs(self) -> float:
@@ -169,36 +224,36 @@ class GaussianElectronBeam:
 
     @property
     def divergence_x_rad(self) -> float:
-        return divergence_from_sigma_emit(self.sigma_x_m, self.emit_geom_x_m)
+        return divergence_from_sigma_emit(self._sx_m, self._ex_m)
 
     @property
     def divergence_y_rad(self) -> float:
-        return divergence_from_sigma_emit(self.sigma_y_m, self.emit_geom_y_m)
+        return divergence_from_sigma_emit(self._sy_m, self._ey_m)
 
     @property
     def beta_star_x_m(self) -> float:
-        return beta_star_from_sigma_emit(self.sigma_x_m, self.emit_geom_x_m)
+        return beta_star_from_sigma_emit(self._sx_m, self._ex_m)
 
     @property
     def beta_star_y_m(self) -> float:
-        return beta_star_from_sigma_emit(self.sigma_y_m, self.emit_geom_y_m)
+        return beta_star_from_sigma_emit(self._sy_m, self._ey_m)
 
     @property
     def emit_norm_x_m(self) -> float:
-        return self.beta0 * self.gamma0 * self.emit_geom_x_m
+        return self.beta0 * self.gamma0 * self._ex_m
 
     @property
     def emit_norm_y_m(self) -> float:
-        return self.beta0 * self.gamma0 * self.emit_geom_y_m
+        return self.beta0 * self.gamma0 * self._ey_m
 
     @property
     def peak_current_A(self) -> float:
-        return self.bunch_charge_C / ((2.0 * np.pi) ** 0.5 * self.sigma_t_s)
+        return self._q_C / ((2.0 * np.pi) ** 0.5 * self._st_s)
 
     @property
     def peak_density_m3(self) -> float:
         return self.N_e / (
-            (2.0 * np.pi) ** 1.5 * self.sigma_x_m * self.sigma_y_m * self.sigma_z_m
+            (2.0 * np.pi) ** 1.5 * self._sx_m * self._sy_m * self.sigma_z_m
         )
 
 
@@ -209,31 +264,39 @@ def validate(beam: GaussianElectronBeam) -> list[str]:
     physical quantities); returns a list of warning strings for the
     spec's soft checks (large spread/divergence, suspicious unit mix-ups).
     """
-    if beam.bunch_charge_C <= 0:
-        raise ValueError("GaussianElectronBeam: bunch_charge_C must be > 0")
-    if beam.kinetic_energy_eV <= 0:
-        raise ValueError("GaussianElectronBeam: kinetic_energy_eV must be > 0")
+    _q = beam._q_C
+    _ke = beam._KE_eV
+    _sx = beam._sx_m
+    _sy = beam._sy_m
+    _ex = beam._ex_m
+    _ey = beam._ey_m
+    _st = beam._st_s
+
+    if _q <= 0:
+        raise ValueError("GaussianElectronBeam: bunch_charge must be > 0")
+    if _ke <= 0:
+        raise ValueError("GaussianElectronBeam: kinetic_energy must be > 0")
     if beam.rel_energy_spread_rms < 0:
         raise ValueError("GaussianElectronBeam: rel_energy_spread_rms must be >= 0")
-    if beam.sigma_x_m <= 0 or beam.sigma_y_m <= 0:
-        raise ValueError("GaussianElectronBeam: sigma_x_m/sigma_y_m must be > 0")
-    if beam.emit_geom_x_m <= 0 or beam.emit_geom_y_m <= 0:
-        raise ValueError("GaussianElectronBeam: emit_geom_x_m/emit_geom_y_m must be > 0")
-    if beam.sigma_t_s <= 0:
-        raise ValueError("GaussianElectronBeam: sigma_t_s must be > 0")
+    if _sx <= 0 or _sy <= 0:
+        raise ValueError("GaussianElectronBeam: sigma_x/sigma_y must be > 0")
+    if _ex <= 0 or _ey <= 0:
+        raise ValueError("GaussianElectronBeam: emit_geom_x/emit_geom_y must be > 0")
+    if _st <= 0:
+        raise ValueError("GaussianElectronBeam: sigma_t must be > 0")
 
     warnings: list[str] = []
     if beam.rel_energy_spread_rms > 0.1:
         warnings.append("Large relative energy spread; check whether this is intended.")
     if beam.divergence_x_rad * 1e3 > 100 or beam.divergence_y_rad * 1e3 > 100:
         warnings.append("Large angular divergence; paraxial approximation may be questionable.")
-    if beam.emit_geom_x_m > beam.sigma_x_m or beam.emit_geom_y_m > beam.sigma_y_m:
+    if _ex > _sx or _ey > _sy:
         warnings.append(
             "Check units: geometric emittance is larger than the beam size -- "
             "emittance is a length*angle, not a length; this usually indicates "
             "a units mix-up (e.g. mm*mrad entered as m*rad)."
         )
-    if beam.bunch_charge_C > 1.0e-8:
+    if _q > 1.0e-8:
         warnings.append("Very large bunch charge (> 10 nC); check pC/nC conversion is correct.")
     return warnings
 
@@ -279,18 +342,27 @@ def sample_gaussian_canonical(
     """
     rng = np.random.default_rng() if rng is None else rng
 
+    # Extract SI values from the beam (PhysicalQuantity -> raw float).
+    sx = beam._sx_m
+    sy = beam._sy_m
+    sz = beam.sigma_z_m
+    g0 = beam.gamma0
+    dx = beam.divergence_x_rad
+    dy = beam.divergence_y_rad
+    b0 = beam.beta0
+
     # Sample positions (independent)
-    x = rng.normal(0.0, beam.sigma_x_m, n_particles)
-    y = rng.normal(0.0, beam.sigma_y_m, n_particles)
-    z = rng.normal(0.0, beam.sigma_z_m, n_particles)
+    x = rng.normal(0.0, sx, n_particles)
+    y = rng.normal(0.0, sy, n_particles)
+    z = rng.normal(0.0, sz, n_particles)
 
     # Sample transverse momenta (independent)
-    px = rng.normal(0.0, beam.gamma0 * beam.divergence_x_rad, n_particles)
-    py = rng.normal(0.0, beam.gamma0 * beam.divergence_y_rad, n_particles)
+    px = rng.normal(0.0, g0 * dx, n_particles)
+    py = rng.normal(0.0, g0 * dy, n_particles)
 
     # Sample longitudinal momentum (independent)
     # pz_mean = gamma0 * beta0 for ultra-relativistic beams
-    pz_mean = beam.gamma0 * beam.beta0
+    pz_mean = g0 * b0
     sigma_pz_abs = beam.sigma_pz * pz_mean  # Absolute dispersion
     pz = rng.normal(pz_mean, sigma_pz_abs, n_particles)
 
@@ -337,14 +409,24 @@ def drift(bunch: MacroBunch, L: float) -> MacroBunch:
     )
 
 
-def beam_from_shared_fields(*, eps0: float, sigma_eps_rel: float, emit_x: float, emit_y: float,
-                             sigma0_x: float, sigma0_y: float, sigma_par_e: float,
-                             N_e: float, sigma_pz: float = 0.0) -> GaussianElectronBeam:
+def beam_from_shared_fields(*, eps0: float, sigma_eps_rel: float,
+                             emit_x: float | PhysicalQuantity,
+                             emit_y: float | PhysicalQuantity,
+                             sigma0_x: float | PhysicalQuantity,
+                             sigma0_y: float | PhysicalQuantity,
+                             sigma_par_e: float | PhysicalQuantity,
+                             N_e: float,
+                             sigma_pz: float = 0.0) -> GaussianElectronBeam:
     """Build a :class:`GaussianElectronBeam` from the flat SI field set every
     model's own ``Config`` already derives and agrees on (``eps0``,
     ``sigma_eps_rel``, ``emit_x/y``, ``sigma0_x/y``, ``sigma_par_e``, ``N_e``
     -- see ``ComptonSuite/validation/scenarios.py``'s ``scenario_to_shared_
     fields``, this function's exact inverse).
+
+    Accepts either plain floats (interpreted as SI) or ``PhysicalQuantity``
+    objects for the length/emittance parameters. ``eps0`` (Lorentz gamma),
+    ``sigma_eps_rel`` (relative energy spread wrt gamma), ``N_e`` (electron
+    count) and ``sigma_pz`` are dimensionless and always raw floats.
 
     Exists so a GUI (or any other caller) that already has one model's
     ``Config`` on hand can hand this beam to :func:`sample_gaussian_bunch`
@@ -372,15 +454,22 @@ def beam_from_shared_fields(*, eps0: float, sigma_eps_rel: float, emit_x: float,
     rel_energy_spread_rms = (sigma_gamma * MEC2_EV) / kinetic_energy_eV
     beta0 = (1.0 - 1.0 / gamma0**2) ** 0.5
 
+    # Unpack PhysicalQuantity (or float) to SI float.
+    emit_x_si = _to_si_float(emit_x, "meter")
+    emit_y_si = _to_si_float(emit_y, "meter")
+    sx_si = _to_si_float(sigma0_x, "meter")
+    sy_si = _to_si_float(sigma0_y, "meter")
+    spe_si = _to_si_float(sigma_par_e, "meter")
+
     return GaussianElectronBeam(
-        bunch_charge_C=N_e * E_CHARGE,
-        kinetic_energy_eV=kinetic_energy_eV,
+        bunch_charge_C=_pq(N_e * E_CHARGE, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+        kinetic_energy_eV=_pq(kinetic_energy_eV, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
         rel_energy_spread_rms=rel_energy_spread_rms,
-        sigma_x_m=sigma0_x,
-        sigma_y_m=sigma0_y,
-        emit_geom_x_m=emit_x,
-        emit_geom_y_m=emit_y,
-        sigma_t_s=sigma_par_e / (beta0 * C_LIGHT),
+        sigma_x_m=_pq(sx_si, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, _BEAM_WIDTH_CONV),
+        sigma_y_m=_pq(sy_si, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, _BEAM_WIDTH_CONV),
+        emit_geom_x_m=_pq(emit_x_si, "meter", PhysicalMeaning.EMITTANCE),
+        emit_geom_y_m=_pq(emit_y_si, "meter", PhysicalMeaning.EMITTANCE),
+        sigma_t_s=_pq(spe_si / (beta0 * C_LIGHT), "second", PhysicalMeaning.BUNCH_LENGTH, _BUNCH_LEN_CONV),
         sigma_pz=sigma_pz,
     )
 
@@ -614,20 +703,20 @@ def fit_gaussian(bunch: MacroBunch) -> GaussianElectronBeam:
     beta0 = (1.0 - 1.0 / gamma0**2) ** 0.5
     sigma_t_s = float(np.std(z)) / (beta0 * C_LIGHT)
 
-    bunch_charge_C = bunch.N_e * E_CHARGE
+    bunch_charge = bunch.N_e * E_CHARGE
 
     # Estimate sigma_pz from gamma spread (good approximation for ultra-relativistic beams)
     # For ultra-relativistic: pz ≈ gamma, so sigma_pz / pz_mean ≈ sigma_gamma / gamma0
     sigma_pz = sigma_gamma / gamma0 if gamma0 > 0 else 0.0
 
     return GaussianElectronBeam(
-        bunch_charge_C=bunch_charge_C,
-        kinetic_energy_eV=kinetic_energy_eV,
+        bunch_charge_C=_pq(bunch_charge, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+        kinetic_energy_eV=_pq(kinetic_energy_eV, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
         rel_energy_spread_rms=rel_energy_spread_rms,
-        sigma_x_m=sigma_x_m,
-        sigma_y_m=sigma_y_m,
-        emit_geom_x_m=emit_geom_x_m,
-        emit_geom_y_m=emit_geom_y_m,
-        sigma_t_s=sigma_t_s,
+        sigma_x_m=_pq(sigma_x_m, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, _BEAM_WIDTH_CONV),
+        sigma_y_m=_pq(sigma_y_m, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, _BEAM_WIDTH_CONV),
+        emit_geom_x_m=_pq(emit_geom_x_m, "meter", PhysicalMeaning.EMITTANCE),
+        emit_geom_y_m=_pq(emit_geom_y_m, "meter", PhysicalMeaning.EMITTANCE),
+        sigma_t_s=_pq(sigma_t_s, "second", PhysicalMeaning.BUNCH_LENGTH, _BUNCH_LEN_CONV),
         sigma_pz=sigma_pz,
     )

@@ -125,19 +125,19 @@ class Config:
 
     @property
     def emit_x(self) -> float:
-        return self.interaction.beam.emit_geom_x_m
+        return self.interaction.beam._ex_m
 
     @property
     def emit_y(self) -> float:
-        return self.interaction.beam.emit_geom_y_m
+        return self.interaction.beam._ey_m
 
     @property
     def sigma0_x(self) -> float:
-        return self.interaction.beam.sigma_x_m
+        return self.interaction.beam._sx_m
 
     @property
     def sigma0_y(self) -> float:
-        return self.interaction.beam.sigma_y_m
+        return self.interaction.beam._sy_m
 
     @property
     def sigma_par_e(self) -> float:
@@ -158,19 +158,19 @@ class Config:
     # ---- laser pulse (derived from self.interaction.laser) ---------------
     @property
     def lambda_L(self) -> float:
-        return self.interaction.laser.wavelength_m
+        return self.interaction.laser._wl_m
 
     @property
     def sigma0_l(self) -> float:
-        return self.interaction.laser.waist_rms_x_m
+        return self.interaction.laser._wx_m
 
     @property
     def sigma_par_L(self) -> float:
-        return self.interaction.laser.duration_rms_s * C_LIGHT
+        return self.interaction.laser._dur_s * C_LIGHT
 
     @property
     def pulse_energy_J(self) -> float:
-        return self.interaction.laser.pulse_energy_J
+        return self.interaction.laser._E_J
 
     @property
     def N_L(self) -> float:
@@ -195,21 +195,21 @@ class Config:
     # ---- collision geometry (derived from self.interaction.geometry) -----
     @property
     def delta_x(self) -> float:
-        return self.interaction.geometry.delta_x_m
+        return self.interaction.geometry._dx_m
 
     @property
     def delta_y(self) -> float:
-        return self.interaction.geometry.delta_y_m
+        return self.interaction.geometry._dy_m
 
     @property
     def delta_z(self) -> float:
-        return self.interaction.geometry.delta_z_m
+        return self.interaction.geometry._dz_m
 
     @property
     def crossing_angle(self) -> float:
         # laser tilt from head-on [rad]; 0 = head-on; laser propagates
         # along (sin phi, 0, -cos phi)
-        return self.interaction.geometry.crossing_angle_rad
+        return self.interaction.geometry._cr_rad
 
     # ---- quantum options ---------------------------------------------
     @property

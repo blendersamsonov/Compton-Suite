@@ -15,6 +15,8 @@ import numpy as np
 
 from compton_suite.io.bunch import GaussianElectronBeam, fit_gaussian, sample_gaussian_bunch  # noqa: E402
 from compton_suite.io.constants import C_LIGHT  # noqa: E402
+from compton_suite.io.enums import PhysicalMeaning, TimeConvention, WidthConvention  # noqa: E402
+from compton_suite.io.quantities import PhysicalQuantity  # noqa: E402
 from compton_suite.io.propagation import (  # noqa: E402
     ballistic_position_simultaneous,
     ballistic_position_z0_reference,
@@ -23,14 +25,14 @@ from compton_suite.io.propagation import (  # noqa: E402
 )
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
-    bunch_charge_C=100.0e-12,
-    kinetic_energy_eV=200.0e6,
+    bunch_charge_C=PhysicalQuantity(100e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+    kinetic_energy_eV=PhysicalQuantity(200e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
     rel_energy_spread_rms=0.001,
-    sigma_x_m=10.0e-6,
-    sigma_y_m=10.0e-6,
-    emit_geom_x_m=0.05e-6,
-    emit_geom_y_m=0.05e-6,
-    sigma_t_s=1.0e-12,
+    sigma_x_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    sigma_y_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    emit_geom_x_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    emit_geom_y_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    sigma_t_s=PhysicalQuantity(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
     sigma_pz=0.001,
 )
 
@@ -86,8 +88,8 @@ def test_propagate_recovers_waist_after_drift():
     assert np.std(drifted.x) > np.std(bunch_at_waist.x) * 1.5
 
     fit = fit_gaussian(drifted)
-    assert abs(fit.sigma_x_m / _EXAMPLE_BEAM.sigma_x_m - 1.0) < 0.03
-    assert abs(fit.emit_geom_x_m / _EXAMPLE_BEAM.emit_geom_x_m - 1.0) < 0.03
+    assert abs(fit._sx_m / _EXAMPLE_BEAM._sx_m - 1.0) < 0.03
+    assert abs(fit._ex_m / _EXAMPLE_BEAM._ex_m - 1.0) < 0.03
 
 
 def test_stream_yields_one_snapshot_per_time():

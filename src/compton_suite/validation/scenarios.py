@@ -18,8 +18,10 @@ from dataclasses import dataclass
 
 from compton_suite.io.bunch import GaussianElectronBeam
 from compton_suite.io.constants import MEC2_EV
+from compton_suite.io.enums import NoConvention, PhysicalMeaning, TimeConvention, WidthConvention
 from compton_suite.io.interaction import InteractionGeometry, InteractionParameters
 from compton_suite.io.laser import GaussianParaxialLaser
+from compton_suite.io.quantities import PhysicalQuantity
 
 # Default random seed for every scenario run -- deterministic comparisons,
 # same convention as Xigma/validation/params.py's DEFAULT_SEED.
@@ -71,7 +73,10 @@ class Scenario:
         built from (see that module's docstring)."""
         return InteractionParameters(
             beam=self.beam, laser=self.pulse,
-            geometry=InteractionGeometry(crossing_angle_rad=self.crossing_angle_rad),
+            geometry=InteractionGeometry(
+                crossing_angle_rad=PhysicalQuantity(self.crossing_angle_rad, "radian",
+                                                     PhysicalMeaning.ANGLE, NoConvention.PLAIN),
+            ),
             quantum=self.quantum,
         )
 
@@ -100,15 +105,22 @@ def _baseline() -> Scenario:
     # ~1/gamma0 here, but computed correctly rather than approximated).
     rel_energy_spread_rms = (sigma_gamma * MEC2_EV) / kinetic_energy_eV
 
+    q_C = charge_nC * 1e-9
+    sx_m = sigma_x_cm * 1e-2
+    sy_m = sigma_y_cm * 1e-2
+    ex_m = (norm_emit_x_cm_rad / gamma0) * 1e-2
+    ey_m = (norm_emit_y_cm_rad / gamma0) * 1e-2
+
     beam = GaussianElectronBeam(
-        bunch_charge_C=charge_nC * 1e-9,
-        kinetic_energy_eV=kinetic_energy_eV,
+        bunch_charge_C=PhysicalQuantity(q_C, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+        kinetic_energy_eV=PhysicalQuantity(kinetic_energy_eV, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
         rel_energy_spread_rms=rel_energy_spread_rms,
-        sigma_x_m=sigma_x_cm * 1e-2,
-        sigma_y_m=sigma_y_cm * 1e-2,
-        emit_geom_x_m=(norm_emit_x_cm_rad / gamma0) * 1e-2,
-        emit_geom_y_m=(norm_emit_y_cm_rad / gamma0) * 1e-2,
-        sigma_t_s=duration_s,
+        sigma_pz=rel_energy_spread_rms,
+        sigma_x_m=PhysicalQuantity(sx_m, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+        sigma_y_m=PhysicalQuantity(sy_m, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+        emit_geom_x_m=PhysicalQuantity(ex_m, "meter", PhysicalMeaning.EMITTANCE),
+        emit_geom_y_m=PhysicalQuantity(ey_m, "meter", PhysicalMeaning.EMITTANCE),
+        sigma_t_s=PhysicalQuantity(duration_s, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
     )
 
     pulse_energy_J = 20.0
@@ -116,12 +128,15 @@ def _baseline() -> Scenario:
     sigma_r_cm = 10e-4
     laser_duration_s = 30e-12
 
+    wl_m = lambda_l_cm * 1e-2
+    wr_m = sigma_r_cm * 1e-2
+
     pulse = GaussianParaxialLaser(
-        pulse_energy_J=pulse_energy_J,
-        wavelength_m=lambda_l_cm * 1e-2,
-        waist_rms_x_m=sigma_r_cm * 1e-2,
-        waist_rms_y_m=sigma_r_cm * 1e-2,
-        duration_rms_s=laser_duration_s,
+        pulse_energy_J=PhysicalQuantity(pulse_energy_J, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
+        wavelength_m=PhysicalQuantity(wl_m, "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
+        waist_rms_x_m=PhysicalQuantity(wr_m, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        waist_rms_y_m=PhysicalQuantity(wr_m, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        duration_rms_s=PhysicalQuantity(laser_duration_s, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
     )
 
     return Scenario(name="baseline", beam=beam, pulse=pulse)
@@ -140,7 +155,9 @@ BASELINE = _baseline()
 # valid-range boundary).
 def _scaled(name: str, pulse_energy_J: float) -> Scenario:
     from dataclasses import replace
-    pulse = replace(BASELINE.pulse, pulse_energy_J=pulse_energy_J)
+    pulse = replace(BASELINE.pulse,
+                    pulse_energy_J=PhysicalQuantity(pulse_energy_J, "joule",
+                                                     PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN))
     return replace(BASELINE, name=name, pulse=pulse)
 
 

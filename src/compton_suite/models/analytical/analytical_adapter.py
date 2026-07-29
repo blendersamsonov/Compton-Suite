@@ -81,7 +81,7 @@ class AnalyticalConfig:
 
     @property
     def lambda_L(self) -> float:
-        return self.pulse.wavelength_m
+        return self.pulse._wl_m
 
 
 class AnalyticalAdapter:
@@ -231,7 +231,7 @@ class AnalyticalAdapter:
         gamma_arr = np.asarray(electrons.gamma, dtype=float)
         weight_arr = np.full(electrons.n_particles, electrons.weight)
 
-        omega0 = 2.0 * np.pi * C_LIGHT / pulse.wavelength_m
+        omega0 = 2.0 * np.pi * C_LIGHT / pulse._wl_m
         Wph_eV = HBAR * omega0 / E_CHARGE
         # Use OutputSpec if provided, otherwise default to 256
         n_bins = output.n_energy_bins if output is not None else 256
@@ -271,15 +271,15 @@ class AnalyticalAdapter:
     def ele_file_summary(self, bunch: MacroBunch) -> dict:
         beam = fit_gaussian(bunch)
         return dict(
-            mean_energy_MeV=beam.kinetic_energy_eV * 1e-6,
+            mean_energy_MeV=beam._KE_eV * 1e-6,
             rel_spread_pct=beam.rel_energy_spread_rms * 100.0,
-            bunch_duration_ps=beam.sigma_t_s * 1e12,
+            bunch_duration_ps=beam._st_s * 1e12,
             beta_x_m=beam.beta_star_x_m,
             beta_y_m=beam.beta_star_y_m,
             emit_x_mmmrad=beam.emit_norm_x_m * 1e6,
             emit_y_mmmrad=beam.emit_norm_y_m * 1e6,
-            sigma_ex_um=beam.sigma_x_m * 1e6,
-            sigma_ey_um=beam.sigma_y_m * 1e6,
+            sigma_ex_um=beam._sx_m * 1e6,
+            sigma_ey_um=beam._sy_m * 1e6,
             eps0=beam.gamma0,
             N_e=bunch.n_particles,
         )

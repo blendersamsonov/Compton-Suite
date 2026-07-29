@@ -16,10 +16,34 @@ convention ever disagrees.
 from __future__ import annotations
 
 from . import converters
-from .enums import AmplitudeConvention, PhysicalMeaning, TimeConvention, WidthConvention
+from .enums import (
+    AmplitudeConvention,
+    NoConvention,
+    PhysicalMeaning,
+    TimeConvention,
+    WidthConvention,
+)
 from .quantities import PhysicalQuantity
 from .units import LIGHT_TIME_CONTEXT
 from .validation import MeaningMismatchError, validate_quantity
+
+# ---------------------------------------------------------------------------
+# Canonical conventions and units
+# ---------------------------------------------------------------------------
+# Meanings that carry NoConvention.PLAIN (energies, charge, displacement, ...)
+# have no convention ambiguity -- the canonical convention IS
+# NoConvention.PLAIN, and to_canonical/from_canonical are identity
+# transformations for the convention part.
+# ---------------------------------------------------------------------------
+_NO_CONVENTION_MEANINGS: set[PhysicalMeaning] = {
+    PhysicalMeaning.PULSE_ENERGY,
+    PhysicalMeaning.WAVELENGTH,
+    PhysicalMeaning.BEAM_ENERGY,
+    PhysicalMeaning.EMITTANCE,
+    PhysicalMeaning.BUNCH_CHARGE,
+    PhysicalMeaning.DISPLACEMENT,
+    PhysicalMeaning.ANGLE,
+}
 
 CANONICAL_CONVENTIONS: dict[PhysicalMeaning, object] = {
     PhysicalMeaning.LASER_WIDTH: WidthConvention.SIGMA_INTENSITY_RMS,
@@ -27,14 +51,25 @@ CANONICAL_CONVENTIONS: dict[PhysicalMeaning, object] = {
     PhysicalMeaning.PULSE_DURATION: TimeConvention.SIGMA_INTENSITY_RMS,
     PhysicalMeaning.BUNCH_LENGTH: TimeConvention.SIGMA_INTENSITY_RMS,
     PhysicalMeaning.LASER_AMPLITUDE: AmplitudeConvention.A0_PEAK,
+    # No-convention meanings -- canonical is once again PLAIN.
+    **{m: NoConvention.PLAIN for m in _NO_CONVENTION_MEANINGS},
 }
 
-CANONICAL_UNIT: dict[PhysicalMeaning, str] = {
+# If unit is None (canonical SI by dimension), to_canonical will extract
+# base-SI magnitude via .si_magnitude instead of a fixed unit string.
+CANONICAL_UNIT: dict[PhysicalMeaning, str | None] = {
     PhysicalMeaning.LASER_WIDTH: "meter",
     PhysicalMeaning.ELECTRON_BEAM_SIZE: "meter",
     PhysicalMeaning.PULSE_DURATION: "second",
     PhysicalMeaning.BUNCH_LENGTH: "second",
     PhysicalMeaning.LASER_AMPLITUDE: "dimensionless",
+    PhysicalMeaning.PULSE_ENERGY: "joule",
+    PhysicalMeaning.WAVELENGTH: "meter",
+    PhysicalMeaning.BEAM_ENERGY: "electron_volt",
+    PhysicalMeaning.EMITTANCE: "meter",       # m*rad, rad is dimensionless
+    PhysicalMeaning.BUNCH_CHARGE: "coulomb",
+    PhysicalMeaning.DISPLACEMENT: "meter",
+    PhysicalMeaning.ANGLE: "radian",
 }
 
 # Meanings whose native storage unit can be a length standing in for a time
@@ -42,17 +77,28 @@ CANONICAL_UNIT: dict[PhysicalMeaning, str] = {
 # context to reach/leave the canonical (time) unit.
 _TIME_LIKE = {PhysicalMeaning.PULSE_DURATION, PhysicalMeaning.BUNCH_LENGTH}
 
+# --- converter table: NoConvention meanings use the identity function -------
+def _identity(value: float, _from, _to) -> float:
+    return value
+
+
 _CONVERTER_BY_MEANING = {
     PhysicalMeaning.LASER_WIDTH: converters.convert_width,
     PhysicalMeaning.ELECTRON_BEAM_SIZE: converters.convert_width,
     PhysicalMeaning.PULSE_DURATION: converters.convert_time,
     PhysicalMeaning.BUNCH_LENGTH: converters.convert_time,
     PhysicalMeaning.LASER_AMPLITUDE: converters.convert_amplitude,
+    **{m: _identity for m in _NO_CONVENTION_MEANINGS},
 }
 
 
 def _context_for(meaning: PhysicalMeaning) -> str | None:
     return LIGHT_TIME_CONTEXT if meaning in _TIME_LIKE else None
+
+
+def _is_no_convention(q: PhysicalQuantity) -> bool:
+    """True when the quantity's meaning has no convention ambiguity."""
+    return q.meaning in _NO_CONVENTION_MEANINGS
 
 
 def to_canonical(q: PhysicalQuantity) -> PhysicalQuantity:
@@ -63,9 +109,22 @@ def to_canonical(q: PhysicalQuantity) -> PhysicalQuantity:
     canonical_unit = CANONICAL_UNIT[q.meaning]
     convert_fn = _CONVERTER_BY_MEANING[q.meaning]
 
-    q_canonical_unit = q.to_unit(canonical_unit, context=_context_for(q.meaning))
-    canonical_value = convert_fn(q_canonical_unit.magnitude, q.convention, canonical_convention)
-    return PhysicalQuantity(canonical_value, canonical_unit, q.meaning, canonical_convention)
+    # Unit conversion: canonical_unit or base-SI.
+    if canonical_unit is None:
+        mag = q.si_magnitude
+        unit = str(q.quantity.to_base_units().units)
+    else:
+        q_cu = q.to_unit(canonical_unit, context=_context_for(q.meaning))
+        mag = q_cu.magnitude
+        unit = canonical_unit
+
+    # Convention conversion (identity for NoConvention meanings).
+    if _is_no_convention(q):
+        canonical_value = mag
+    else:
+        canonical_value = convert_fn(mag, q.convention, canonical_convention)
+
+    return PhysicalQuantity(canonical_value, unit, q.meaning, canonical_convention)
 
 
 def from_canonical(q: PhysicalQuantity, target_convention, target_unit: str) -> PhysicalQuantity:
@@ -79,6 +138,11 @@ def from_canonical(q: PhysicalQuantity, target_convention, target_unit: str) -> 
             f"{canonical_convention!r} for {q.meaning!r}; got {q.convention!r}. "
             f"Call to_canonical() first."
         )
+
+    if _is_no_convention(q):
+        # No convention scaling -- pure unit conversion.
+        return q.to_unit(target_unit, context=_context_for(q.meaning))
+
     convert_fn = _CONVERTER_BY_MEANING[q.meaning]
     target_value = convert_fn(q.magnitude, q.convention, target_convention)
     target_in_canonical_unit = PhysicalQuantity(target_value, q.unit, q.meaning, target_convention)

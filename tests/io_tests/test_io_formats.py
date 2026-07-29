@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import numpy as np
 
 from compton_suite.io.bunch import GaussianElectronBeam, fit_gaussian, sample_gaussian_bunch  # noqa: E402
+from compton_suite.io.enums import PhysicalMeaning, TimeConvention, WidthConvention  # noqa: E402
 from compton_suite.io.io_formats.sdds import load_elegant_ele, save_elegant_ele  # noqa: E402
 from compton_suite.io.io_formats.yaml_spec import (  # noqa: E402
     load_electron_beam,
@@ -23,16 +24,17 @@ from compton_suite.io.io_formats.yaml_spec import (  # noqa: E402
     save_laser,
 )
 from compton_suite.io.laser import GaussianParaxialLaser  # noqa: E402
+from compton_suite.io.quantities import PhysicalQuantity  # noqa: E402
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
-    bunch_charge_C=100.0e-12,
-    kinetic_energy_eV=200.0e6,
+    bunch_charge_C=PhysicalQuantity(100e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+    kinetic_energy_eV=PhysicalQuantity(200e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
     rel_energy_spread_rms=0.001,
-    sigma_x_m=10.0e-6,
-    sigma_y_m=10.0e-6,
-    emit_geom_x_m=0.05e-6,
-    emit_geom_y_m=0.05e-6,
-    sigma_t_s=1.0e-12,
+    sigma_x_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    sigma_y_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    emit_geom_x_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    emit_geom_y_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    sigma_t_s=PhysicalQuantity(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
     sigma_pz=0.001,
 )
 
@@ -52,8 +54,8 @@ def test_sdds_round_trip_preserves_bunch_statistics():
     # weight is documented as non-authoritative for a loaded .ele file --
     # fit_gaussian should still recover the beam's SHAPE parameters fine.
     fit = fit_gaussian(loaded)
-    assert abs(fit.sigma_x_m / _EXAMPLE_BEAM.sigma_x_m - 1.0) < 0.05
-    assert abs(fit.emit_geom_x_m / _EXAMPLE_BEAM.emit_geom_x_m - 1.0) < 0.08
+    assert abs(fit._sx_m / _EXAMPLE_BEAM._sx_m - 1.0) < 0.05
+    assert abs(fit._ex_m / _EXAMPLE_BEAM._ex_m - 1.0) < 0.08
 
 
 def test_spec_example_electron_beam_yaml_round_trips():
@@ -80,15 +82,15 @@ electron_beam:
         Path(path).write_text(example_yaml)
         beam = load_electron_beam(path)
 
-    assert abs(beam.bunch_charge_C - 100.0e-12) < 1e-20
-    assert abs(beam.kinetic_energy_eV - 200.0e6) < 1e-3
-    assert abs(beam.sigma_x_m - 10.0e-6) < 1e-15
+    assert abs(beam._q_C - 100.0e-12) < 1e-20
+    assert abs(beam._KE_eV - 200.0e6) < 1e-3
+    assert abs(beam._sx_m - 10.0e-6) < 1e-15
 
     with tempfile.TemporaryDirectory() as tmp:
         path = str(Path(tmp) / "beam_out.yaml")
         save_electron_beam(beam, path)
         reloaded = load_electron_beam(path)
-    assert abs(reloaded.bunch_charge_C / beam.bunch_charge_C - 1.0) < 1e-9
+    assert abs(reloaded._q_C / beam._q_C - 1.0) < 1e-9
 
 
 def test_spec_example_laser_yaml_round_trips():
@@ -109,8 +111,8 @@ laser:
         Path(path).write_text(example_yaml)
         pulse = load_laser(path)
 
-    assert abs(pulse.pulse_energy_J - 0.05) < 1e-12
-    assert abs(pulse.wavelength_m - 0.8e-6) < 1e-15
+    assert abs(pulse._E_J - 0.05) < 1e-12
+    assert abs(pulse._wl_m - 0.8e-6) < 1e-15
 
     with tempfile.TemporaryDirectory() as tmp:
         path = str(Path(tmp) / "laser_out.yaml")

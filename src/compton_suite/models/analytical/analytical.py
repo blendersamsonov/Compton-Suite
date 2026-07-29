@@ -49,12 +49,12 @@ def estimate_yield(beam: GaussianElectronBeam, pulse: GaussianParaxialLaser) -> 
     elliptical laser is only approximated by this estimate, not modeled
     exactly.
     """
-    sigma_ex, sigma_ey = beam.sigma_x_m, beam.sigma_y_m
+    sigma_ex, sigma_ey = beam._sx_m, beam._sy_m
     beta_x, beta_y = beam.beta_star_x_m, beam.beta_star_y_m
     sigma_ez = beam.sigma_z_m
-    sigma_lr0 = (pulse.waist_rms_x_m * pulse.waist_rms_y_m) ** 0.5
-    sigma_lz = pulse.duration_rms_s * C_LIGHT
-    lambda_l = pulse.wavelength_m
+    sigma_lr0 = (pulse._wx_m * pulse._wy_m) ** 0.5
+    sigma_lz = pulse._dur_s * C_LIGHT
+    lambda_l = pulse._wl_m
 
     sb_av = np.sqrt(sigma_ex * sigma_ey / beta_x / beta_y)
     sigma0 = np.sqrt(sigma_ex**2 + sigma_lr0**2)
