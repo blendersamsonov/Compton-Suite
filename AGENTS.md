@@ -225,6 +225,41 @@ computation. Only trivial unit conversions (gamma → MeV) remain.
 
 ---
 
+## User-specified tasks (pending)
+
+In priority order, as recorded in `docs/gui/tasks.md` and `docs/models/tasks.md`.
+
+### GUI
+
+- [ ] **Abandon angular-range tab.**
+- [ ] **Remove hard-coded seed and number of macroelectrons** from compton photons tab into model specific parameters.
+- [ ] **Grey out inputs after simulation done** (except charge). For XIGMA leave pulse energy and gamma active. Add a "release" button to change parameters again.
+- [ ] **Dropdown per-input unit selection** (cm, m, mm, µm, etc.) with automatic PhysicalQuantity conversion. Must work even when values are read-only (e.g. from a macrobunch).
+- [ ] **Multiple self-consistent spatial-scale definitions:** waist vs Rayleigh range / beta function.
+- [ ] **2D/3D interaction geometry sketches:** axes, 3D ellipses for e⁻ and laser, polarization arrows, "ghost" foci at different time delays.
+- [ ] **Sliders for inputs.**
+- [ ] **Parameter scans/ranges.**
+- [ ] **Save to file:** graphs, photon representations.
+
+### Xigma-i
+
+- [ ] **Streaming GPU usage:** query VRAM, cap allocation at ~70%.
+- [ ] **Crossing angle support** (should only change the polarization factor).
+- [ ] **Rename:** drop "-i" suffix → just "XIGMA".
+- [ ] **Gamma-axis rescaling** analogous to a0 rescaling, to vary mean energy without recomputing Stages 0-1.
+
+### Analytical model
+
+- [ ] **Foci displacement** in the analytical model.
+- [ ] **Non-round beam** closed-form total yield.
+- [ ] **Collimated spectrum** from total yield, collimation angle, and spectrum width (convolution with energy distribution + a₀).
+
+### All models
+
+- [ ] **Jitter and shot averaging.**
+
+---
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
