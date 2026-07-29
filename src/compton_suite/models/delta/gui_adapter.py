@@ -216,8 +216,6 @@ def available() -> tuple[bool, str]:
 
 def extra_params() -> list[tuple[str, float | str, str]]:
     return [
-        ("Flying-focus factor (0=static, 1=co-moving)", 0.0, "beta_ff"),
-        ("Polarization angle [rad]", 0.0, "phi_pol"),
         ("Device (auto/gpu/cpu)", "auto", "device_preference"),
         ("Stage 0 trajectory steps", 64, "n_steps_0"),
         ("Angular-spectrum grid points/axis", 9, "n_theta_grid"),
@@ -336,12 +334,19 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[DirectConfig,
         delta_x_m=delta_x, delta_y_m=delta_y, delta_z_m=delta_z,
         crossing_angle_rad=crossing_angle,
     )
+
+    # Shared laser optics parameters (from laser panel, not model-specific).
+    # Fallback to 0.0 when called from non-GUI contexts.
+    _get_shared = lambda k: (
+        float(fields[k].get()) if hasattr(fields.get(k), "get")
+        else float(fields.get(k, 0.0)))
+
     cfg = DirectConfig(
         interaction=_InteractionParameters(
             beam=beam, laser=laser, geometry=geometry, quantum=quantum,
         ),
         Theta_x=theta_x_col, Theta_y=theta_y_col,
-        beta_ff=g("beta_ff"), phi_pol=g("phi_pol"),
+        beta_ff=_get_shared("beta_ff"), phi_pol=_get_shared("phi_pol"),
         n_steps_0=max(1, int(round(g("n_steps_0")))),
         n_theta_grid=max(3, int(round(g("n_theta_grid")))),
     )

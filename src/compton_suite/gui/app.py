@@ -65,7 +65,7 @@ from compton_suite.gui.models import discover_models
 
 from compton_suite.io.bunch import beam_from_shared_fields, sample_gaussian_bunch
 
-from compton_suite.gui.calculations import CalculationsSection
+from compton_suite.gui.calculations import ModelSelectionPanel
 
 # panel colours
 BLUE = "#d6e4f5"
@@ -250,9 +250,10 @@ class ComptonGuideApp(tk.Tk):
         # ``_update_derived`` callback would clobber our output values).
         self._electron_traces: list[tuple[tk.StringVar, str]] = []
         
-        # Calculations section (separate window)
-        self.calculations_window: tk.Toplevel | None = None
-        self.calculations_section: CalculationsSection | None = None
+        # Multi-model calculation state
+        self.model_results: dict[str, CommonResults] = {}
+        """Results from all selected models, keyed by model name."""
+        self.model_selection_panel: ModelSelectionPanel | None = None
 
         # --- build layout ---
         self._build_menu()
@@ -331,7 +332,8 @@ class ComptonGuideApp(tk.Tk):
         calcmenu = tk.Menu(menubar, tearoff=0)
         calcmenu.add_command(label="Calculate", command=self.on_start)
         calcmenu.add_separator()
-        calcmenu.add_command(label="Multi-Model Calculations...", command=self._open_calculations_section)
+        calcmenu.add_command(label="Show multi-model panel",
+                             command=self._toggle_model_panel)
         menubar.add_cascade(label="Calculations", menu=calcmenu)
 
         helpmenu = tk.Menu(menubar, tearoff=0)
@@ -412,34 +414,23 @@ class ComptonGuideApp(tk.Tk):
             "Compton-GUIde\n\n"
             "Model-agnostic GUI front-end for pluggable Compton-scattering "
             "physics engines (kascade, xigma-i, ...).")
-    
-    def _open_calculations_section(self):
-        """Open the multi-model calculations section in a separate window."""
-        if self.calculations_window is not None and self.calculations_window.winfo_exists():
-            # Bring existing window to front
-            self.calculations_window.lift()
-            self.calculations_window.focus_force()
-            return
-        
-        # Create new window
-        self.calculations_window = tk.Toplevel(self)
-        self.calculations_window.title("Multi-Model Calculations")
-        self.calculations_window.geometry("1200x800+100+100")
-        
-        # Create calculations section
-        self.calculations_section = CalculationsSection(
-            self.calculations_window, self.fields)
-        self.calculations_section.pack(fill="both", expand=True)
-        
-        # Handle window close
-        self.calculations_window.protocol("WM_DELETE_WINDOW", self._close_calculations_section)
-    
-    def _close_calculations_section(self):
-        """Close the calculations section window."""
-        if self.calculations_window is not None:
-            self.calculations_window.destroy()
-            self.calculations_window = None
-            self.calculations_section = None
+
+    def _toggle_model_panel(self):
+        """Show/hide the multi-model selection panel between the model
+        params and output resolution panels."""
+        if self.model_selection_panel is None:
+            # First call: create it
+            from compton_suite.gui.calculations import ModelSelectionPanel
+            self.model_selection_panel = ModelSelectionPanel(
+                self._left_frame, self.fields, bg=GREY)
+            # Insert after output panel
+            self.model_selection_panel.pack(side="top", fill="x", padx=6, pady=3,
+                                            before=self._output_panel_frame)
+        elif self.model_selection_panel.winfo_ismapped():
+            self.model_selection_panel.pack_forget()
+        else:
+            self.model_selection_panel.pack(side="top", fill="x", padx=6, pady=3,
+                                            before=self._output_panel_frame)
 
     def _save_fig(self):
         path = filedialog.asksaveasfilename(defaultextension=".png",
@@ -701,6 +692,21 @@ class ComptonGuideApp(tk.Tk):
                        padx=8, pady=(4, 2))
             self.laser_radius_lbls.append(label)
 
+        # Advanced laser optics (row 4)
+        advanced_frame = tk.Frame(p, bg=RED)
+        advanced_frame.grid(row=4, column=0, columnspan=12, sticky="we", padx=4, pady=(4, 2))
+        adv_specs = [
+            ("Flying-focus beta_ff (0=static, 1=co-moving)", 0.0, "beta_ff"),
+            ("Polarization angle [rad]", 0.0, "phi_pol"),
+        ]
+        for i, (label, default, key) in enumerate(adv_specs):
+            tk.Label(advanced_frame, text=label, bg=RED, anchor="w").grid(
+                row=0, column=i*2, sticky="w", padx=(8, 3), pady=2)
+            var = tk.StringVar(value=str(default))
+            ent = tk.Entry(advanced_frame, textvariable=var, width=8, justify="right")
+            ent.grid(row=0, column=i*2+1, padx=(0, 6), pady=2)
+            self.fields[key] = var
+
     # ---- Compton photons panel (yellow) --------------------------------
     def _build_compton_panel(self):
         p = tk.LabelFrame(self._left_frame, text="COMPTON PHOTONS", bg=YELLOW, fg="#432",
@@ -804,10 +810,10 @@ class ComptonGuideApp(tk.Tk):
         """Panel for configuring output resolution (spectrum, temporal,
         spatial, angular bins). These values are passed to models via
         OutputSpec."""
-        p = tk.LabelFrame(
+        self._output_panel_frame = tk.LabelFrame(
             self._left_frame, text="OUTPUT RESOLUTION", bg=GREY, fg="#123",
             font=("TkDefaultFont", 14, "bold"))
-        p.pack(side="top", fill="x", padx=6, pady=3)
+        self._output_panel_frame.pack(side="top", fill="x", padx=6, pady=3)
 
         # Default values matching OutputSpec
         output_specs = [
@@ -818,7 +824,7 @@ class ComptonGuideApp(tk.Tk):
             ("Angular bins X", 64, "n_angular_bins_x"),
             ("Angular bins Y", 64, "n_angular_bins_y"),
         ]
-        add_field_grid(p, output_specs, self.fields, n_cols=4, bg=GREY, width=8)
+        add_field_grid(self._output_panel_frame, output_specs, self.fields, n_cols=4, bg=GREY, width=8)
 
     def _get_output_spec(self):
         """Build an OutputSpec from the GUI fields."""
@@ -1032,9 +1038,115 @@ class ComptonGuideApp(tk.Tk):
     def on_start(self):
         if self.worker is not None and self.worker.is_alive():
             return
+
+        # Determine which models to run
+        multi_models: list[str] | None = None
+        if (self.model_selection_panel is not None
+                and self.model_selection_panel.winfo_ismapped()):
+            selected = self.model_selection_panel.get_selected_models()
+            if selected:
+                multi_models = selected
+                self.model_selection_panel.status_lbl.config(text="running...")
+
+        if multi_models is not None:
+            # ---- multi-model run ----
+            fields_wc = dict(self.fields)
+            fields_wc["_duration_convention"] = self._duration_convention_var.get()
+            fields_wc["_pulse_convention"] = self._pulse_convention_var.get()
+
+            # Parse configs for ALL selected models synchronously so we catch
+            # parameter errors before starting the worker thread.
+            model_cfgs: list[tuple[str, object, dict, int]] = []
+            # (name, cfg, extra, n_mc_resolved)
+            for name in multi_models:
+                adapter = self.models[name]
+                try:
+                    # Merge with model-specific params from the selection panel
+                    merged = dict(fields_wc)
+                    if name in self.model_selection_panel.model_param_vars:
+                        for k, v in self.model_selection_panel.model_param_vars[name].items():
+                            merged[k] = v  # keep as StringVar — params_to_config expects .get()
+                    cfg, extra = adapter.params_to_config(merged, self.quantum_var.get())
+                except Exception as e:
+                    messagebox.showerror(f"Invalid parameter ({name})", str(e))
+                    return
+                if extra.get("warnings"):
+                    messagebox.showwarning(f"Model note ({name})",
+                                           "\n\n".join(extra["warnings"]))
+                n_mc = int(extra["n_mc"])
+                model_cfgs.append((name, cfg, extra, n_mc))
+
+            # Single electron sample shared by all models
+            n_mc = max(ec[3] for ec in model_cfgs)
+            if self.loaded_bunch is not None:
+                electrons = self.loaded_bunch
+            else:
+                # Use the first model's cfg to derive beam params (all share the same
+                # GUI fields except model-specific numeric knobs, so any works)
+                _cfg = model_cfgs[0][1]
+                beam = beam_from_shared_fields(
+                    eps0=_cfg.eps0, sigma_eps_rel=_cfg.sigma_eps_rel,
+                    emit_x=_cfg.emit_x, emit_y=_cfg.emit_y,
+                    sigma0_x=_cfg.sigma0_x, sigma0_y=_cfg.sigma0_y,
+                    sigma_par_e=_cfg.sigma_par_e, N_e=_cfg.N_e,
+                )
+                electrons = sample_gaussian_bunch(
+                    beam, n_particles=n_mc,
+                    rng=np.random.default_rng(int(model_cfgs[0][2]["seed"])))
+
+            self.rep_rate_hz = model_cfgs[0][2]["rep_rate_hz"]
+            self.a0_used = peak_a0(self.fields) or 0.0
+            self.calc_btn.config(state="disabled")
+            self.status_lbl.config(text="multi...")
+
+            # Analytical preview (always-on)
+            preview_cfg = preview_extra = None
+            if self.preview_adapter is not None:
+                try:
+                    preview_cfg, preview_extra = self.preview_adapter.params_to_config(
+                        fields_wc, self.quantum_var.get())
+                except Exception:
+                    preview_cfg = None
+
+            output_spec = self._get_output_spec()
+
+            def work_multi():
+                try:
+                    results: dict[str, CommonResults] = {}
+                    for name, cfg, extra, nmc in model_cfgs:
+                        adapter = self.models[name]
+                        res = adapter.run(cfg, n_mc=nmc, seed=extra["seed"],
+                                          electrons=electrons, output=output_spec)
+                        problems = validate_results(res)
+                        if problems:
+                            raise RuntimeError(
+                                f"{adapter.capabilities().display_name} adapter returned "
+                                f"malformed results: {'; '.join(problems)}")
+                        results[name] = res
+                except Exception as e:
+                    self.q.put(("error", "".join(traceback.format_exception(e))))
+                    return
+
+                preview_res = None
+                if preview_cfg is not None:
+                    try:
+                        preview_res = self.preview_adapter.run(
+                            preview_cfg, n_mc=int(preview_extra["n_mc"]),
+                            seed=int(preview_extra["seed"]), electrons=electrons,
+                            output=output_spec)
+                    except Exception:
+                        preview_res = None
+
+                self.q.put(("multi", (results, preview_res)))
+
+            self.worker = threading.Thread(target=work_multi, daemon=True)
+            self.worker.start()
+            self.after(100, self._poll_queue)
+            return
+
+        # ---- single-model (legacy) run ----
         adapter = self.active_adapter
         try:
-            # Add convention selectors to fields for adapters to use
             fields_with_conventions = dict(self.fields)
             fields_with_conventions["_duration_convention"] = self._duration_convention_var.get()
             fields_with_conventions["_pulse_convention"] = self._pulse_convention_var.get()
@@ -1045,24 +1157,11 @@ class ComptonGuideApp(tk.Tk):
         if extra["warnings"]:
             messagebox.showwarning("Model note", "\n\n".join(extra["warnings"]))
 
-        # Electron sampling is the IO layer's job, not each model's own --
-        # the GUI draws ONE canonical MacroBunch here (via compton_suite.io) and
-        # passes it to every model uniformly. Every adapter's run() now
-        # *requires* ``electrons`` (kascade's own sample_initial_electrons
-        # and xigma_i/delta's own gui_adapter-level self-sampling
-        # were deleted -- the "should not be responsible for that" cross-
-        # repo cleanup), so this can no longer be skipped or left None.
-        # If a 6-D .ele file was loaded, that takes precedence and IS the
-        # bunch (no sampling needed); its length becomes the effective
-        # ``n_mc``.
         n_mc = int(extra["n_mc"])
         if self.loaded_bunch is not None:
             electrons = self.loaded_bunch
             n_mc = self.loaded_bunch.n_particles
         else:
-            # IO module samples n_mc particles into a MacroBunch that gets
-            # passed to every model's run(). Models read electrons.n_particles
-            # if they need the count.
             n_sample = n_mc
             beam = beam_from_shared_fields(
                 eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
@@ -1079,13 +1178,6 @@ class ComptonGuideApp(tk.Tk):
         self.calc_btn.config(state="disabled")
         self.status_lbl.config(text="running...")
 
-        # The always-on analytical preview (see _build_preview_panel) runs
-        # alongside the selected model on every Calculate click, using the
-        # same shared fields. params_to_config is parsed synchronously here
-        # (like the main model's cfg above) so a bad preview config doesn't
-        # silently swallow a real parameter error; running it happens in
-        # the worker thread below, wrapped so a preview failure can never
-        # block or corrupt the main model's own result.
         preview_cfg = preview_extra = None
         if self.preview_adapter is not None:
             try:
@@ -1094,7 +1186,6 @@ class ComptonGuideApp(tk.Tk):
             except Exception:
                 preview_cfg = None
 
-        # Build OutputSpec from GUI fields
         output_spec = self._get_output_spec()
 
         def work():
@@ -1133,14 +1224,77 @@ class ComptonGuideApp(tk.Tk):
             self.after(100, self._poll_queue)
             return
         self.calc_btn.config(state="normal")
+
         if status == "error":
             self.status_lbl.config(text="error")
             messagebox.showerror("Simulation failed", payload)
             return
+
+        if status == "multi":
+            # Multi-model results
+            results, preview_res = payload
+            self.model_results = results
+            self.preview_res = preview_res
+            self.status_lbl.config(text="done")
+            if self.model_selection_panel is not None:
+                self.model_selection_panel.results = results
+                self.model_selection_panel.status_lbl.config(text="done")
+
+            # Render multi-model overlays in all plot tabs
+            self._render_multi_plots()
+            self._render_preview()
+            return
+
+        # Single-model (legacy)
         self.res, self.preview_res = payload
         self.status_lbl.config(text="done")
+        self.model_results = {}
         self._update_outputs()
         self._render_preview()
+
+    # ---- multi-model plotting (overlays) --------------------------------
+    def _render_multi_plots(self):
+        """Render plots using results from multiple models when the
+        multi-model panel was used."""
+        results = self.model_results
+        if not results:
+            return
+
+        # Spectrum tab: overlays using the renderer from calculations.py
+        from compton_suite.gui.calculations import ModelSelectionPanel
+        ModelSelectionPanel.render_multi_spectrum(self.ax_spec, results)
+
+        # Electron state: not available for multi-model (different cfg per
+        # model, and kascade is the only one providing it) — show placeholder.
+        self.ax_e.clear()
+        self.ax_e.text(0.5, 0.5, "Multi-model: electron state not shown",
+                       ha="center", va="center")
+        self.ax_e.set_title("Electron energy: initial vs. final")
+        self.ax_e.set_xticks([]); self.ax_e.set_yticks([])
+
+        self.fig.tight_layout()
+        self.canvas.draw()
+
+        # Temporal, spatial, angular tabs
+        ModelSelectionPanel.render_multi_temporal(self.ax_t, results)
+        self.fig_t.tight_layout(); self.canvas_t.draw()
+
+        ModelSelectionPanel.render_multi_spatial(self.ax_s, results)
+        self.fig_s.tight_layout(); self.canvas_s.draw()
+
+        # Angular: pick first available model
+        ang_model = next((n for n in results if results[n].angular_spectrum is not None
+                         or (hasattr(results[n], "photon_samples")
+                             and results[n].photon_samples is not None)), None)
+        ModelSelectionPanel.render_multi_angular(self.ax_a, results, ang_model or "")
+        self.fig_a.tight_layout(); self.canvas_a.draw()
+
+        # The Angular tab supports switching model — store list of model
+        # names with angular data for the listbox (will wire if needed).
+        self._ang_model_list = [n for n in results
+                                if results[n].angular_spectrum is not None
+                                or (hasattr(results[n], "photon_samples")
+                                    and getattr(results[n].photon_samples, "ph_thx_lab", None) is not None)]
 
     # ---- collimation-dependent outputs (no re-run) ---------------------
     def _collimation_rad(self):

@@ -301,8 +301,6 @@ def extra_params() -> list[tuple[str, float | str, str]]:
     the Config field name; params_to_config reads it straight out of the
     fields dict."""
     return [
-        ("Flying-focus factor (0=static, 1=co-moving)", 0.0, "beta_ff"),
-        ("Polarization angle [rad]", 0.0, "phi_pol"),
         ("Device (auto/gpu/cpu)", "auto", "device_preference"),
         ("Stage 0 trajectory steps", 64, "n_steps_0"),
         ("Grid bins: gamma", 48, "n_bins_gamma"),
@@ -398,8 +396,15 @@ def params_to_config(fields: dict, quantum: bool = False) -> tuple[Config, dict]
     theta_x_col = g("theta_x_col_mrad") * 1e-3
     theta_y_col = g("theta_y_col_mrad") * 1e-3
 
-    beta_ff = g("beta_ff")
-    phi_pol = g("phi_pol")
+    # Shared laser optics parameters (from laser panel, not model-specific).
+    # Fallback to 0.0 when called from contexts (e.g. headless test) that
+    # don't include these shared fields. The duck-type check (hasattr .get)
+    # handles both StringVar (GUI) and plain str (test) values.
+    _get_shared = lambda k: (
+        float(fields[k].get()) if hasattr(fields.get(k), "get")
+        else float(fields.get(k, 0.0)))
+    beta_ff = _get_shared("beta_ff")
+    phi_pol = _get_shared("phi_pol")
 
     # Numerical/resolution knobs -- integers clamped to >= 1 so a stray 0 or
     # negative GUI entry can't crash Stage 0/1/2 (e.g. an empty table or a
