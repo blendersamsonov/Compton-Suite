@@ -23,8 +23,7 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import ttk
 
-from compton_suite.gui.model_api import CommonResults, validate_results
-from compton_suite.gui.models import discover_models
+from compton_suite.models.api import Photons, discover_models, validate_results
 
 
 GREY = "#e4e4e4"
@@ -53,7 +52,7 @@ class ModelSelectionPanel(tk.Frame):
         """Frames holding each model's parameter entries (shown/hidden with checkbox)."""
 
         # Results
-        self.results: dict[str, CommonResults] = {}
+        self.results: dict[str, Photons] = {}
         """Latest results keyed by model name."""
 
         self._build_ui(bg)
@@ -116,9 +115,9 @@ class ModelSelectionPanel(tk.Frame):
         self.model_param_frames[name] = param_frame
         self.model_param_vars[name] = {}
 
-        specs = adapter.extra_params()
+        specs = adapter.model_params()
         if specs:
-            choices = adapter.extra_choices()
+            choices = adapter.model_choices()
             for label_text, default, key in specs:
                 row = tk.Frame(param_frame, bg=GREY)
                 row.pack(fill="x", padx=8, pady=2)
@@ -180,7 +179,7 @@ class ModelSelectionPanel(tk.Frame):
     # Plotting helpers (called from app.py after results land)
     # ------------------------------------------------------------------
     @staticmethod
-    def render_multi_spectrum(ax, results: dict[str, CommonResults]):
+    def render_multi_spectrum(ax, results: dict[str, Photons]):
         """Overlay spectra from all models on *ax* with colour-coded legend."""
         ax.clear()
         colors = plt.cm.tab10(np.linspace(0, 1, len(results)))
@@ -201,7 +200,7 @@ class ModelSelectionPanel(tk.Frame):
         ax.set_title("Photon spectrum (all selected models)")
 
     @staticmethod
-    def render_multi_angular(ax, results: dict[str, CommonResults], active_model: str):
+    def render_multi_angular(ax, results: dict[str, Photons], active_model: str):
         """Render 2D angular distribution for a specific model."""
         ax.clear()
         res = results.get(active_model)
@@ -216,8 +215,8 @@ class ModelSelectionPanel(tk.Frame):
             d2N = np.einsum("ijk,k->ij", ang.d2NdEdOmega, dE)
             ax.pcolormesh(ang.theta_x * 1e3, ang.theta_y * 1e3,
                           d2N.T, shading="auto")
-        elif (hasattr(res, "photon_samples") and res.photon_samples is not None):
-            ps = res.photon_samples
+        elif (hasattr(res, "final_photons") and res.final_photons is not None):
+            ps = res.final_photons
             tx = getattr(ps, "ph_thx_lab", None)
             ty = getattr(ps, "ph_thy_lab", None)
             w = getattr(ps, "weight", 1.0)
@@ -235,7 +234,7 @@ class ModelSelectionPanel(tk.Frame):
         ax.set_title(f"Angular distribution — {active_model}")
 
     @staticmethod
-    def render_multi_temporal(ax, results: dict[str, CommonResults]):
+    def render_multi_temporal(ax, results: dict[str, Photons]):
         """Overlay temporal envelopes from all models."""
         ax.clear()
         colors = plt.cm.tab10(np.linspace(0, 1, len(results)))
@@ -257,7 +256,7 @@ class ModelSelectionPanel(tk.Frame):
         ax.set_title("Temporal envelope")
 
     @staticmethod
-    def render_multi_spatial(ax, results: dict[str, CommonResults]):
+    def render_multi_spatial(ax, results: dict[str, Photons]):
         """Overlay spatial distributions from all models that have them."""
         ax.clear()
         colors = plt.cm.tab10(np.linspace(0, 1, len(results)))

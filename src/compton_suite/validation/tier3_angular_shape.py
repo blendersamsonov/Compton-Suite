@@ -39,8 +39,8 @@ def run(scenario: Scenario = BASELINE, results: dict | None = None) -> bool:
     """Always returns True -- canary tier, reports findings, does not gate
     the suite (see module docstring)."""
     print(f"=== Tier 3: angular shape canary, xigma-i vs delta ({scenario.name}) ===")
-    from compton_suite.models.xigma_i.gui_adapter import spectrum_in_angular_range as xigma_sar
-    from compton_suite.models.delta.gui_adapter import spectrum_in_angular_range as delta_sar
+    from compton_suite.models.xigma_i.adapter import spectrum_in_angular_range as xigma_sar
+    from compton_suite.models.xigma_i.adapter import spectrum_in_angular_range_direct as delta_sar
 
     results = results or {}
     res_xigma = results.get("xigma_i") or run_xigma(scenario)

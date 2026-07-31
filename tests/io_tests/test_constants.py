@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from compton_suite.io import constants  # noqa: E402
+from compton_suite.io import units as constants  # noqa: E402
 
 
 def test_si_values_are_sane():

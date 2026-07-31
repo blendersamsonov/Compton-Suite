@@ -1,4 +1,4 @@
-"""Cross-checks for bunch.py's MacroBunch / GaussianElectronBeam /
+"""Cross-checks for bunch.py's Bunch / GaussianElectronBeam /
 sample_gaussian_bunch / fit_gaussian.
 
 No cupy/GPU/tkinter needed. Run with `python3 -m pytest tests/` or
@@ -16,13 +16,12 @@ import numpy as np
 
 from compton_suite.io.bunch import (  # noqa: E402
     GaussianElectronBeam,
-    MacroBunch,
+    Bunch,
     fit_gaussian,
     sample_gaussian_bunch,
     validate,
 )
-from compton_suite.io.enums import PhysicalMeaning, TimeConvention, WidthConvention  # noqa: E402
-from compton_suite.io.quantities import PhysicalQuantity  # noqa: E402
+from compton_suite.io.units import PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention  # noqa: E402
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
     bunch_charge_C=PhysicalQuantity(100e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
@@ -79,7 +78,7 @@ def test_fit_gaussian_recovers_waist_after_drift():
     rng = np.random.default_rng(2)
     bunch_at_waist = sample_gaussian_bunch(_EXAMPLE_BEAM, 500_000, rng=rng)
     L = 2.5  # meters downstream of the waist
-    drifted = MacroBunch(
+    drifted = Bunch(
         x=bunch_at_waist.x + bunch_at_waist.thx * L,
         y=bunch_at_waist.y + bunch_at_waist.thy * L,
         z=bunch_at_waist.z,

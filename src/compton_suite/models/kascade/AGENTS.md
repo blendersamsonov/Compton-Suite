@@ -27,21 +27,27 @@ directly:
 
 ```python
 from compton_suite.models.kascade import kascade as _kascade
-from compton_suite.models.kascade.kascade_adapter import _macrobunch_to_kascade_electrons
+from compton_suite.models.kascade.kascade_adapter import _bunch_to_kascade_electrons
 from compton_suite.io.bunch import GaussianElectronBeam, sample_gaussian_bunch
+from compton_suite.io.interaction import InteractionParameters
 
-cfg = _kascade.Config()  # or construct with specific beam/laser/geometry fields
 beam = GaussianElectronBeam(...)
+laser = GaussianParaxialLaser(...)
+cfg = _kascade.Config(interaction=InteractionParameters(beam=beam, laser=laser))
 macrobunch = sample_gaussian_bunch(beam, n_particles=20_000)
-electrons = _macrobunch_to_kascade_electrons(macrobunch)
+electrons = _bunch_to_kascade_electrons(macrobunch)
 results = _kascade.run_simulation(cfg, n_mc=20_000, seed=0, electrons=electrons)
 ```
 
 `electrons` (a dict of `eps`/`z0`/`x_w`/`y_w`/`thx`/`thy` per-particle
-arrays, converted from a `compton_suite.io.bunch.MacroBunch`) is required —
+arrays, converted from a `compton_suite.io.bunch.Bunch`) is required —
 sampling the electron bunch is `compton_suite.io`'s job, not this module's; see
-"Relationship to other components" below and the root `CLAUDE.md`'s
-Architecture section.
+"Relationship to other components" below and the root `AGENTS.md`'s
+Architecture section. `Config` has no derived-value properties of its own
+(`eps0`/`eps_L`/`N_L`/`sigma0_l`/`R_sf`/`sigma_par_L` are computed on demand
+from `cfg.interaction.beam`/`cfg.interaction.laser` by the physics
+functions, or by the module-level `_eps_L`/`_sigma0_l`/`_R_sf` helpers —
+not stored as Config state).
 
 Internally, docstrings/comments still refer to a prior "dfe4"/"dfe5" code
 lineage this engine's physics generalizes (arbitrary crossing angle +
@@ -58,7 +64,7 @@ narrative about earlier code generations, left as-is; only this engine's
 ## Physical constants (`compton_suite.io`)
 
 `kascade.py`'s "Physical constants (SI)" block (`C_LIGHT`/`E_CHARGE`/
-`HBAR`/`EPS0`/`SIGMA_T`/`MEC2_EV`/`MEC2_J`) comes from `compton_suite.io.constants`
+`HBAR`/`EPS0`/`SIGMA_T`/`MEC2_EV`/`MEC2_J`) comes from `compton_suite.io.units`
 (pint-derived, not hand-typed literals) instead of local literals. This was
 a **zero-numeric-change** dedup: this module's previous literals already
 agreed with `compton_suite.io`'s canonical values to their quoted precision
@@ -66,19 +72,14 @@ agreed with `compton_suite.io`'s canonical values to their quoted precision
 CODATA vintage and needed an actual, deliberate numeric update as part of
 the same migration).
 
-This package now owns its own `ModelSpec` -- `params/spec.py`'s
-`KASCADE_SPEC`/`KASCADE_DIAGNOSTIC_SPEC`, moved here from
-`compton_suite.gui.physics_params.schemas.kascade` (GUI-owned) to match
-`xigma_i.params`'s already-moved pattern (`params/__init__.py` re-exports
-`compton_suite.io`'s framework unchanged, so `kascade.params.PhysicalQuantity` is
-the same class as `xigma_i.params.PhysicalQuantity`, not a look-alike).
-`kascade_adapter.py::params_to_config` wires `sigma_par_e`/`sigma_par_L`
-(the two genuinely raw, convention-ambiguous duration inputs) through
-`adapt_to_model`/`params_to_floats` against `KASCADE_SPEC`; `sigma0_x`/
-`sigma0_y`/`sigma0_l` still do the emittance/beta/Rayleigh-length
-arithmetic by hand, since they aren't raw convention-ambiguous inputs
-today (see `docs/refactor/parameter-framework-and-collision-params.md`'s
-"sigma0_x/sigma0_l wrinkle" for why).
+There is no generic `ParameterSpec`/`ModelSpec`/`adapt_to_model` framework
+anymore (the earlier `params/spec.py`/`KASCADE_SPEC` this section used to
+describe is gone) — `Config.crossing_angle`/`.delta_x/y/z`/`.quantum` are
+plain kascade-owned fields (not part of the shared `InteractionParameters`
+bundle, since xigma_i/delta don't support them), populated by
+`kascade_adapter.KascadeAdapter.model_params()`/`.model_choices()` reading
+straight off the GUI's fields — no convention conversion needed for these
+(none of them are width/duration-ambiguous).
 
 ## No GPU dependency
 
@@ -86,7 +87,7 @@ Pure NumPy/CPU — no cupy needed. This is why `kascade` is always the available
 
 ## Testing
 
-No unit test suite lives in this package. It's validated via `scripts/headless_test.py`, which calls `params_to_config → run → validate_results` through `kascade_adapter.KascadeAdapter` and checks the temporal/spatial/angular-range fields too. Run that script after changing anything here.
+No unit test suite lives in this package. It's validated via `scripts/headless_test.py`, which builds a `Job` and calls `KascadeAdapter.run(job) → validate_results` and checks the temporal/spatial/angular-range fields too. Run that script after changing anything here.
 
 ## Relationship to other components
 

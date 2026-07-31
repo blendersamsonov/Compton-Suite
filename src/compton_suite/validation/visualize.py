@@ -101,8 +101,8 @@ def plot_angular_shape_comparison(scenario: Scenario, results: dict, out_path: P
     function of collimation half-angle -- the Tier 3 canary, plotted across
     a dense window sweep instead of tier3_angular_shape.py's fixed
     WINDOWS_MRAD spot-checks."""
-    from compton_suite.models.xigma_i.gui_adapter import spectrum_in_angular_range as xigma_sar
-    from compton_suite.models.delta.gui_adapter import spectrum_in_angular_range as delta_sar
+    from compton_suite.models.xigma_i.adapter import spectrum_in_angular_range as xigma_sar
+    from compton_suite.models.xigma_i.adapter import spectrum_in_angular_range_direct as delta_sar
 
     windows_mrad = np.geomspace(0.02, 2.0, 14)
     frac_x = [collimated_fraction(xigma_sar, results["xigma_i"], w * 1e-3) for w in windows_mrad]

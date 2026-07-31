@@ -28,14 +28,20 @@ that limitation unchanged.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 from scipy.special import erfcx
 
-from compton_suite.io.bunch import GaussianElectronBeam
-from compton_suite.io.constants import C_LIGHT, SIGMA_T_M2
+from compton_suite.io.bunch import Bunch, GaussianElectronBeam
+from compton_suite.io.interaction import InteractionParameters
 from compton_suite.io.laser import GaussianParaxialLaser
+from compton_suite.io.photons import BinnedSpectrum, Photons
+from compton_suite.io.units import C_LIGHT, E_CHARGE, HBAR, SIGMA_T_M2
+from compton_suite.models.api import Job, ModelCapabilities
 
-__all__ = ["estimate_yield", "estimate_spectrum_width", "angle_integrated_spectrum"]
+__all__ = ["estimate_yield", "estimate_spectrum_width", "angle_integrated_spectrum",
+           "AnalyticalConfig", "Adapter"]
 
 
 def estimate_yield(beam: GaussianElectronBeam, pulse: GaussianParaxialLaser) -> float:
@@ -103,3 +109,85 @@ def angle_integrated_spectrum(gamma: np.ndarray, particle_weight: np.ndarray, s)
     shape = np.where((y < 0) | (y > 1), 0.0, shape)
     out = np.sum(particle_weight[:, None] * shape / gamma_col**2, axis=0)
     return out if np.ndim(s) else out[0]
+
+@dataclass
+class AnalyticalConfig:
+    """Numerics-only config for the analytical model: the shared (beam,
+    laser) bundle plus the one analytical-specific numeric knob (the
+    collimation half-angle used for the spectrum-width estimate)."""
+
+    interaction: InteractionParameters
+    theta_col_rad: float = 0.0
+
+
+class Adapter:
+    """Fast closed-form model: total yield, angle-integrated spectrum, and
+    an estimated collimated-spectrum width -- no per-particle Monte Carlo.
+    Meant to run alongside whichever model is actually selected, as an
+    always-available real-time preview and base sanity check (see
+    ``ModelCapabilities.is_fast_preview``)."""
+
+    def __init__(self):
+        self._last_beam: GaussianElectronBeam | None = None
+
+    def capabilities(self) -> ModelCapabilities:
+        return ModelCapabilities(display_name="Analytical", is_fast_preview=True,
+                                  uses_shared_sample_count=False)
+
+    def model_params(self) -> list[tuple[str, float, str]]:
+        return [("Collimation half-angle (rad)", 0.0, "theta_col_rad")]
+
+    def model_choices(self) -> dict[str, list[str]]:
+        return {}
+
+    def run(self, job: Job) -> Photons:
+        cfg = AnalyticalConfig(
+            interaction=job.interaction,
+            theta_col_rad=float(job.extra.get("theta_col_rad", 0.0)),
+        )
+        electrons: Bunch = job.electrons
+        # electrons is already a macroparticle sample of cfg.interaction.beam
+        # (electron sampling is the caller's job, not this adapter's -- see
+        # module docstring), so the exact analytic beam description is used
+        # directly rather than re-fitting a noisier copy from electrons.
+        beam = cfg.interaction.beam
+        self._last_beam = beam
+        pulse = cfg.interaction.laser
+
+        total_yield = float(estimate_yield(beam, pulse))
+        width = float(estimate_spectrum_width(beam, pulse, cfg.theta_col_rad))
+
+        gamma_arr = np.asarray(electrons.gamma, dtype=float)
+        weight_arr = np.full(electrons.n_particles, electrons.weight)
+
+        omega0 = 2.0 * np.pi * C_LIGHT / pulse._wl_m
+        Wph_eV = HBAR * omega0 / E_CHARGE
+        n_bins = job.output.n_energy_bins
+        s_grid = np.linspace(1e-3, 1.0 - 1e-3, n_bins)
+        dNds = angle_integrated_spectrum(gamma_arr, weight_arr, s_grid)
+        E_eV = 4.0 * beam.gamma0**2 * Wph_eV * s_grid
+        dNdE_per_eV = dNds / (4.0 * Wph_eV)
+
+        # QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION: angle_integrated_spectrum
+        # returns a per-electron kinematic SHAPE only -- it has no dependence
+        # on the laser pulse (a0/n_photons) at all, so its raw absolute scale
+        # has nothing to do with the pulse-energy-dependent total_yield
+        # estimate_yield() actually computes (confirmed: this raw integral is
+        # bit-identical across scenarios that only change pulse_energy_J).
+        # Same self-consistent-rescale pattern applied to xigma-i/delta's
+        # angular_spectrum vs total_yield mismatch: force the spectrum shape
+        # to integrate to the trusted total_yield, rather than trust its own
+        # absolute normalization.
+        _raw_integral = float(np.trapezoid(dNdE_per_eV, E_eV))
+        if _raw_integral > 0:
+            dNdE_per_eV = dNdE_per_eV * (total_yield / _raw_integral)
+
+        return Photons(
+            model_name="analytical",
+            cfg=cfg,
+            n_mc=electrons.n_particles,
+            total_yield=total_yield,
+            spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
+            summary={"estimated_spectrum_width_fwhm": width, "gamma0": beam.gamma0,
+                     "N_e": beam.N_e, "n_photons": pulse.n_photons, "a0_interaction": pulse.a0_interaction},
+        )

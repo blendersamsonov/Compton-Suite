@@ -16,14 +16,14 @@ from __future__ import annotations
 import yaml
 
 from ..bunch import GaussianElectronBeam
-from ..enums import (
+from ..laser import GaussianParaxialLaser
+from ..units import (
     NoConvention,
     PhysicalMeaning,
+    PhysicalQuantity,
     TimeConvention,
     WidthConvention,
 )
-from ..laser import GaussianParaxialLaser
-from ..quantities import PhysicalQuantity
 
 __all__ = ["load_electron_beam", "save_electron_beam", "load_laser", "save_laser"]
 

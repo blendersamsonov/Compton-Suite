@@ -1,28 +1,26 @@
-"""GUI-facing engine on the tabulated-energy pipeline (particles.py/
-deposition.py/spectrum4d.py/spectrum_from_particles.py), covering
-everything gui_adapter.py needs: total yield, angle-integrated spectrum,
-angular spectrum, angular-range spectrum, temporal envelope, spatial
-distribution.
+"""Engine on the tabulated-energy pipeline (particles.py/deposition.py/
+spectrum4d.py/spectrum_from_particles.py), covering everything adapter.py
+needs: total yield, angle-integrated spectrum, angular spectrum,
+angular-range spectrum, temporal envelope, spatial distribution.
 
-`TabulatedEngine` wraps an already-built `compton_suite.io.collision.
-CollisionParams` instance (see `compton_suite.io.collision.build_params`) purely
-for its plain-data properties (k0_las, Wph, N_l, a0, beta_ff, ellipticity,
-sigma_ex/sigma_ey, ...) --
-particles.push_and_sample already takes a `CollisionParams` instance as
-its parameter source, so this is reuse, not a new dependency. `params`
-itself runs no computation; all of it happens in this class's
+`TabulatedEngine` wraps an already-built `collision.CollisionParams`
+instance (see `collision.build_params`) purely for its plain-data
+properties (k0_las, Wph, N_l, a0, beta_ff, ellipticity, sigma_ex/sigma_ey,
+...) -- particles.push_and_sample already takes a `CollisionParams`
+instance as its parameter source, so this is reuse, not a new dependency.
+`params` itself runs no computation; all of it happens in this class's
 `.run()`/property methods.
 
 temporal_envelope/spatial_distribution: particles.push_and_sample's
 n_time_bins/n_spatial_bins bin the exact same per-timestep `contribution`
 array that already gets summed into `weight` (L), during the same
 trajectory-integration loop -- not a second pass, and not per-timestep a0
-sampling (see push_and_sample's/CLAUDE.md's "a0 is a trajectory average"
-warnings, which are about a0 specifically; time and space are orthogonal
-axes with no such regime-validity caveat). Needs no post-hoc rescale to
-reproduce total_yield: built from the same already-correctly-normalised
+sampling (a0 is a trajectory average -- that warning is about a0
+specifically; time and space are orthogonal axes with no such
+regime-validity caveat). Needs no post-hoc rescale to reproduce
+total_yield: built from the same already-correctly-normalised
 `contribution` array L sums over time, so it integrates to total_yield
-exactly by construction -- verified numerically, not just asserted.
+exactly by construction.
 """
 
 from __future__ import annotations
@@ -31,13 +29,12 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import particles, deposition, spectrum4d, spectrum_from_particles
+from . import deposition, particles, spectrum4d, spectrum_from_particles
 
 # The a0 range the weakly-nonlinear approximation this whole codebase is
-# built on (a0 <~ 1, see CLAUDE.md's "a0 is a trajectory average" section)
-# is meant to be valid over -- a fixed *model* parameter, not derived from
-# any particular collision's actual params.a0. See deposition.retarget_a0
-# and CLAUDE.md's "Architecture: new path" for the full rationale.
+# built on (a0 <~ 1) is meant to be valid over -- a fixed *model*
+# parameter, not derived from any particular collision's actual params.a0.
+# See deposition.retarget_a0.
 DEFAULT_A0_MAX = 0.5
 
 
@@ -66,9 +63,9 @@ class TabulatedEngine:
         spectrum_from_particles.angle_integrated_spectrum (build_table's own `device` is
         left to auto-detect from the Stage 0 output arrays -- same
         'cpu'/'gpu' outcome, different vocabulary, no need to translate
-        twice). Table.H always ends up host/numpy regardless (see
-        deposition.Table's docstring), so `backend` only matters for the
-        raw gamma/weight arrays this class keeps for `.spectrum()`.
+        twice). Table.H always ends up host/numpy regardless, so `backend`
+        only matters for the raw gamma/weight arrays this class keeps for
+        `.spectrum()`.
 
         n_time_bins/n_spatial_bins (optional): forwarded to
         push_and_sample -- when given, populates
@@ -77,7 +74,7 @@ class TabulatedEngine:
         t_edges/spatial_edges override exposed here; construct via
         particles.push_and_sample directly if a specific window is needed).
 
-        bunch: a compton_suite.io.bunch.MacroBunch (SI) to push -- required,
+        bunch: a compton_suite.io.bunch.Bunch (SI) to push -- required,
         keyword-only. Electron sampling is the caller's job, not this
         engine's: there is exactly one place electron bunches get drawn
         from a beam description (compton_suite.io.bunch.sample_gaussian_bunch),

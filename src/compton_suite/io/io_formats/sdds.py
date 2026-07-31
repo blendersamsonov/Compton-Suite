@@ -1,4 +1,4 @@
-"""Elegant / SDDS ``.ele`` file I/O for :class:`compton_suite.io.bunch.MacroBunch`.
+"""Elegant / SDDS ``.ele`` file I/O for :class:`compton_suite.io.bunch.Bunch`.
 
 Relocated from ``kascade.load_ele_file``/``save_ele_file`` (moved, not
 duplicated -- that repo's own CLI never used these; their only caller was
@@ -8,13 +8,13 @@ the per-particle columns (``x``, ``xp``, ``y``, ``yp``, ``z``, ``dP``).
 
 Caveat carried over unchanged: a plain elegant ``.ele`` file as parsed here
 carries no bunch-charge/current information, so a loaded
-:class:`MacroBunch`'s ``weight`` field is not authoritative -- every
-existing consumer (e.g. kascade's ``run_simulation``) recomputes the real
-per-macroparticle weight from its own separately-entered charge/``N_e``
-config field, ignoring whatever ``weight`` a loaded bunch carries. Only the
-particle-array *shape* (position, angle, energy distribution) is
-authoritative from a loaded file; downstream code should not rely on
-``MacroBunch.weight``/``N_e`` from a loaded file without an explicit
+:class:`Bunch`'s ``weight`` field is not authoritative -- every
+   existing consumer (e.g. kascade's ``run_simulation``) recomputes the real
+   per-macroparticle weight from its own separately-entered charge/``N_e``
+   config field, ignoring whatever ``weight`` a loaded bunch carries. Only the
+   particle-array *shape* (position, angle, energy distribution) is
+   authoritative from a loaded file; downstream code should not rely on
+``Bunch.weight``/``N_e`` from a loaded file without an explicit
 charge override.
 """
 
@@ -25,8 +25,8 @@ from typing import List
 
 import numpy as np
 
-from ..bunch import MacroBunch
-from ..constants import MEC2_EV
+from ..bunch import Bunch
+from ..units import MEC2_EV
 
 __all__ = ["load_elegant_ele", "save_elegant_ele"]
 
@@ -34,7 +34,7 @@ _NAME_RE = re.compile(r'name\s*=\s*(?:"([^"]+)"|(\S+))', re.IGNORECASE)
 _VAL_RE = re.compile(r'fix\s*=\s*("([^"]*)"|[+\-]?\d+\.?\d*(?:[eE][+\-]?\d+)?)', re.IGNORECASE)
 
 
-def load_elegant_ele(path: str) -> MacroBunch:
+def load_elegant_ele(path: str) -> Bunch:
     """Parse a 6-D electron-bunch ``.ele`` file in SDDS ASCII format.
 
     Required columns: ``x``, ``xp``, ``y``, ``yp``, ``z``, ``dP``. Mean
@@ -127,17 +127,17 @@ def load_elegant_ele(path: str) -> MacroBunch:
     gamma = np.clip(gamma, 1.0 + 1e-9, None)
 
     n_mc = col["x"].size
-    return MacroBunch(
+    return Bunch(
         x=col["x"], y=col["y"], z=col["z"], thx=col["xp"], thy=col["yp"], gamma=gamma,
         weight=1.0,  # not authoritative -- see module docstring
         meta={"source_path": path, "sdds_params": params, "n_particles_loaded": int(n_mc)},
     )
 
 
-def save_elegant_ele(bunch: MacroBunch, path: str, *,
+def save_elegant_ele(bunch: Bunch, path: str, *,
                       description: str = "6D electron bunch",
                       reference_gamma: float | None = None) -> None:
-    """Write a :class:`MacroBunch` in SDDS ASCII ``.ele`` format.
+    """Write a :class:`Bunch` in SDDS ASCII ``.ele`` format.
 
     Mirrors :func:`load_elegant_ele`'s layout: one ``&parameter`` per
     header scalar (``TotalParticles``, ``Energy``, ``NormEmittance``,

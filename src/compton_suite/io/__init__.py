@@ -1,131 +1,112 @@
-"""Shared physical constants, pint unit registry, parameter-semantics/
-convention framework, and electron-bunch/laser-pulse representations for
-the ComptonSuite toolkit (``compton_suite``, ``compton_suite.gui``, ``xigma_i``,
-``delta``, ``kascade``).
+"""Shared physical constants, pint unit registry, parameter-semantics
+vocabulary, and electron-bunch/laser-pulse representations for the
+ComptonSuite toolkit (``compton_suite.gui``, ``xigma_i``, ``kascade``,
+``analytical``).
 
-Sibling repos plug physics engines into a shared GUI through a duck-typed
-``ModelAdapter`` contract, and previously each hand-maintained its own copy
-of physical constants and (where a convention layer existed at all) its own
-copy of the enums/dataclasses used to describe parameter semantics -- with
-a real, ~1.6e-8 relative numeric disagreement between two of the constant
-copies (see ``constants.py``'s docstring), and, for the convention layer,
-structurally-identical-but-not-the-same-class duplication once more than
-one repo had a copy. This package exists so there is exactly one copy of
-each, that every consumer imports directly (never vendors or re-derives):
+Physics engines plug into a shared GUI through a duck-typed ``ModelAdapter``
+contract (``compton_suite.models.api``); this package is the one shared
+layer under every one of them and under the GUI itself, so there is exactly
+one copy of the physical constants, unit registry, and beam/laser/photon
+representations every consumer needs -- never vendored or re-derived
+per-model.
 
-1. **Physical constants** -- ``constants.py``, derived from pint's own
-   built-in CODATA values rather than hand-typed literals.
-2. **A shared pint unit registry** -- ``units.py``, including a custom
-   ``"light_time"`` context (length <-> ``c * duration``).
-3. **Parameter semantics/convention** -- is a "width" the RMS of the
-   intensity profile, the FWHM, or the 1/e^2 radius? Is a "duration" a
-   sigma or a FWHM? Is an amplitude peak or RMS? Every value that crosses a
-   model/GUI boundary should travel as a ``PhysicalQuantity`` (value + unit
-   + ``PhysicalMeaning`` + a convention enum), never a bare float, converted
-   through one canonical representation per meaning (``canonical.py``) and
-   out to whatever convention/unit a specific model declares in its own
-   ``ModelSpec`` (owned by that model's own repo -- e.g.
-   ``xigma_i.params.spec.XIGMA_SPEC`` -- not by this package).
-4. **Electron-bunch representation** -- ``bunch.py``: ``MacroBunch`` (raw
-   macroparticle arrays, e.g. loaded from an elegant ``.ele`` file) and
-   ``GaussianElectronBeam`` (the ``gaussian_6d_waist`` v0.1 analytic
-   contract, defined at the beam waist -- see ``specs/
-   electron_beam_io_v0.1_full.md``), plus ``sample_gaussian_bunch``/
-   ``fit_gaussian`` to convert between the two.
-5. **Laser-pulse representation** -- ``laser.py``: ``GaussianParaxialLaser``,
-   the ``gaussian_paraxial`` v0.1 analytic contract (see ``specs/
-   gaussian_paraxial_laser_io_v0.1.md``).
-6. **Photon/observable representations** -- ``photons.py``: the
-   ``Sampled*``/``Binned*`` spectrum, angular-spectrum, temporal-envelope,
-   and spatial-distribution dataclasses every model reports results
-   through, and the GUI renders from -- the single shared type every model
-   constructs directly, instead of each defining its own structurally-
-   identical-but-separate lookalikes.
-7. **External-format I/O** -- ``io_formats/``: ``sdds.py`` (elegant
+1. **Physical constants + shared pint registry + parameter-semantics
+   vocabulary** -- ``units.py``: CODATA constants derived from pint's own
+   built-in values, the shared ``ureg``/``Quantity``, a custom
+   ``"light_time"`` context (length <-> ``c * duration``), and the
+   ``PhysicalMeaning``/``WidthConvention``/``TimeConvention``/
+   ``AmplitudeConvention``/``NoConvention`` enums plus ``PhysicalQuantity``
+   (value + unit + meaning + convention). Every value that crosses a
+   model/GUI boundary should travel as a ``PhysicalQuantity``, never a bare
+   float. There is no generic "spec"/"adapt to model" framework -- each
+   model converts a ``PhysicalQuantity`` to whatever convention/unit it
+   needs directly via ``convert_width``/``convert_time``/
+   ``convert_amplitude`` at its own boundary.
+2. **Electron-bunch representation** -- ``bunch.py``: ``Bunch`` (raw
+   macroparticle arrays), ``GaussianElectronBeam`` (the
+   ``gaussian_6d_waist`` v0.1 analytic contract), ``BeamFittedParams``
+   (structured-fit output), plus ``sample_gaussian_bunch``/
+   ``fit_gaussian``/``fit_beam_full``/``drift`` to move between them.
+3. **Laser-pulse representation** -- ``laser.py``: ``GaussianParaxialLaser``,
+   the ``gaussian_paraxial`` v0.1 analytic contract, plus
+   ``gaussian_pulse_envelope`` (the full (x, y, z, t) evaluator).
+4. **The shared interaction bundle** -- ``interaction.py``:
+   ``InteractionParameters(beam, laser)``, the (beam, pulse) pair every
+   model's own ``Config`` builds from.
+5. **Photon/observable representations** -- ``photons.py``: the
+   spectrum/angular-spectrum/temporal-envelope/spatial-distribution
+   dataclasses every model reports results through, and the results
+   contract every model's ``run()`` returns (``Photons``).
+6. **External-format I/O** -- ``io_formats/``: ``sdds.py`` (elegant
    ``.ele``), ``yaml_spec.py`` (this package's own ``gaussian_6d_waist``/
    ``gaussian_paraxial`` YAML formats).
-8. **CGS collision-parameters bundle** -- ``collision.py``:
-   ``CollisionParams``/``build_params``, the CGS/``k0_las``-normalised
-   scalar bundle tabulated-overlap-style GPU/CPU pipelines (``xigma_i``,
-   ``delta``) need, derived from this package's own SI beam/laser/
-   geometry description. Not needed by every model (``kascade`` works
-   directly in SI) -- shared here so it isn't re-derived per pipeline.
-9. **Spatiotemporal laser-pulse envelope** -- ``laser_envelope.py``:
-   ``gaussian_pulse_envelope``, the full (x, y, z, t) Gaussian-pulse
-   photon-density evaluator ``laser.py``'s on-axis-peak-only
-   ``GaussianParaxialLaser`` deliberately doesn't provide -- previously
-   independently reimplemented by both ``kascade`` and ``xigma_i``.
 
 Typical use:
 
-    from compton_suite.io import (
-        PhysicalQuantity, PhysicalMeaning, WidthConvention, adapt_to_model,
-    )
-    from xigma_i.params import XIGMA_SPEC
+    from compton_suite.io import PhysicalQuantity, PhysicalMeaning, WidthConvention
+    from compton_suite.io.units import convert_width
 
     laser_width = PhysicalQuantity(
         magnitude=5.0, unit="micrometer",
         meaning=PhysicalMeaning.LASER_WIDTH,
         convention=WidthConvention.FWHM_INTENSITY,
     )
-    adapted = adapt_to_model({"sigma0_l": laser_width, ...}, XIGMA_SPEC)
-    # adapted["sigma0_l"] is now in XIGMA_SPEC's own convention/unit
-
+    sigma_m = convert_width(laser_width.to_unit("meter").magnitude,
+                             WidthConvention.FWHM_INTENSITY, WidthConvention.SIGMA_INTENSITY_RMS)
 """
 
-from . import (
-    bunch, collision, constants, interaction, io_formats, laser,
-    laser_envelope, photons, propagation, results,
-)
-from .adapter import adapt_to_model, params_to_floats
-from .canonical import CANONICAL_CONVENTIONS, CANONICAL_UNIT, from_canonical, to_canonical
-from .enums import AmplitudeConvention, NoConvention, PhysicalMeaning, TimeConvention, WidthConvention
-from .quantities import PhysicalQuantity
-from .schema import ModelSpec, ParameterSpec
-from .units import LIGHT_TIME_CONTEXT, Quantity, ureg
-from .validation import (
-    MeaningMismatchError,
-    MissingConventionError,
-    PhysicsParamsError,
-    UnitMismatchError,
-    UnknownConversionError,
-    validate_against_spec,
-    validate_quantity,
+from __future__ import annotations
+
+from . import bunch, interaction, io_formats, laser, photons, units
+from .interaction import InteractionParameters, recoil_parameter
+from .photons import Photons, validate_results
+from .units import (
+    ALPHA,
+    C_LIGHT,
+    E_CHARGE,
+    EPS0,
+    HBAR,
+    LIGHT_TIME_CONTEXT,
+    ME,
+    MEC2,
+    MEC2_EV,
+    R_E_M,
+    SIGMA_T_M2,
+    AmplitudeConvention,
+    NoConvention,
+    PhysicalMeaning,
+    PhysicalQuantity,
+    Quantity,
+    TimeConvention,
+    WidthConvention,
+    convert_amplitude,
+    convert_time,
+    convert_width,
+    ureg,
 )
 
 __all__ = [
-    "constants",
     "ureg",
     "Quantity",
     "LIGHT_TIME_CONTEXT",
+    "C_LIGHT", "E_CHARGE", "HBAR", "ME", "MEC2", "MEC2_EV", "EPS0", "ALPHA", "R_E_M", "SIGMA_T_M2",
     "PhysicalQuantity",
     "PhysicalMeaning",
     "NoConvention",
     "WidthConvention",
     "TimeConvention",
     "AmplitudeConvention",
-    "ParameterSpec",
-    "ModelSpec",
-    "CANONICAL_CONVENTIONS",
-    "CANONICAL_UNIT",
-    "to_canonical",
-    "from_canonical",
-    "adapt_to_model",
-    "params_to_floats",
-    "validate_quantity",
-    "validate_against_spec",
-    "PhysicsParamsError",
-    "MissingConventionError",
-    "UnknownConversionError",
-    "UnitMismatchError",
-    "MeaningMismatchError",
+    "convert_width",
+    "convert_time",
+    "convert_amplitude",
+    "InteractionParameters",
+    "recoil_parameter",
+    "Photons",
+    "validate_results",
     "bunch",
     "laser",
-    "laser_envelope",
-    "photons",
     "interaction",
-    "collision",
-    "propagation",
-    "results",
+    "photons",
+    "units",
     "io_formats",
 ]

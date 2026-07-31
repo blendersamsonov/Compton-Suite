@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 
-from compton_suite.io.constants import HBAR, E_CHARGE, C_LIGHT
+from compton_suite.io.units import HBAR, E_CHARGE, C_LIGHT
 from .metrics import resample_to, window_integrated_relative_error  # noqa: E402
 from .scenarios import BASELINE, Scenario  # noqa: E402
 from .runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402

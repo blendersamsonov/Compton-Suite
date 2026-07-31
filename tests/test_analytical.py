@@ -1,36 +1,38 @@
-"""Cross-checks for analytical.py's estimate_yield/estimate_spectrum_width/
-angle_integrated_spectrum.
+"""Cross-checks for models/analytical.py's estimate_yield/
+estimate_spectrum_width/angle_integrated_spectrum.
 
-Needs the dev-install (see this repo's top-level CLAUDE.md) so compton_suite.io
-and analytical are importable. Run with `python3 -m pytest tests/` or
-`python3 tests/test_analytical.py` directly (plain asserts).
+Needs the dev-install (see this repo's top-level CLAUDE.md) so
+compton_suite.io and compton_suite.models.analytical are importable. Run
+with `python3 -m pytest tests/` or `python3 tests/test_analytical.py`
+directly (plain asserts).
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-import compton_suite.models.analytical.analytical as analytical
+from compton_suite.models import analytical
 from compton_suite.io.bunch import GaussianElectronBeam
 from compton_suite.io.laser import GaussianParaxialLaser
+from compton_suite.io.units import NoConvention, PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
-    bunch_charge_C=100.0e-12,
-    kinetic_energy_eV=200.0e6,
+    bunch_charge_C=PhysicalQuantity(100.0e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+    kinetic_energy_eV=PhysicalQuantity(200.0e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
     rel_energy_spread_rms=0.001,
-    sigma_x_m=10.0e-6,
-    sigma_y_m=10.0e-6,
-    emit_geom_x_m=0.05e-6,
-    emit_geom_y_m=0.05e-6,
-    sigma_t_s=1.0e-12,
+    sigma_x_m=PhysicalQuantity(10.0e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    sigma_y_m=PhysicalQuantity(10.0e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    emit_geom_x_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    emit_geom_y_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    sigma_t_s=PhysicalQuantity(1.0e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
     sigma_pz=0.001,
 )
 _EXAMPLE_PULSE = GaussianParaxialLaser(
-    pulse_energy_J=0.05,
-    wavelength_m=0.8e-6,
-    waist_rms_x_m=2.5e-6,
-    waist_rms_y_m=2.5e-6,
-    duration_rms_s=12.74e-15,
+    pulse_energy_J=PhysicalQuantity(0.05, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
+    wavelength_m=PhysicalQuantity(0.8e-6, "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
+    waist_rms_x_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+    waist_rms_y_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+    duration_rms_s=PhysicalQuantity(12.74e-15, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
 )
 
 

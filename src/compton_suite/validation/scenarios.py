@@ -17,11 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from compton_suite.io.bunch import GaussianElectronBeam
-from compton_suite.io.constants import MEC2_EV
-from compton_suite.io.enums import NoConvention, PhysicalMeaning, TimeConvention, WidthConvention
-from compton_suite.io.interaction import InteractionGeometry, InteractionParameters
+from compton_suite.io.interaction import InteractionParameters
 from compton_suite.io.laser import GaussianParaxialLaser
-from compton_suite.io.quantities import PhysicalQuantity
+from compton_suite.io.units import MEC2_EV, NoConvention, PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention
 
 # Default random seed for every scenario run -- deterministic comparisons,
 # same convention as Xigma/validation/params.py's DEFAULT_SEED.
@@ -67,18 +65,15 @@ class Scenario:
 
     @property
     def interaction_parameters(self) -> InteractionParameters:
-        """This scenario's (beam, pulse, geometry) as one shared
+        """This scenario's (beam, pulse) as one shared
         compton_suite.io.interaction.InteractionParameters bundle -- the
         physics-parameter subset every model's Config should ultimately be
-        built from (see that module's docstring)."""
-        return InteractionParameters(
-            beam=self.beam, laser=self.pulse,
-            geometry=InteractionGeometry(
-                crossing_angle_rad=PhysicalQuantity(self.crossing_angle_rad, "radian",
-                                                     PhysicalMeaning.ANGLE, NoConvention.PLAIN),
-            ),
-            quantum=self.quantum,
-        )
+        built from (see that module's docstring). Geometry/crossing-angle/
+        quantum are model-owned fields now (not part of the shared bundle
+        -- see io.interaction's docstring), so build_kascade_config passes
+        ``crossing_angle_rad``/``quantum`` to kascade.Config directly
+        instead of through here."""
+        return InteractionParameters(beam=self.beam, laser=self.pulse)
 
 
 def _baseline() -> Scenario:
@@ -167,12 +162,15 @@ NEAR_A0_MAX = _scaled("near_a0_max", pulse_energy_J=100.0)  # a0 ~ 0.46
 
 def build_kascade_config(scenario: Scenario):
     from compton_suite.models.kascade import kascade
-    return kascade.Config(interaction=scenario.interaction_parameters)
+    return kascade.Config(
+        interaction=scenario.interaction_parameters,
+        crossing_angle=scenario.crossing_angle_rad, quantum=scenario.quantum,
+    )
 
 
 def build_xigma_config(scenario: Scenario):
-    from compton_suite.models.xigma_i import gui_adapter
-    return gui_adapter.Config(
+    from compton_suite.models.xigma_i.adapter import Config
+    return Config(
         interaction=scenario.interaction_parameters,
         beta_ff=scenario.beta_ff, phi_pol=scenario.phi_pol,
         a0_max=scenario.a0_max,
@@ -180,31 +178,30 @@ def build_xigma_config(scenario: Scenario):
 
 
 def build_delta_config(scenario: Scenario):
-    from compton_suite.models.delta import gui_adapter
-    return gui_adapter.DirectConfig(
+    from compton_suite.models.xigma_i.adapter import DirectConfig
+    return DirectConfig(
         interaction=scenario.interaction_parameters,
         beta_ff=scenario.beta_ff, phi_pol=scenario.phi_pol,
     )
 
 
 def build_analytical_config(scenario: Scenario):
-    from compton_suite.models.analytical import analytical_adapter
-    return analytical_adapter.AnalyticalConfig(
-        beam=scenario.beam, pulse=scenario.pulse,
+    from compton_suite.models.analytical import AnalyticalConfig
+    return AnalyticalConfig(
+        interaction=scenario.interaction_parameters,
         theta_col_rad=scenario.theta_col_rad,
-        crossing_angle=scenario.crossing_angle_rad, quantum=scenario.quantum,
     )
 
 
 def build_params_for_xigma(cfg, device: str | None = None):
-    """A compton_suite.io.collision.CollisionParams instance from an xigma_i/
-    delta Config -- exactly the beam/laser/geometry ->
-    build_params() call xigma_i.gui_adapter.run_simulation itself makes
-    (SI -> CGS at this boundary), so Tier 0/1 can read params.a0/.N_l/.N_e
-    the same way the real run does, not a reimplementation that could
-    silently drift out of sync."""
-    from compton_suite.io.collision import build_params, detect_device
+    """A ``models.xigma_i.collision.CollisionParams`` instance from an
+    xigma_i/delta Config -- exactly the beam/laser -> build_params() call
+    xigma_i.adapter.run_simulation itself makes (SI -> CGS at this
+    boundary), so Tier 0/1 can read params.a0/.N_l/.N_e the same way the
+    real run does, not a reimplementation that could silently drift out of
+    sync."""
+    from compton_suite.models.xigma_i.collision import build_params, detect_device
 
     device = device or detect_device()
     return build_params(cfg.interaction.beam, cfg.interaction.laser,
-                         cfg.interaction.geometry, beta_ff=cfg.beta_ff, device=device)
+                         beta_ff=cfg.beta_ff, device=device)

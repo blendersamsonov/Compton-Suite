@@ -31,9 +31,7 @@ Layout (left | right, resizable split via PanedWindow):
 
 This GUI is model-agnostic: physics engines are plugged in through the
 ``model_api.ModelAdapter`` registry (see ``model_api.py``) instead of a
-hardcoded import. Model-specific controls (crossing angle, quantum toggle,
-.ele loading, new-observable tabs, ...) are greyed out per the active
-model's ``capabilities()``; see ``_apply_model_capabilities``.
+hardcoded import.``.
 
 Run: ``python3 -m compton_suite.gui.app`` or ``scripts/run_gui.py``.
 """
@@ -54,18 +52,18 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-from compton_suite.gui.physics_constants import C_LIGHT, MEC2_EV
-
-from compton_suite.io.laser import a0_from_fields, focal_radii_m
-from compton_suite.io.bunch import sigma_from_emittance
-from compton_suite.io.interaction import recoil_parameter
-
-from compton_suite.gui.model_api import ModelAdapter, SampledSpectrum, validate_results
-from compton_suite.gui.models import discover_models
-
-from compton_suite.io.bunch import beam_from_shared_fields, sample_gaussian_bunch
-
-from compton_suite.gui.calculations import ModelSelectionPanel
+from compton_suite.io.bunch import beam_from_shared_fields, sample_gaussian_bunch, sigma_from_emittance
+from compton_suite.io.interaction import InteractionParameters, recoil_parameter
+from compton_suite.io.laser import a0_from_fields, focal_radii_m, laser_from_shared_fields
+from compton_suite.io.units import (
+    C_LIGHT,
+    MEC2_EV,
+    fwhm_to_sigma_intensity,
+    sigma_intensity_to_fwhm,
+    sigma_intensity_to_w0,
+    w0_to_sigma_intensity,
+)
+from compton_suite.models.api import Job, ModelAdapter, Photons, discover_models, validate_results
 
 # panel colours
 BLUE = "#d6e4f5"
@@ -82,69 +80,6 @@ def _float_or_none(var: tk.StringVar):
         return float(var.get())
     except (ValueError, tk.TclError):
         return None
-
-
-def peak_a0(fields: dict):
-    """Peak normalised vector potential a_0 from the laser fields (or None).
-
-    Delegates to :func:`compton_suite.io.laser.a0_from_fields` -- the
-    single source of truth for a0 computation.
-    """
-    from compton_suite.io.converters import fwhm_to_sigma_intensity
-    from compton_suite.io.enums import TimeConvention
-
-    lam_nm = _float_or_none(fields["laser_wavelength_nm"])
-    e_mJ = _float_or_none(fields["laser_energy_mJ"])
-    dur_ps = _float_or_none(fields["pulse_duration_ps"])
-    R_m = _float_or_none(fields["rayleigh_length_m"])
-    if None in (lam_nm, e_mJ, dur_ps, R_m) or min(lam_nm, e_mJ, dur_ps, R_m) <= 0:
-        return None
-    sigma0_l = 0.5 * np.sqrt(R_m * lam_nm * 1e-9 / np.pi)
-
-    # Convert duration based on convention (RMS or FWHM)
-    # Check if we're in GUI context (has _pulse_convention_var)
-    if hasattr(peak_a0, '_pulse_convention_var') and peak_a0._pulse_convention_var is not None:
-        convention = peak_a0._pulse_convention_var.get()
-    else:
-        convention = "RMS"  # Default for non-GUI usage
-
-    if convention == "FWHM":
-        duration_rms_s = C_LIGHT * fwhm_to_sigma_intensity(dur_ps * 1e-12)
-    else:  # RMS
-        duration_rms_s = C_LIGHT * (dur_ps * 1e-12)
-
-    return float(a0_from_fields(
-        wavelength_m=lam_nm * 1e-9,
-        pulse_energy_J=e_mJ * 1e-3,
-        waist_rms_m=sigma0_l,
-        duration_rms_s=duration_rms_s,
-    ))
-
-
-def sigma_e(emit_norm_mmmrad, beta_m, gamma):
-    """Transverse rms bunch size [m] from normalized emittance, beta [m] and gamma.
-
-    Delegates to :func:`compton_suite.io.bunch.sigma_from_emittance`.
-    """
-    if emit_norm_mmmrad is None or beta_m is None or gamma is None:
-        return None
-    val = sigma_from_emittance(emit_norm_mmmrad * 1e-6, beta_m, gamma)
-    return val if val > 0 else None
-
-
-def laser_focal_radii(wavelength_nm, rayleigh_length_m):
-    """Return radial RMS, FWHM, and exp(-1/2) focal radii [m].
-
-    Delegates to :func:`compton_suite.io.laser.focal_radii_m`.
-    """
-    if (wavelength_nm is None or rayleigh_length_m is None
-            or wavelength_nm <= 0 or rayleigh_length_m <= 0):
-        return None
-    return focal_radii_m(
-        wavelength_m=wavelength_nm * 1e-9,
-        rayleigh_length_m=rayleigh_length_m,
-    )
-
 
 # ---------------------------------------------------------------------------
 # Widget helper -- coloured field grid
@@ -187,22 +122,23 @@ def add_field_grid(parent, specs, fields, n_cols, bg, width=10, group_starts=(),
 # ---------------------------------------------------------------------------
 # Main application
 # ---------------------------------------------------------------------------
-class ComptonGuideApp(tk.Tk):
+class ComptonGUIApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Compton-GUIde")
+        self.title("Compton-GUI")
         self.geometry("1280x960+20+10")
 
         self.fields: dict[str, tk.StringVar] = {}
-        self.quantum_var = tk.BooleanVar(value=False)  # False = classical, True = quantum
-        self.nonlin_var = tk.BooleanVar(value=True)    # xigma-i-only: emulate a0 downshift
-        self.res = None                 # model_api.CommonResults | None
-        self.preview_res = None         # always-on analytical model's CommonResults | None
-        self.cfg_used = None            # active model's Config-shaped object | None
+        self.res: Photons | None = None
+        self.preview_res: Photons | None = None    # always-on analytical model's Photons | None
+        self.interaction_used: InteractionParameters | None = None   # (beam, laser) used for self.res
         self.rep_rate_hz = 1.0
-        self.a0_used = 0.0
         self.q: queue.Queue = queue.Queue()
         self.worker: threading.Thread | None = None
+
+        # Loaded .ele file state (None unless File -> Load file *.ele... was used).
+        self.loaded_bunch = None
+        self.loaded_path: str | None = None
 
         # Model registry: discover once, pick kascade as the startup default
         # (it's always available; xigma-i may be registered as an
@@ -211,49 +147,22 @@ class ComptonGuideApp(tk.Tk):
         self.model_var = tk.StringVar(value="kascade")
         self.active_adapter: ModelAdapter = self.models["kascade"]
 
-        # The fast analytical model (ModelCapabilities.is_fast_preview) runs
+        # The fast analytical model runs
         # automatically alongside whichever model is selected, on every
         # Calculate click -- a real-time preview and base sanity check, not
         # one of the models the Model menu switches between. None if it
         # isn't registered/available (e.g. compton_suite not discoverable).
-        self.preview_adapter = next(
-            (a for a in self.models.values()
-             if a.available()[0] and getattr(a.capabilities(), "is_fast_preview", False)), None)
-        # The preview adapter's own extra_params() (e.g. a collimation
-        # angle) need a value in self.fields even when it isn't the active
-        # model -- _rebuild_model_params_panel only ever seeds the ACTIVE
-        # model's extra fields, so without this the preview would KeyError
-        # on startup unless the user happened to switch to it once first.
-        # No widget is created for these (invisible until the user actually
-        # selects this model) -- just a usable default for the background run.
-        if self.preview_adapter is not None:
-            for _label, default, key in self.preview_adapter.extra_params():
-                self.fields.setdefault(key, tk.StringVar(value=str(default)))
+        self.analytical_adapter = self.models["analytical"]
 
-        # SDDS-bunch loading state.  ``loaded_bunch`` is the MacroBunch
-        # returned by the active adapter's ``load_ele_file`` (per-particle
-        # arrays + header parameters in ``.meta``) and is fed to the
-        # adapter's ``run`` as the ``electrons`` argument.  ``loaded_path``
-        # is the source filename shown in the menu.
-        self.loaded_bunch = None  # compton_suite.io.bunch.MacroBunch | None
-        self.loaded_path: str | None = None
         # Cached list of (Entry widget, key) tuples for the Electron panel
         # input fields, so we can flip their state when the panel switches
         # between input-mode and display-mode.
         self._electron_entries: list[tuple[tk.Entry, str]] = []
-        # n_mc / seed entries live in the Electrons panel but are tracked
-        # separately -- they must NOT be set read-only when a .ele file
-        # is loaded (they are sampling controls, not beam parameters).
         self._sample_entries: list[tuple[tk.Entry, str]] = []
         # Trace ids we attach to electron-panel StringVars so we can detach
         # them while the panel is in display mode (otherwise the
         # ``_update_derived`` callback would clobber our output values).
         self._electron_traces: list[tuple[tk.StringVar, str]] = []
-        
-        # Multi-model calculation state
-        self.model_results: dict[str, CommonResults] = {}
-        """Results from all selected models, keyed by model name."""
-        self.model_selection_panel: ModelSelectionPanel | None = None
 
         # --- build layout ---
         self._build_menu()
@@ -265,7 +174,6 @@ class ComptonGuideApp(tk.Tk):
 
         # Left pane: all IO panels (electrons, laser, compton, model params, preview)
         self._left_frame = tk.Frame(self._paned)
-        self._build_trust_banner()
         self._build_electrons_panel()
         self._build_laser_panel()
         self._build_compton_panel()
@@ -283,7 +191,6 @@ class ComptonGuideApp(tk.Tk):
 
         self._wire_live_updates()
         self._update_derived()
-        self._apply_model_capabilities()
 
     # ---- menu -----------------------------------------------------------
     def _build_menu(self):
@@ -302,111 +209,26 @@ class ComptonGuideApp(tk.Tk):
 
         modelmenu = tk.Menu(menubar, tearoff=0)
         for name, adapter in self.models.items():
-            caps = adapter.capabilities()
             # Skip the analytical model -- it runs always in the background
             # as a preview, not as a user-selectable model.
-            if caps.is_fast_preview:
+            if name == "analytical":
                 continue
             modelmenu.add_radiobutton(
-                label=caps.display_name, variable=self.model_var, value=name,
+                label=name, variable=self.model_var, value=name,
                 command=self._on_model_selected)
-            available, reason = adapter.available()
-            if not available:
-                modelmenu.entryconfig(caps.display_name, state="disabled")
         menubar.add_cascade(label="Model", menu=modelmenu)
         self.modelmenu = modelmenu
-
-        optmenu = tk.Menu(menubar, tearoff=0)
-        optmenu.add_radiobutton(label="Classical",
-                                 variable=self.quantum_var, value=False)
-        optmenu.add_radiobutton(label="Quantum corrections",
-                                 variable=self.quantum_var, value=True)
-        optmenu.add_separator()
-        optmenu.add_checkbutton(label="Emulate nonlinearity (a0 downshift)",
-                                 variable=self.nonlin_var)
-        menubar.add_cascade(label="Options", menu=optmenu)
-        self.optmenu = optmenu
-        self._quantum_menu_indices = (0, 1)
-        self._nonlin_menu_index = 3
-
-        calcmenu = tk.Menu(menubar, tearoff=0)
-        calcmenu.add_command(label="Calculate", command=self.on_start)
-        calcmenu.add_separator()
-        calcmenu.add_command(label="Show multi-model panel",
-                             command=self._toggle_model_panel)
-        menubar.add_cascade(label="Calculations", menu=calcmenu)
 
         helpmenu = tk.Menu(menubar, tearoff=0)
         helpmenu.add_command(label="About", command=self._show_about)
         menubar.add_cascade(label="Help", menu=helpmenu)
         self.config(menu=menubar)
 
-    def _build_trust_banner(self):
-        self.trust_lbl = tk.Label(self._left_frame, text="", anchor="w",
-                                   font=("TkDefaultFont", 9, "italic"))
-        self.trust_lbl.pack(side="top", fill="x", padx=8, pady=(2, 0))
-
     # ---- model selection --------------------------------------------------
     def _on_model_selected(self):
         name = self.model_var.get()
         self.active_adapter = self.models[name]
         self._rebuild_model_params_panel()
-        self._apply_model_capabilities()
-
-    def _apply_model_capabilities(self):
-        """Grey out / restore controls the active model doesn't support, and
-        refresh the trust banner. Called on startup and on every model switch."""
-        caps = self.active_adapter.capabilities()
-
-        # crossing angle: force to 0 and disable when unsupported
-        crossing_entry = self._laser_entry_by_key.get("crossing_angle")
-        if crossing_entry is not None:
-            if caps.supports_crossing_angle:
-                crossing_entry.config(state="normal")
-            else:
-                self.fields["crossing_angle"].set("0")
-                crossing_entry.config(state="disabled")
-
-        # quantum toggle
-        for idx in self._quantum_menu_indices:
-            self.optmenu.entryconfig(
-                idx, state="normal" if caps.supports_quantum_toggle else "disabled")
-        if not caps.supports_quantum_toggle:
-            self.quantum_var.set(False)
-
-        # nonlinearity-emulation toggle (xigma-i-only axis)
-        self.optmenu.entryconfig(
-            self._nonlin_menu_index,
-            state="normal" if caps.supports_nonlinearity_emulation else "disabled")
-
-        # .ele file I/O
-        for idx in self._ele_menu_indices:
-            self.filemenu.entryconfig(
-                idx, state="normal" if caps.supports_ele_file_io else "disabled")
-        if not caps.supports_ele_file_io and self.loaded_bunch is not None:
-            messagebox.showwarning(
-                "Model note",
-                f"{caps.display_name} does not support loaded .ele bunches; "
-                "clearing the loaded file.")
-            self._clear_loaded_ele()
-
-        # n_mc is always editable -- it's a model-agnostic electron bunch
-        # parameter, not model-specific. IO module uses it to sample the
-        # MacroBunch that gets passed to every model's run().
-
-        # new-observable tabs
-        for tab, supported in (
-                (self.tab_temporal, caps.supports_temporal_envelope),
-                (self.tab_spatial, caps.supports_spatial_distribution),
-                (self.tab_angular, caps.supports_angular_distribution)):
-            self.notebook.tab(tab, state="normal" if supported else "disabled")
-
-        # trust banner
-        colour = "#175" if caps.trust_level == "production" else "#a52"
-        self.trust_lbl.config(
-            text=f"Model: {caps.display_name} - {caps.trust_level}"
-                 + (f"  ({caps.trust_note})" if caps.trust_level != "production" else ""),
-            fg=colour)
 
     def _show_about(self):
         messagebox.showinfo(
@@ -414,23 +236,6 @@ class ComptonGuideApp(tk.Tk):
             "Compton-GUIde\n\n"
             "Model-agnostic GUI front-end for pluggable Compton-scattering "
             "physics engines (kascade, xigma-i, ...).")
-
-    def _toggle_model_panel(self):
-        """Show/hide the multi-model selection panel between the model
-        params and output resolution panels."""
-        if self.model_selection_panel is None:
-            # First call: create it
-            from compton_suite.gui.calculations import ModelSelectionPanel
-            self.model_selection_panel = ModelSelectionPanel(
-                self._left_frame, self.fields, bg=GREY)
-            # Insert after output panel
-            self.model_selection_panel.pack(side="top", fill="x", padx=6, pady=3,
-                                            before=self._output_panel_frame)
-        elif self.model_selection_panel.winfo_ismapped():
-            self.model_selection_panel.pack_forget()
-        else:
-            self.model_selection_panel.pack(side="top", fill="x", padx=6, pady=3,
-                                            before=self._output_panel_frame)
 
     def _save_fig(self):
         path = filedialog.asksaveasfilename(defaultextension=".png",
@@ -782,13 +587,13 @@ class ComptonGuideApp(tk.Tk):
 
     def _rebuild_model_params_panel(self):
         """Repopulate the Model Parameters panel from
-        ``self.active_adapter.extra_params()``. Never re-packs the frame
+        ``self.active_adapter.model_params()``. Never re-packs the frame
         itself (only its children) so switching models repeatedly doesn't
         reorder it relative to the plot area below."""
         for child in self.model_params_frame.winfo_children():
             child.destroy()
 
-        specs = self.active_adapter.extra_params()
+        specs = self.active_adapter.model_params()
         if not specs:
             tk.Label(self.model_params_frame, bg=GREY, fg="#567",
                      text="(this model has no model-specific parameters)",
@@ -801,7 +606,7 @@ class ComptonGuideApp(tk.Tk):
         # adapter's own default.
         seeded = [(label, self.fields[key].get() if key in self.fields else default, key)
                   for label, default, key in specs]
-        choices = self.active_adapter.extra_choices()
+        choices = self.active_adapter.model_choices()
         add_field_grid(self.model_params_frame, seeded, self.fields,
                        n_cols=4, bg=GREY, width=8, choices=choices)
 
@@ -828,7 +633,7 @@ class ComptonGuideApp(tk.Tk):
 
     def _get_output_spec(self):
         """Build an OutputSpec from the GUI fields."""
-        from compton_suite.gui.model_api import OutputSpec
+        from compton_suite.models.api import OutputSpec
         return OutputSpec(
             n_energy_bins=max(1, int(float(self.fields["n_energy_bins"].get()))),
             n_time_bins=max(1, int(float(self.fields["n_time_bins"].get()))),
@@ -844,8 +649,7 @@ class ComptonGuideApp(tk.Tk):
         """Small always-visible panel showing the fast analytical model's
         estimate, run automatically alongside whichever model is actually
         selected (see on_start/_poll_queue) -- a real-time preview and base
-        sanity check, not gated by the active model's tab-capabilities the
-        way the plot-area tabs are (_apply_model_capabilities)."""
+        sanity check"""
         p = tk.LabelFrame(self._left_frame, text="ANALYTICAL PREVIEW (always-on)", bg=GREY, fg="#123",
                           font=("TkDefaultFont", 11, "bold"))
         p.pack(side="top", fill="x", padx=6, pady=3)
@@ -858,16 +662,12 @@ class ComptonGuideApp(tk.Tk):
             lab = tk.Label(p, text="--", bg=GREY, font=mono, width=16, anchor="w")
             lab.grid(row=0, column=2 * c + 1, sticky="w", padx=(0, 8))
             self.preview_lbls[key] = lab
-        if self.preview_adapter is None:
-            self.preview_lbls["status"].config(text="unavailable")
 
     def _render_preview(self):
         """Update the preview panel from self.preview_res (set by
         _poll_queue). Never raises -- a malformed/missing preview result
         just shows as unavailable, it must never break the main model's
         own output rendering."""
-        if self.preview_adapter is None:
-            return
         if self.preview_res is None:
             self.preview_lbls["status"].config(text="failed")
             self.preview_lbls["total_yield"].config(text="--")
@@ -960,15 +760,14 @@ class ComptonGuideApp(tk.Tk):
 
     def _update_derived(self):
         """Refresh electron and laser values derived from the current fields."""
-        from compton_suite.io.converters import sigma_intensity_to_fwhm, sigma_intensity_to_w0
-        from compton_suite.io.enums import WidthConvention
-
         energy_mev = _float_or_none(self.fields["mean_energy_MeV"])
         gamma = energy_mev * 1e6 / MEC2_EV if energy_mev is not None else None
-        sx = sigma_e(_float_or_none(self.fields["emit_x_mmmrad"]),
-                     _float_or_none(self.fields["beta_x_m"]), gamma)
-        sy = sigma_e(_float_or_none(self.fields["emit_y_mmmrad"]),
-                     _float_or_none(self.fields["beta_y_m"]), gamma)
+        emit_x_mmmrad = _float_or_none(self.fields["emit_x_mmmrad"])
+        emit_y_mmmrad = _float_or_none(self.fields["emit_y_mmmrad"])
+        emit_x_m = emit_x_mmmrad * 1e-6 if emit_x_mmmrad is not None else None
+        emit_y_m = emit_y_mmmrad * 1e-6 if emit_y_mmmrad is not None else None
+        sx = sigma_from_emittance(emit_x_m, _float_or_none(self.fields["beta_x_m"]), gamma)
+        sy = sigma_from_emittance(emit_y_m, _float_or_none(self.fields["beta_y_m"]), gamma)
 
         # Show beam size in multiple conventions (RMS, FWHM, 1/e²)
         if sx:
@@ -998,220 +797,202 @@ class ComptonGuideApp(tk.Tk):
         if wavelength_m is not None:
             wavelength_m *= 1e-9
 
-        if self._waist_input_mode.get() == "diameter":
-            # Convert diameter to Rayleigh length
-            waist_diameter_um = _float_or_none(self.fields["waist_diameter_um"])
-            if waist_diameter_um is not None and wavelength_m is not None:
-                waist_convention = self._waist_convention_var.get()
-                waist_diameter_m = waist_diameter_um * 1e-6
-                # Convert diameter to sigma_intensity (RMS radius)
-                if waist_convention == "RMS":
-                    sigma_intensity = waist_diameter_m / 2.0
-                elif waist_convention == "FWHM":
-                    from compton_suite.io.converters import fwhm_to_sigma_intensity
-                    sigma_intensity = fwhm_to_sigma_intensity(waist_diameter_m / 2.0)
-                else:  # 1/e²
-                    from compton_suite.io.converters import w0_to_sigma_intensity
-                    sigma_intensity = w0_to_sigma_intensity(waist_diameter_m / 2.0)
-                # Rayleigh length: z_R = pi * w0^2 / lambda, where w0 = 2 * sigma_intensity
-                w0 = 2 * sigma_intensity
-                z_R = np.pi * w0**2 / wavelength_m
+        # Diameter mode: keep the Rayleigh-length field's live display in sync.
+        if self._waist_input_mode.get() == "diameter" and wavelength_m is not None:
+            laser_si = self._laser_fields_si()
+            if laser_si is not None:
+                z_R = 4.0 * np.pi * laser_si["sigma0_l_m"] ** 2 / wavelength_m
                 self._rayleigh_var.set(f"{z_R:.6g}")
-            else:
-                z_R = None
+
+        laser_si = self._laser_fields_si()
+        if laser_si is not None:
+            a0 = a0_from_fields(
+                pulse_energy_J=laser_si["pulse_energy_J"], wavelength_m=laser_si["wavelength_m"],
+                waist_rms_x_m=laser_si["sigma0_l_m"], waist_rms_y_m=laser_si["sigma0_l_m"],
+                duration_rms_s=laser_si["sigma_par_L_m"] / C_LIGHT)
+            self.a0_lbl.config(text=f"a_0 : {a0:.4g}")
+            radii = focal_radii_m(laser_si["sigma0_l_m"])
         else:
-            # Use Rayleigh length directly
-            z_R = _float_or_none(self.fields["rayleigh_length_m"])
+            self.a0_lbl.config(text="a_0 : --")
+            radii = None
 
-        a0 = peak_a0(self.fields)
-        self.a0_lbl.config(text=f"a_0 : {a0:.4g}" if a0 is not None else "a_0 : --")
-
-        radii = laser_focal_radii(wavelength_m / 1e-9 if wavelength_m else None, z_R)
-        radius_names = ("RMS", "FWHM", "e^{-1/2}")
-        for label, name, radius in zip(
-                self.laser_radius_lbls, radius_names,
-                radii if radii is not None else (None,) * 3):
-            text = f"{name} radius = {radius*1e6:.3f} um" if radius else f"{name} radius = --"
+        for label, name, key in zip(
+                self.laser_radius_lbls, ("RMS", "FWHM", "e^{-1/2}"), ("rms", "fwhm", "w0_1e2")):
+            text = f"{name} radius = {radii[key]*1e6:.3f} um" if radii is not None else f"{name} radius = --"
             label.config(text=text)
+
+    def _laser_fields_si(self):
+        """Compute (wavelength_m, sigma0_l_m, sigma_par_L_m, pulse_energy_J,
+        focus_z_m) from the current Laser-panel fields, honouring the waist
+        input mode (diameter vs. Rayleigh length) and pulse-duration
+        convention (RMS vs. FWHM). Returns ``None`` if a required field is
+        missing/unparseable."""
+        wavelength_nm = _float_or_none(self.fields["laser_wavelength_nm"])
+        energy_mJ = _float_or_none(self.fields["laser_energy_mJ"])
+        duration_ps = _float_or_none(self.fields["pulse_duration_ps"])
+        if None in (wavelength_nm, energy_mJ, duration_ps):
+            return None
+        wavelength_m = wavelength_nm * 1e-9
+
+        duration_s = duration_ps * 1e-12
+        if self._pulse_convention_var.get() == "FWHM":
+            duration_s = fwhm_to_sigma_intensity(duration_s)
+
+        if self._waist_input_mode.get() == "diameter":
+            waist_diameter_um = _float_or_none(self.fields["waist_diameter_um"])
+            if waist_diameter_um is None:
+                return None
+            waist_radius_m = waist_diameter_um * 1e-6 / 2.0
+            waist_convention = self._waist_convention_var.get()
+            if waist_convention == "RMS":
+                sigma0_l_m = waist_radius_m
+            elif waist_convention == "FWHM":
+                sigma0_l_m = fwhm_to_sigma_intensity(waist_radius_m)
+            else:  # 1/e^2
+                sigma0_l_m = w0_to_sigma_intensity(waist_radius_m)
+        else:
+            rayleigh_m = _float_or_none(self.fields["rayleigh_length_m"])
+            if rayleigh_m is None:
+                return None
+            sigma0_l_m = (rayleigh_m * wavelength_m / (4.0 * np.pi)) ** 0.5
+
+        z_mismatch_mm = _float_or_none(self.fields["z_mismatch_mm"])
+        return dict(
+            wavelength_m=wavelength_m,
+            sigma0_l_m=sigma0_l_m,
+            sigma_par_L_m=duration_s * C_LIGHT,
+            pulse_energy_J=energy_mJ * 1e-3,
+            focus_z_m=(z_mismatch_mm or 0.0) * 1e-3,
+        )
+
+    def _build_interaction(self) -> InteractionParameters:
+        """Compile the current Electrons + Laser panel fields into the
+        shared (beam, laser) bundle every model's ``Job.interaction``
+        carries. Raises ``ValueError`` if a required field is missing."""
+        energy_mev = _float_or_none(self.fields["mean_energy_MeV"])
+        rel_spread_pct = _float_or_none(self.fields["rel_spread_pct"])
+        charge_nC = _float_or_none(self.fields["charge_nC"])
+        duration_ps = _float_or_none(self.fields["bunch_duration_ps"])
+        emit_x_mmmrad = _float_or_none(self.fields["emit_x_mmmrad"])
+        emit_y_mmmrad = _float_or_none(self.fields["emit_y_mmmrad"])
+        beta_x_m = _float_or_none(self.fields["beta_x_m"])
+        beta_y_m = _float_or_none(self.fields["beta_y_m"])
+        if None in (energy_mev, rel_spread_pct, charge_nC, duration_ps,
+                    emit_x_mmmrad, emit_y_mmmrad, beta_x_m, beta_y_m):
+            raise ValueError("All Electrons-panel fields must be filled in with numbers")
+
+        gamma = energy_mev * 1e6 / MEC2_EV
+        kinetic_energy_eV = energy_mev * 1e6 - MEC2_EV
+        emit_x_m = emit_x_mmmrad * 1e-6
+        emit_y_m = emit_y_mmmrad * 1e-6
+        sigma_x_m = sigma_from_emittance(emit_x_m, beta_x_m, gamma)
+        sigma_y_m = sigma_from_emittance(emit_y_m, beta_y_m, gamma)
+
+        bunch_duration_s = duration_ps * 1e-12
+        if self._duration_convention_var.get() == "FWHM":
+            bunch_duration_s = fwhm_to_sigma_intensity(bunch_duration_s)
+
+        beam = beam_from_shared_fields(
+            bunch_charge_C=charge_nC * 1e-9,
+            kinetic_energy_eV=kinetic_energy_eV,
+            rel_energy_spread_rms=rel_spread_pct / 100.0,
+            sigma_x_m=sigma_x_m, sigma_y_m=sigma_y_m,
+            emit_geom_x_m=emit_x_m / gamma, emit_geom_y_m=emit_y_m / gamma,
+            sigma_t_s=bunch_duration_s,
+            sigma_pz=rel_spread_pct / 100.0,
+        )
+
+        laser_si = self._laser_fields_si()
+        if laser_si is None:
+            raise ValueError("All Laser-panel fields must be filled in with numbers")
+        laser = laser_from_shared_fields(
+            lambda_L=laser_si["wavelength_m"], sigma0_l=laser_si["sigma0_l_m"],
+            sigma_par_L=laser_si["sigma_par_L_m"], pulse_energy_J=laser_si["pulse_energy_J"],
+            focus_z_m=laser_si["focus_z_m"],
+        )
+        return InteractionParameters(beam=beam, laser=laser)
+
+    # Laser-panel "advanced" fields that live as global Laser-panel widgets
+    # (not per-model Model Parameters entries, to avoid a second StringVar
+    # shadowing the Laser panel's own one) but that xigma_i/delta consume
+    # as model-specific extras -- always folded into every Job.extra dict,
+    # regardless of which model declares them in model_params().
+    _GLOBAL_EXTRA_KEYS = ("beta_ff", "phi_pol")
+
+    def _model_extra_fields(self, adapter: ModelAdapter) -> dict:
+        """Build the ``Job.extra`` dict for ``adapter`` from its own
+        ``model_params()`` keys, reading each from ``self.fields`` if the
+        GUI has a live entry for it (i.e. the Model Parameters panel is
+        currently showing this adapter's fields), else falling back to the
+        adapter's own declared default. Also folds in the always-global
+        laser-advanced fields (see ``_GLOBAL_EXTRA_KEYS``)."""
+        extra = {}
+        for key in self._GLOBAL_EXTRA_KEYS:
+            if key in self.fields:
+                extra[key] = self.fields[key].get()
+        for _label, default, key in adapter.model_params():
+            extra[key] = self.fields[key].get() if key in self.fields else default
+        return extra
 
     # ---- run / threading ------------------------------------------------
     def on_start(self):
         if self.worker is not None and self.worker.is_alive():
             return
 
-        # Determine which models to run
-        multi_models: list[str] | None = None
-        if (self.model_selection_panel is not None
-                and self.model_selection_panel.winfo_ismapped()):
-            selected = self.model_selection_panel.get_selected_models()
-            if selected:
-                multi_models = selected
-                self.model_selection_panel.status_lbl.config(text="running...")
-
-        if multi_models is not None:
-            # ---- multi-model run ----
-            fields_wc = dict(self.fields)
-            fields_wc["_duration_convention"] = self._duration_convention_var.get()
-            fields_wc["_pulse_convention"] = self._pulse_convention_var.get()
-
-            # Parse configs for ALL selected models synchronously so we catch
-            # parameter errors before starting the worker thread.
-            model_cfgs: list[tuple[str, object, dict, int]] = []
-            # (name, cfg, extra, n_mc_resolved)
-            for name in multi_models:
-                adapter = self.models[name]
-                try:
-                    # Merge with model-specific params from the selection panel
-                    merged = dict(fields_wc)
-                    if name in self.model_selection_panel.model_param_vars:
-                        for k, v in self.model_selection_panel.model_param_vars[name].items():
-                            merged[k] = v  # keep as StringVar — params_to_config expects .get()
-                    cfg, extra = adapter.params_to_config(merged, self.quantum_var.get())
-                except Exception as e:
-                    messagebox.showerror(f"Invalid parameter ({name})", str(e))
-                    return
-                if extra.get("warnings"):
-                    messagebox.showwarning(f"Model note ({name})",
-                                           "\n\n".join(extra["warnings"]))
-                n_mc = int(extra["n_mc"])
-                model_cfgs.append((name, cfg, extra, n_mc))
-
-            # Single electron sample shared by all models
-            n_mc = max(ec[3] for ec in model_cfgs)
-            if self.loaded_bunch is not None:
-                electrons = self.loaded_bunch
-            else:
-                # Use the first model's cfg to derive beam params (all share the same
-                # GUI fields except model-specific numeric knobs, so any works)
-                _cfg = model_cfgs[0][1]
-                beam = beam_from_shared_fields(
-                    eps0=_cfg.eps0, sigma_eps_rel=_cfg.sigma_eps_rel,
-                    emit_x=_cfg.emit_x, emit_y=_cfg.emit_y,
-                    sigma0_x=_cfg.sigma0_x, sigma0_y=_cfg.sigma0_y,
-                    sigma_par_e=_cfg.sigma_par_e, N_e=_cfg.N_e,
-                )
-                electrons = sample_gaussian_bunch(
-                    beam, n_particles=n_mc,
-                    rng=np.random.default_rng(int(model_cfgs[0][2]["seed"])))
-
-            self.rep_rate_hz = model_cfgs[0][2]["rep_rate_hz"]
-            self.a0_used = peak_a0(self.fields) or 0.0
-            self.calc_btn.config(state="disabled")
-            self.status_lbl.config(text="multi...")
-
-            # Analytical preview (always-on)
-            preview_cfg = preview_extra = None
-            if self.preview_adapter is not None:
-                try:
-                    preview_cfg, preview_extra = self.preview_adapter.params_to_config(
-                        fields_wc, self.quantum_var.get())
-                except Exception:
-                    preview_cfg = None
-
-            output_spec = self._get_output_spec()
-
-            def work_multi():
-                try:
-                    results: dict[str, CommonResults] = {}
-                    for name, cfg, extra, nmc in model_cfgs:
-                        adapter = self.models[name]
-                        res = adapter.run(cfg, n_mc=nmc, seed=extra["seed"],
-                                          electrons=electrons, output=output_spec)
-                        problems = validate_results(res)
-                        if problems:
-                            raise RuntimeError(
-                                f"{adapter.capabilities().display_name} adapter returned "
-                                f"malformed results: {'; '.join(problems)}")
-                        results[name] = res
-                except Exception as e:
-                    self.q.put(("error", "".join(traceback.format_exception(e))))
-                    return
-
-                preview_res = None
-                if preview_cfg is not None:
-                    try:
-                        preview_res = self.preview_adapter.run(
-                            preview_cfg, n_mc=int(preview_extra["n_mc"]),
-                            seed=int(preview_extra["seed"]), electrons=electrons,
-                            output=output_spec)
-                    except Exception:
-                        preview_res = None
-
-                self.q.put(("multi", (results, preview_res)))
-
-            self.worker = threading.Thread(target=work_multi, daemon=True)
-            self.worker.start()
-            self.after(100, self._poll_queue)
-            return
-
-        # ---- single-model (legacy) run ----
-        adapter = self.active_adapter
         try:
-            fields_with_conventions = dict(self.fields)
-            fields_with_conventions["_duration_convention"] = self._duration_convention_var.get()
-            fields_with_conventions["_pulse_convention"] = self._pulse_convention_var.get()
-            cfg, extra = adapter.params_to_config(fields_with_conventions, self.quantum_var.get())
+            interaction = self._build_interaction()
         except Exception as e:
             messagebox.showerror("Invalid parameter", str(e))
             return
-        if extra["warnings"]:
-            messagebox.showwarning("Model note", "\n\n".join(extra["warnings"]))
 
-        n_mc = int(extra["n_mc"])
         if self.loaded_bunch is not None:
             electrons = self.loaded_bunch
-            n_mc = self.loaded_bunch.n_particles
         else:
-            n_sample = n_mc
-            beam = beam_from_shared_fields(
-                eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
-                emit_x=cfg.emit_x, emit_y=cfg.emit_y,
-                sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
-                sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
-            )
+            try:
+                n_mc = int(float(self.fields["n_mc"].get()))
+                seed = int(float(self.fields["seed"].get()))
+            except (ValueError, tk.TclError):
+                messagebox.showerror("Invalid parameter", "# electrons (MC) and Random seed must be numbers")
+                return
             electrons = sample_gaussian_bunch(
-                beam, n_particles=n_sample, rng=np.random.default_rng(int(extra["seed"])))
+                interaction.beam, n_particles=n_mc, rng=np.random.default_rng(seed))
 
-        self.cfg_used = cfg
-        self.rep_rate_hz = extra["rep_rate_hz"]
-        self.a0_used = peak_a0(self.fields) or 0.0
+        try:
+            seed = int(float(self.fields["seed"].get()))
+        except (ValueError, tk.TclError):
+            seed = 0
+        rep_rate_hz = _float_or_none(self.fields["pulse_frequency_Hz"])
+        self.rep_rate_hz = rep_rate_hz if rep_rate_hz else 1.0
+        output_spec = self._get_output_spec()
+
+        job = Job(interaction=interaction, electrons=electrons, output=output_spec,
+                  seed=seed, extra=self._model_extra_fields(self.active_adapter))
+        preview_job = Job(interaction=interaction, electrons=electrons, output=output_spec,
+                          seed=seed, extra=self._model_extra_fields(self.analytical_adapter))
+
+        self.interaction_used = interaction
         self.calc_btn.config(state="disabled")
         self.status_lbl.config(text="running...")
 
-        preview_cfg = preview_extra = None
-        if self.preview_adapter is not None:
-            try:
-                preview_cfg, preview_extra = self.preview_adapter.params_to_config(
-                    fields_with_conventions, self.quantum_var.get())
-            except Exception:
-                preview_cfg = None
-
-        output_spec = self._get_output_spec()
+        adapter = self.active_adapter
+        analytical_adapter = self.analytical_adapter
 
         def work():
             try:
-                res = adapter.run(cfg, n_mc=n_mc, seed=extra["seed"],
-                                  electrons=electrons, output=output_spec)
+                res = adapter.run(job)
                 problems = validate_results(res)
                 if problems:
-                    raise RuntimeError(
-                        f"{adapter.capabilities().display_name} adapter returned "
-                        f"malformed results: {'; '.join(problems)}")
+                    raise RuntimeError(f"adapter returned malformed results: {'; '.join(problems)}")
             except Exception as e:
                 self.q.put(("error", "".join(traceback.format_exception(e))))
                 return
 
-            preview_res = None
-            if preview_cfg is not None:
-                try:
-                    preview_res = self.preview_adapter.run(
-                        preview_cfg, n_mc=int(preview_extra["n_mc"]),
-                        seed=int(preview_extra["seed"]), electrons=electrons,
-                        output=output_spec)
-                except Exception:
-                    preview_res = None  # preview is best-effort, never fatal
+            try:
+                preview_res = analytical_adapter.run(preview_job)
+            except Exception:
+                preview_res = None
 
-            self.q.put(("ok", (res, preview_res)))
+            self.q.put(("done", (res, preview_res)))
 
         self.worker = threading.Thread(target=work, daemon=True)
         self.worker.start()
@@ -1230,71 +1011,10 @@ class ComptonGuideApp(tk.Tk):
             messagebox.showerror("Simulation failed", payload)
             return
 
-        if status == "multi":
-            # Multi-model results
-            results, preview_res = payload
-            self.model_results = results
-            self.preview_res = preview_res
-            self.status_lbl.config(text="done")
-            if self.model_selection_panel is not None:
-                self.model_selection_panel.results = results
-                self.model_selection_panel.status_lbl.config(text="done")
-
-            # Render multi-model overlays in all plot tabs
-            self._render_multi_plots()
-            self._render_preview()
-            return
-
-        # Single-model (legacy)
         self.res, self.preview_res = payload
         self.status_lbl.config(text="done")
-        self.model_results = {}
         self._update_outputs()
         self._render_preview()
-
-    # ---- multi-model plotting (overlays) --------------------------------
-    def _render_multi_plots(self):
-        """Render plots using results from multiple models when the
-        multi-model panel was used."""
-        results = self.model_results
-        if not results:
-            return
-
-        # Spectrum tab: overlays using the renderer from calculations.py
-        from compton_suite.gui.calculations import ModelSelectionPanel
-        ModelSelectionPanel.render_multi_spectrum(self.ax_spec, results)
-
-        # Electron state: not available for multi-model (different cfg per
-        # model, and kascade is the only one providing it) — show placeholder.
-        self.ax_e.clear()
-        self.ax_e.text(0.5, 0.5, "Multi-model: electron state not shown",
-                       ha="center", va="center")
-        self.ax_e.set_title("Electron energy: initial vs. final")
-        self.ax_e.set_xticks([]); self.ax_e.set_yticks([])
-
-        self.fig.tight_layout()
-        self.canvas.draw()
-
-        # Temporal, spatial, angular tabs
-        ModelSelectionPanel.render_multi_temporal(self.ax_t, results)
-        self.fig_t.tight_layout(); self.canvas_t.draw()
-
-        ModelSelectionPanel.render_multi_spatial(self.ax_s, results)
-        self.fig_s.tight_layout(); self.canvas_s.draw()
-
-        # Angular: pick first available model
-        ang_model = next((n for n in results if results[n].angular_spectrum is not None
-                         or (hasattr(results[n], "photon_samples")
-                             and results[n].photon_samples is not None)), None)
-        ModelSelectionPanel.render_multi_angular(self.ax_a, results, ang_model or "")
-        self.fig_a.tight_layout(); self.canvas_a.draw()
-
-        # The Angular tab supports switching model — store list of model
-        # names with angular data for the listbox (will wire if needed).
-        self._ang_model_list = [n for n in results
-                                if results[n].angular_spectrum is not None
-                                or (hasattr(results[n], "photon_samples")
-                                    and getattr(results[n].photon_samples, "ph_thx_lab", None) is not None)]
 
     # ---- collimation-dependent outputs (no re-run) ---------------------
     def _collimation_rad(self):
@@ -1305,13 +1025,10 @@ class ComptonGuideApp(tk.Tk):
         return tx, ty
 
     def _update_outputs(self):
-        if self.res is None or self.cfg_used is None:
+        if self.res is None or self.interaction_used is None:
             return
-        res, cfg = self.res, self.cfg_used
+        res, interaction = self.res, self.interaction_used
         tx, ty = self._collimation_rad()
-
-        # gamma is still needed below for the recoil-parameter stat
-        gamma = cfg.eps0
 
         # --- fluxes and statistics (branch on result shape) ---
         total_flux, coll_flux, cmask = self._photon_fluxes(res, tx, ty)
@@ -1328,7 +1045,7 @@ class ComptonGuideApp(tk.Tk):
             for key in ("nph_ne", "ne0", "ne1", "ne2"):
                 self.stat_lbls[key].config(text="N/A")
 
-        recoil_q = recoil_parameter(cfg.eps0, cfg.lambda_L)
+        recoil_q = recoil_parameter(interaction.beam.gamma0, interaction.laser._wl_m)
         self.stat_lbls["recoil_q"].config(text=f"{recoil_q:.6f}")
 
         self._render_plots(res, cmask)
@@ -1357,11 +1074,11 @@ class ComptonGuideApp(tk.Tk):
         window, not mask/reuse a cache) -- this just routes through it here
         too, still no MC re-run (reuses the cached per-particle arrays).
         """
-        if isinstance(res.spectrum, SampledSpectrum):
+        if hasattr(res.spectrum, "weight"):
             spec = res.spectrum
             n_tot = spec.E_eV.size
             total_flux = n_tot * spec.weight * self.rep_rate_hz
-            photon_samples = res.photon_samples
+            photon_samples = res.final_photons
             thx = getattr(photon_samples, "ph_thx_lab", None)
             thy = getattr(photon_samples, "ph_thy_lab", None)
             if tx is not None and ty is not None and n_tot and thx is not None:
@@ -1372,8 +1089,7 @@ class ComptonGuideApp(tk.Tk):
             return total_flux, coll_flux, cmask
 
         total_flux = res.total_yield * self.rep_rate_hz
-        caps = self.active_adapter.capabilities()
-        if tx is None or ty is None or not caps.supports_angular_range_spectrum:
+        if tx is None or ty is None:
             return total_flux, 0.0, None
         rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
         coll_flux = (rng_result.n_photons_in_range or 0.0) * self.rep_rate_hz
@@ -1381,13 +1097,13 @@ class ComptonGuideApp(tk.Tk):
 
     # ---- plotting -------------------------------------------------------
     def _render_plots(self, res, cmask):
-        if isinstance(res.spectrum, SampledSpectrum):
+        if hasattr(res.spectrum, "weight"):
             self._render_spectrum_sampled(res, cmask)
         else:
             self._render_spectrum_binned(res)
 
-        if res.electron_state is not None:
-            self._render_electron_state(res.electron_state)
+        if res.final_electrons is not None:
+            self._render_electron_state(res.final_electrons)
         else:
             self.ax_e.clear()
             self.ax_e.text(0.5, 0.5,
@@ -1431,8 +1147,7 @@ class ComptonGuideApp(tk.Tk):
         self.ax_spec.plot(E_keV, dNdE_per_keV, color="0.4", label="all (4*pi)")
 
         tx, ty = self._collimation_rad()
-        caps = self.active_adapter.capabilities()
-        if tx is not None and ty is not None and caps.supports_angular_range_spectrum:
+        if tx is not None and ty is not None:
             # On-demand query at a grid sized for THIS window, not the
             # wide-range angular_spectrum cache -- see _photon_fluxes'
             # docstring for why re-integrating that cache here used to
@@ -1528,8 +1243,8 @@ class ComptonGuideApp(tk.Tk):
 
     def _render_angular_distribution(self, res):
         self.ax_a.clear()
-        if isinstance(res.spectrum, SampledSpectrum):
-            photon_samples = res.photon_samples
+        if hasattr(res.spectrum, "weight"):
+            photon_samples = res.final_photons
             thx = getattr(photon_samples, "ph_thx_lab", None)
             thy = getattr(photon_samples, "ph_thy_lab", None)
             weight = getattr(photon_samples, "weight", 1.0)
@@ -1566,7 +1281,7 @@ class ComptonGuideApp(tk.Tk):
 
 
 def main():
-    app = ComptonGuideApp()
+    app = ComptonGUIApp()
     app.mainloop()
 
 

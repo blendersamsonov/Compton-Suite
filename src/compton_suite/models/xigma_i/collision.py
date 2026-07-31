@@ -1,15 +1,14 @@
-"""The CGS "collision parameters" bundle for tabulated-overlap-style
-GPU/CPU pipelines (``xigma_i``, ``delta``) -- :class:`CollisionParams`
-(immutable, CGS, ``k0_las``-normalised scalars) plus :func:`build_params`,
-the one function that derives it from ``compton_suite.io``'s own SI beam/laser/
-geometry description.
+"""The CGS "collision parameters" bundle for this package's tabulated-
+overlap-style GPU/CPU pipelines -- :class:`CollisionParams` (immutable,
+CGS, ``k0_las``-normalised scalars) plus :func:`build_params`, the one
+function that derives it from ``compton_suite.io``'s own SI beam/laser
+description.
 
-Moved here from ``xigma_i/config.py`` (formerly the only consumer) so any
-model built on this same CGS/``k0_las`` convention can reuse it without
-re-deriving the same formulas -- the electron-side derivation (``beta_x``/
-``beta_y``/``sigma_thx``/``sigma_thy``) already went through this move
-first (see ``bunch.beta_star_from_sigma_emit``/``divergence_from_sigma_emit``);
-this finishes the rest of the bundle.
+Lives here (not in ``compton_suite.io``) because it's this package's own
+CGS/``k0_las`` convention, not a cross-model shared representation --
+kascade works directly in SI and has no use for it (see
+``compton_suite.io.interaction``'s module docstring: every model decides
+its own unit system/convention at its own boundary).
 
 ``beta_ff``/``ellipticity`` are laser extras specific to this CGS/``k0_las``
 convention (flying-focus factor, polarization ellipticity), not currently
@@ -20,10 +19,8 @@ consumed by any other model -- kept here as plain scalar fields on
 
 ``a0``'s formula here has a known, unresolved ~49% relative discrepancy
 against ``GaussianParaxialLaser.a0_focus`` (see ``validation/
-tier0_wiring.py``'s ``check_a0_formula_agreement``) -- carried over
-unreconciled: this is xigma's own convention, not yet reconciled with
-``compton_suite.io.laser``'s. Not something to silently pick a side on via this
-move.
+tier0_wiring.py``'s ``check_a0_formula_agreement``) -- xigma's own
+convention, not yet reconciled with ``compton_suite.io.laser``'s.
 
 Runs no compute of its own: ``.xp``/``.asnumpy`` are a thin numpy/cupy-
 selection convenience for host orchestration code that builds arrays on
@@ -46,43 +43,14 @@ except Exception:
     cp = None
     _HAS_CUPY = False
 
-from . import constants as _constants
-from .bunch import GaussianElectronBeam
-from .interaction import InteractionGeometry
-from .laser import GaussianParaxialLaser
-from .units import ureg
+from compton_suite.io.bunch import GaussianElectronBeam
+from compton_suite.io.laser import GaussianParaxialLaser
+from compton_suite.io.units import ALPHA, C_CM_S, HBAR_ERG_S, M_TO_CM, R_E_CM, ureg
+from compton_suite.misc import detect_device
 
 _Q = ureg.Quantity
-_M_TO_CM = _constants.M_TO_CM
-_C_CM_S = _constants.C_CM_S
-_HBAR_ERG_S = _constants.HBAR_ERG_S
-_R_E_CM = _constants.R_E_CM
-_ALPHA = _constants.ALPHA
 
 __all__ = ["CollisionParams", "build_params", "detect_device"]
-
-
-def detect_device() -> str:
-    """Auto-detect which backend to use: a real CUDA GPU via cupy if
-    available, else CPU (requires numba). Raises if neither works -- there
-    is no third backend."""
-    if _HAS_CUPY:
-        try:
-            if cp.cuda.runtime.getDeviceCount() > 0:
-                return 'gpu'
-        except Exception:
-            pass
-    try:
-        import numba  # noqa: F401
-    except ImportError:
-        pass
-    else:
-        return 'cpu'
-    raise RuntimeError(
-        "compton_suite.io.collision: no usable backend -- no CUDA-capable GPU "
-        "detected (or cupy isn't installed), and numba isn't installed for "
-        "the CPU fallback. Install numba (pip install numba) for CPU-only "
-        "use, or a working cupy+CUDA setup for GPU use.")
 
 
 @dataclass(frozen=True)
@@ -117,13 +85,12 @@ class CollisionParams:
         return x.get() if self.device == 'gpu' else x
 
 
-def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
-                  geometry: InteractionGeometry | None = None, *,
+def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser, *,
                   beta_ff: float = 0.0, ellipticity: float = 0.0,
                   device: str | None = None) -> CollisionParams:
     """Derive this convention's CGS :class:`CollisionParams` from
-    ``compton_suite.io``'s SI beam/laser/geometry description -- the pipeline's
-    only "interaction" step: one pure function call, not three ``set_*``
+    ``compton_suite.io``'s SI beam/laser description -- the pipeline's only
+    "interaction" step: one pure function call, not three ``set_*``
     mutations on a persistent object. ``beta_ff``/``ellipticity`` are
     extras specific to this convention, with no shared-representation
     analogue (see ``compton_suite.io.laser``'s module docstring), passed as
@@ -134,7 +101,6 @@ def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
         raise RuntimeError("build_params(device='gpu') requested but cupy is not importable")
     if device not in ('gpu', 'cpu'):
         raise ValueError(f"device must be 'gpu', 'cpu', or None, got {device!r}")
-    geometry = geometry if geometry is not None else InteractionGeometry()
 
     # Extract raw SI floats from PhysicalQuantity-based beam/laser.
     sx_m = beam._sx_m
@@ -142,25 +108,27 @@ def build_params(beam: GaussianElectronBeam, laser: GaussianParaxialLaser,
     wl_m = laser._wl_m
     wx_m = laser._wx_m
     dur_s = laser._dur_s
-    energy_J = laser._E_J
 
-    sigma_ex = sx_m * _M_TO_CM
-    sigma_ey = sy_m * _M_TO_CM
+    sigma_ex = sx_m * M_TO_CM
+    sigma_ey = sy_m * M_TO_CM
 
-    lambda_l = wl_m * _M_TO_CM
+    lambda_l = wl_m * M_TO_CM
     # sigma_lr0: RMS radius of the *photon density* distribution (round-
     # beam approximation -- waist_rms_y_m is not separately modelled here,
     # matching every current consumer's own round-beam convention).
-    sigma_lr0 = wx_m * _M_TO_CM
-    sigma_lz = dur_s * _C_CM_S
-    WL = _Q(energy_J, "joule").to("erg").magnitude  # pulse energy, erg
-    omega_las = 2 * np.pi * _C_CM_S / lambda_l
-    k0_las = omega_las / _C_CM_S
-    Wph_erg = _HBAR_ERG_S * omega_las  # photon energy, erg
+    sigma_lr0 = wx_m * M_TO_CM
+    sigma_lz = dur_s * C_CM_S
+    omega_las = 2 * np.pi * C_CM_S / lambda_l
+    k0_las = omega_las / C_CM_S
+    Wph_erg = HBAR_ERG_S * omega_las  # photon energy, erg
     Wph = _Q(Wph_erg, "erg").to("MeV").magnitude  # photon energy, MeV
-    N_l = WL / Wph_erg
-    a0 = (2 * _R_E_CM**2 * lambda_l / _ALPHA * N_l
-          / (np.power(np.pi, 3 / 2) * sigma_lr0**2 * sigma_lz))
+    # N_l/a0 are model-agnostic and come directly from the shared
+    # GaussianParaxialLaser input -- not re-derived here in CGS. This is
+    # the single a0/N_l formula (GaussianParaxialLaser.a0_focus/n_photons,
+    # SI plane-wave derivation); no independent CGS formula exists to
+    # disagree with it anymore.
+    N_l = laser.n_photons
+    a0 = laser.a0_focus
 
     return CollisionParams(
         N_e=beam.N_e, sigma_ex=sigma_ex, sigma_ey=sigma_ey,

@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 
 import numpy as np
 
-from compton_suite.io.laser_envelope import gaussian_pulse_envelope  # noqa: E402
+from compton_suite.io.laser import gaussian_pulse_envelope  # noqa: E402
 
 rng = np.random.default_rng(0)
 _N = 500

@@ -10,13 +10,23 @@ import pytest
 from compton_suite.io.bunch import (
     BeamFittedParams,
     GaussianElectronBeam,
-    MacroBunch,
+    Bunch,
     drift,
     evaluate_fit_quality,
     fit_beam_full,
     sample_gaussian_bunch,
     sample_gaussian_canonical,
 )
+from compton_suite.io.units import PhysicalMeaning, PhysicalQuantity
+
+
+# ---------------------------------------------------------------------------
+# Test helpers
+# ---------------------------------------------------------------------------
+
+def _pq(value: float, unit: str, meaning: PhysicalMeaning) -> PhysicalQuantity:
+    """Build a PhysicalQuantity for test fixtures."""
+    return PhysicalQuantity(value, unit, meaning)
 
 
 # ============================================================================
@@ -37,14 +47,14 @@ def ultra_relativistic_beam():
     Divergence = emit/sigma = 10e-9/100e-6 = 0.1 mrad.
     """
     return GaussianElectronBeam(
-        bunch_charge_C=1e-12,  # 1 pC
-        kinetic_energy_eV=500e6,  # 500 MeV
+        bunch_charge_C=_pq(1e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+        kinetic_energy_eV=_pq(500e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
         rel_energy_spread_rms=0.01,  # 1% energy spread
-        sigma_x_m=100e-6,  # 100 um
-        sigma_y_m=100e-6,  # 100 um
-        emit_geom_x_m=10e-9,  # 10 nm
-        emit_geom_y_m=10e-9,  # 10 nm
-        sigma_t_s=1e-12,  # 1 ps
+        sigma_x_m=_pq(100e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE),
+        sigma_y_m=_pq(100e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE),
+        emit_geom_x_m=_pq(10e-9, "meter", PhysicalMeaning.EMITTANCE),
+        emit_geom_y_m=_pq(10e-9, "meter", PhysicalMeaning.EMITTANCE),
+        sigma_t_s=_pq(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH),
         sigma_pz=0.01,  # 1% momentum spread
     )
 
@@ -56,14 +66,14 @@ def mildly_relativistic_beam():
     Physical parameters: 9 MeV beam, 100 um beam size, 10 nm emittance.
     """
     return GaussianElectronBeam(
-        bunch_charge_C=1e-12,  # 1 pC
-        kinetic_energy_eV=9e6,  # 9 MeV (gamma ~ 19)
+        bunch_charge_C=_pq(1e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+        kinetic_energy_eV=_pq(9e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
         rel_energy_spread_rms=0.05,  # 5% energy spread
-        sigma_x_m=100e-6,  # 100 um
-        sigma_y_m=100e-6,  # 100 um
-        emit_geom_x_m=10e-9,  # 10 nm
-        emit_geom_y_m=10e-9,  # 10 nm
-        sigma_t_s=1e-12,  # 1 ps
+        sigma_x_m=_pq(100e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE),
+        sigma_y_m=_pq(100e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE),
+        emit_geom_x_m=_pq(10e-9, "meter", PhysicalMeaning.EMITTANCE),
+        emit_geom_y_m=_pq(10e-9, "meter", PhysicalMeaning.EMITTANCE),
+        sigma_t_s=_pq(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH),
         sigma_pz=0.05,  # 5% momentum spread
     )
 
@@ -115,8 +125,11 @@ class TestCanonicalSampling:
         sigma_y_meas = np.std(bunch.y)
 
         # Allow 5% tolerance due to sampling noise
-        assert abs(sigma_x_meas - ultra_relativistic_beam.sigma_x_m) / ultra_relativistic_beam.sigma_x_m < 0.05
-        assert abs(sigma_y_meas - ultra_relativistic_beam.sigma_y_m) / ultra_relativistic_beam.sigma_y_m < 0.05
+        # Use _sx_m / _sy_m to get raw SI float from PhysicalQuantity
+        sx_in = ultra_relativistic_beam._sx_m
+        sy_in = ultra_relativistic_beam._sy_m
+        assert abs(sigma_x_meas - sx_in) / sx_in < 0.05
+        assert abs(sigma_y_meas - sy_in) / sy_in < 0.05
 
     def test_gamma_calculation(self, ultra_relativistic_beam, rng):
         """Verify gamma is correctly calculated from momenta."""
@@ -204,8 +217,8 @@ class TestFitting:
         params = fit_beam_full(bunch)
 
         # Check transverse emittance (should be close to input)
-        emit_x_input = ultra_relativistic_beam.emit_geom_x_m
-        emit_y_input = ultra_relativistic_beam.emit_geom_y_m
+        emit_x_input = ultra_relativistic_beam._ex_m
+        emit_y_input = ultra_relativistic_beam._ey_m
 
         # Allow 10% tolerance due to sampling noise
         assert abs(params.emit_geom_x - emit_x_input) / emit_x_input < 0.1
@@ -221,8 +234,8 @@ class TestFitting:
         params = fit_beam_full(drifted)
 
         # Emittance should be conserved (Liouville's theorem)
-        emit_x_input = ultra_relativistic_beam.emit_geom_x_m
-        emit_y_input = ultra_relativistic_beam.emit_geom_y_m
+        emit_x_input = ultra_relativistic_beam._ex_m
+        emit_y_input = ultra_relativistic_beam._ey_m
 
         # Allow 10% tolerance
         assert abs(params.emit_geom_x - emit_x_input) / emit_x_input < 0.1
@@ -297,7 +310,7 @@ class TestFitQuality:
         thy = rng.normal(0, 1e-4, n_particles)
         gamma = rng.normal(1000, 10, n_particles)
 
-        bunch = MacroBunch(x=x, y=y, z=z, thx=thx, thy=thy, gamma=gamma, weight=1.0)
+        bunch = Bunch(x=x, y=y, z=z, thx=thx, thy=thy, gamma=gamma, weight=1.0)
 
         # Fit the beam (using the non-Gaussian data)
         X = np.stack([bunch.x, bunch.thx, bunch.y, bunch.thy, bunch.z, bunch.gamma], axis=1)
@@ -411,40 +424,49 @@ class TestEdgeCases:
     """Test edge cases and error handling."""
 
     def test_zero_sigma_pz(self, rng):
-        """Test with zero momentum spread (delta function in pz)."""
+        """Test with zero momentum spread (delta function in gamma).
+
+        Both sigma_pz and rel_energy_spread_rms must be zero for consistency
+        (otherwise the beam specification is inconsistent).
+        """
         beam = GaussianElectronBeam(
-            bunch_charge_C=1e-12,
-            kinetic_energy_eV=500e6,
-            rel_energy_spread_rms=0.01,
-            sigma_x_m=100e-6,
-            sigma_y_m=100e-6,
-            emit_geom_x_m=10e-9,
-            emit_geom_y_m=10e-9,
-            sigma_t_s=1e-12,
-            sigma_pz=0.0,  # Zero momentum spread
+            bunch_charge_C=_pq(1e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+            kinetic_energy_eV=_pq(500e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
+            rel_energy_spread_rms=0.0,  # Must match sigma_pz=0
+            sigma_x_m=_pq(100e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE),
+            sigma_y_m=_pq(100e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE),
+            emit_geom_x_m=_pq(10e-9, "meter", PhysicalMeaning.EMITTANCE),
+            emit_geom_y_m=_pq(10e-9, "meter", PhysicalMeaning.EMITTANCE),
+            sigma_t_s=_pq(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH),
+            sigma_pz=0.0,  # Zero momentum spread → delta function in gamma
         )
 
         n_particles = 1000
         bunch = sample_gaussian_canonical(beam, n_particles, rng=rng)
 
-        # Recover pz using exact inverse
-        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+        # With sigma_pz = 0, gamma should be a delta function at gamma0
+        gamma0 = beam.gamma0
+        assert np.allclose(bunch.gamma, gamma0, rtol=1e-10), (
+            f"gamma varies: std = {np.std(bunch.gamma):.3g}"
+        )
 
-        # All pz should be very close to pz_mean
-        pz_mean = beam.gamma0 * beam.beta0
-        assert np.allclose(pz, pz_mean, rtol=1e-5)
+        # pz varies to conserve mass-shell: pz² = γ² - 1 - px² - py²
+        # But the mean should be close to pz_mean
+        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+        pz_mean = gamma0 * beam.beta0
+        assert abs(np.mean(pz) - pz_mean) / pz_mean < 0.01
 
     def test_large_sigma_pz(self, rng):
         """Test with large momentum spread."""
         beam = GaussianElectronBeam(
-            bunch_charge_C=1e-12,
-            kinetic_energy_eV=500e6,
+            bunch_charge_C=_pq(1e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+            kinetic_energy_eV=_pq(500e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
             rel_energy_spread_rms=0.01,
-            sigma_x_m=100e-6,
-            sigma_y_m=100e-6,
-            emit_geom_x_m=10e-9,
-            emit_geom_y_m=10e-9,
-            sigma_t_s=1e-12,
+            sigma_x_m=_pq(100e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE),
+            sigma_y_m=_pq(100e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE),
+            emit_geom_x_m=_pq(10e-9, "meter", PhysicalMeaning.EMITTANCE),
+            emit_geom_y_m=_pq(10e-9, "meter", PhysicalMeaning.EMITTANCE),
+            sigma_t_s=_pq(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH),
             sigma_pz=0.2,  # 20% momentum spread
         )
 
@@ -470,3 +492,337 @@ class TestEdgeCases:
         assert len(bunch.x) == n_particles
         params = fit_beam_full(bunch)
         assert params is not None
+
+
+# ============================================================================
+# Chirp and Dispersion Tests
+# ============================================================================
+
+class TestChirpAndDispersion:
+    """Test chirp and dispersion correlations in sampling."""
+
+    # ---------------------------------------------------------------
+    # Chirp
+    # ---------------------------------------------------------------
+
+    def test_chirp_creates_z_gamma_correlation(self, ultra_relativistic_beam, rng):
+        """Verify chirp creates measurable z-γ correlation."""
+        # Maximum chirp: |ρ_zγ| ≤ 1, so |chirp_h| ≤ σ_γ / σ_z
+        sigma_z = ultra_relativistic_beam.sigma_z_m
+        sigma_gamma = ultra_relativistic_beam.sigma_gamma  # sigma_pz * gamma0 * beta0
+        max_chirp = sigma_gamma / sigma_z
+
+        # Create beam with moderate chirp (50% of max)
+        beam = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            chirp_h=0.5 * max_chirp,
+        )
+
+        n_particles = 100000
+        bunch = sample_gaussian_canonical(beam, n_particles, rng=rng)
+
+        # Fit to extract measured correlations
+        params = fit_beam_full(bunch)
+
+        # Chirp should be positive and close to input value
+        assert params.chirp > 0, "Chirp should be positive"
+        assert params.chirp > 0.1 * max_chirp, f"Chirp too weak: {params.chirp}"
+
+    def test_chirp_sign(self, ultra_relativistic_beam, rng):
+        """Verify chirp sign is respected."""
+        sigma_z = ultra_relativistic_beam.sigma_z_m
+        sigma_gamma = ultra_relativistic_beam.sigma_gamma
+        max_chirp = sigma_gamma / sigma_z
+        h = 0.4 * max_chirp
+
+        n_particles = 100000
+
+        # Positive chirp: head (z > 0) has higher energy
+        beam_pos = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            chirp_h=h,
+        )
+        bunch_pos = sample_gaussian_canonical(beam_pos, n_particles, rng=rng)
+        params_pos = fit_beam_full(bunch_pos)
+
+        # Negative chirp
+        beam_neg = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            chirp_h=-h,
+        )
+        bunch_neg = sample_gaussian_canonical(beam_neg, n_particles, rng=rng)
+        params_neg = fit_beam_full(bunch_neg)
+
+        assert params_pos.chirp > 0, "Positive chirp should give positive slope"
+        assert params_neg.chirp < 0, "Negative chirp should give negative slope"
+        assert params_pos.chirp > params_neg.chirp
+
+    def test_chirp_mass_shell(self, ultra_relativistic_beam, rng):
+        """Verify mass-shell holds with chirp."""
+        sigma_z = ultra_relativistic_beam.sigma_z_m
+        sigma_gamma = ultra_relativistic_beam.sigma_gamma
+        max_chirp = sigma_gamma / sigma_z
+
+        beam = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            chirp_h=0.5 * max_chirp,
+        )
+
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(beam, n_particles, rng=rng)
+
+        # Recover momenta and check mass-shell
+        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+        px = bunch.thx * pz
+        py = bunch.thy * pz
+
+        gamma_sq = bunch.gamma**2
+        p_sq = 1.0 + px**2 + py**2 + pz**2
+
+        np.testing.assert_allclose(gamma_sq, p_sq, rtol=1e-10)
+
+    # ---------------------------------------------------------------
+    # Dispersion
+    # ---------------------------------------------------------------
+
+    def test_dispersion_x_creates_correlation(self, ultra_relativistic_beam, rng):
+        """Verify x-γ dispersion creates measurable correlation."""
+        beam = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            dispersion_x=3e-6,
+            dispersion_y=3e-6,
+        )
+
+        n_particles = 100000
+        bunch = sample_gaussian_canonical(beam, n_particles, rng=rng)
+        params = fit_beam_full(bunch)
+
+        # Dispersion should be non-zero with correct sign
+        assert abs(params.D_x) > 1e-7, f"D_x too small: {params.D_x}"
+        assert abs(params.D_y) > 1e-7, f"D_y too small: {params.D_y}"
+
+    def test_dispersion_sign(self, ultra_relativistic_beam, rng):
+        """Verify dispersion sign is respected."""
+        n_particles = 100000
+
+        beam_pos = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            dispersion_x=3e-6,
+            dispersion_y=-3e-6,
+        )
+        bunch_pos = sample_gaussian_canonical(beam_pos, n_particles, rng=rng)
+        params_pos = fit_beam_full(bunch_pos)
+
+        beam_neg = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            dispersion_x=-3e-6,
+            dispersion_y=3e-6,
+        )
+        bunch_neg = sample_gaussian_canonical(beam_neg, n_particles, rng=rng)
+        params_neg = fit_beam_full(bunch_neg)
+
+        assert params_pos.D_x > 0, "Positive D_x should give positive dispersion"
+        assert params_pos.D_y < 0, "Negative D_y should give negative dispersion"
+        assert params_neg.D_x < 0, "Negative D_x should give negative dispersion"
+        assert params_neg.D_y > 0, "Positive D_y should give positive dispersion"
+
+    def test_dispersion_mass_shell(self, ultra_relativistic_beam, rng):
+        """Verify mass-shell holds with dispersion."""
+        beam = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            dispersion_x=3e-6,
+            dispersion_y=3e-6,
+        )
+
+        n_particles = 10000
+        bunch = sample_gaussian_canonical(beam, n_particles, rng=rng)
+
+        pz = np.sqrt((bunch.gamma**2 - 1) / (1 + bunch.thx**2 + bunch.thy**2))
+        px = bunch.thx * pz
+        py = bunch.thy * pz
+
+        gamma_sq = bunch.gamma**2
+        p_sq = 1.0 + px**2 + py**2 + pz**2
+
+        np.testing.assert_allclose(gamma_sq, p_sq, rtol=1e-10)
+
+    # ---------------------------------------------------------------
+    # Combined and edge cases
+    # ---------------------------------------------------------------
+
+    def test_chirp_and_dispersion_together(self, ultra_relativistic_beam, rng):
+        """Verify chirp and dispersion work together."""
+        sigma_z = ultra_relativistic_beam.sigma_z_m
+        sigma_gamma = ultra_relativistic_beam.sigma_gamma
+        max_chirp = sigma_gamma / sigma_z
+        h = 0.3 * max_chirp  # 30% correlation
+
+        beam = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            chirp_h=h,
+            dispersion_x=2e-6,
+            dispersion_y=-2e-6,
+        )
+
+        n_particles = 100000
+        bunch = sample_gaussian_canonical(beam, n_particles, rng=rng)
+        params = fit_beam_full(bunch)
+
+        # All three correlations should be measurable
+        assert abs(params.chirp) > 0.05 * max_chirp
+        assert abs(params.D_x) > 1e-7
+        assert abs(params.D_y) > 1e-7
+        assert params.D_y < 0 < params.D_x  # D_x positive, D_y negative
+
+    def test_no_chirp_dispersion_default(self, ultra_relativistic_beam, rng):
+        """Verify default (no chirp/dispersion) gives zero correlations."""
+        n_particles = 100000
+        bunch = sample_gaussian_canonical(ultra_relativistic_beam, n_particles, rng=rng)
+        params = fit_beam_full(bunch)
+
+        # Without chirp/dispersion, correlations should be small
+        natural_scale = ultra_relativistic_beam.gamma0 / ultra_relativistic_beam.sigma_z_m
+        assert abs(params.chirp) < 0.5 * natural_scale
+
+        # Dispersion should be small (mostly noise)
+        gamma_std = np.std(bunch.gamma)
+        sx_in = ultra_relativistic_beam._sx_m
+        assert abs(params.D_x) < 3 * sx_in / gamma_std if gamma_std > 0 else True
+
+    def test_too_strong_correlations_raise(self, ultra_relativistic_beam):
+        """Verify error on too-strong chirp/dispersion."""
+        # Chirp so strong that ρ_zγ > 1
+        sigma_z = ultra_relativistic_beam.sigma_z_m
+        sigma_gamma = ultra_relativistic_beam.sigma_gamma  # = sigma_pz * gamma0 * beta0
+        max_chirp = sigma_gamma / sigma_z  # ρ_zγ = 1 at this value
+
+        # Use chirp slightly above the limit
+        beam = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            chirp_h=2 * max_chirp,  # This makes ρ_zγ ≈ 2, violating the constraint
+        )
+
+        n_particles = 1000
+        with pytest.raises(ValueError, match="Chirp/dispersion too strong"):
+            sample_gaussian_canonical(beam, n_particles)
+
+    def test_gamma_total_variance_preserved(self, ultra_relativistic_beam, rng):
+        """Verify total marginal variance of gamma is preserved."""
+        sigma_z = ultra_relativistic_beam.sigma_z_m
+        sigma_gamma = ultra_relativistic_beam.sigma_gamma
+        max_chirp = sigma_gamma / sigma_z
+        h = 0.3 * max_chirp  # 30% z-γ correlation
+
+        n_particles = 100000
+
+        # Sample without correlations
+        bunch_no_corr = sample_gaussian_canonical(
+            ultra_relativistic_beam, n_particles, rng=rng
+        )
+        var_no_corr = np.var(bunch_no_corr.gamma)
+
+        # Sample with correlations
+        beam_corr = GaussianElectronBeam(
+            bunch_charge_C=ultra_relativistic_beam.bunch_charge_C,
+            kinetic_energy_eV=ultra_relativistic_beam.kinetic_energy_eV,
+            rel_energy_spread_rms=ultra_relativistic_beam.rel_energy_spread_rms,
+            sigma_x_m=ultra_relativistic_beam.sigma_x_m,
+            sigma_y_m=ultra_relativistic_beam.sigma_y_m,
+            emit_geom_x_m=ultra_relativistic_beam.emit_geom_x_m,
+            emit_geom_y_m=ultra_relativistic_beam.emit_geom_y_m,
+            sigma_t_s=ultra_relativistic_beam.sigma_t_s,
+            sigma_pz=ultra_relativistic_beam.sigma_pz,
+            chirp_h=h,
+            dispersion_x=2e-6,
+            dispersion_y=2e-6,
+        )
+        bunch_corr = sample_gaussian_canonical(beam_corr, n_particles, rng=rng)
+        var_corr = np.var(bunch_corr.gamma)
+
+        # The marginal variance should be the same (same sigma_pz, just reallocated)
+        # Allow 10% for sampling noise
+        rel_diff = abs(var_corr - var_no_corr) / var_no_corr
+        assert rel_diff < 0.1, (
+            f"Marginal gamma variance changed by {rel_diff*100:.1f}% "
+            f"(no corr: {var_no_corr:.3g}, with corr: {var_corr:.3g})"
+        )

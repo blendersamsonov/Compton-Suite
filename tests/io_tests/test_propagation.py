@@ -13,15 +13,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 
-from compton_suite.io.bunch import GaussianElectronBeam, fit_gaussian, sample_gaussian_bunch  # noqa: E402
-from compton_suite.io.constants import C_LIGHT  # noqa: E402
-from compton_suite.io.enums import PhysicalMeaning, TimeConvention, WidthConvention  # noqa: E402
-from compton_suite.io.quantities import PhysicalQuantity  # noqa: E402
-from compton_suite.io.propagation import (  # noqa: E402
+from compton_suite.io.bunch import (  # noqa: E402
+    GaussianElectronBeam,
     ballistic_position_simultaneous,
     ballistic_position_z0_reference,
+    fit_gaussian,
     propagate,
+    sample_gaussian_bunch,
     stream,
+)
+from compton_suite.io.units import (  # noqa: E402
+    C_LIGHT,
+    PhysicalMeaning,
+    PhysicalQuantity,
+    TimeConvention,
+    WidthConvention,
 )
 
 _EXAMPLE_BEAM = GaussianElectronBeam(

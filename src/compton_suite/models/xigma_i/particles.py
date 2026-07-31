@@ -25,8 +25,8 @@ be simple to reason about and validate independently.
 import numpy as np
 from dataclasses import dataclass
 
-from compton_suite.io.laser_envelope import gaussian_pulse_envelope
-from compton_suite.io.propagation import ballistic_position_z0_reference, laser_overlap_time_window
+from compton_suite.io.laser import gaussian_pulse_envelope
+from compton_suite.io.bunch import ballistic_position_z0_reference, laser_overlap_time_window
 
 from .config import GAUSS_WIDTH, LORENTZ_WIDTH
 
@@ -287,17 +287,7 @@ def push_and_sample(params, macrobunch, n_steps=200, backend='numpy', *,
 def _push_and_sample_vectorized(params, macrobunch, n_steps, xp,
                                  n_time_bins=None, t_edges=None,
                                  n_spatial_bins=None, spatial_edges=None):
-    """The (n_particles, n_steps) broadcast form of push_and_sample, shared
-    by the 'numpy' and 'cupy' backends -- array-module-agnostic like
-    deposition.py's deposit_nearest/deposit_cic, since every operation here
-    is elementwise or a reduction along the n_steps axis (nothing that needs
-    a hand-written kernel). For xp=cp, the bunch's (host numpy/SI) fields
-    are converted once at the top and results stay on-device.
-
-    n_time_bins/t_edges/n_spatial_bins/spatial_edges: see push_and_sample's
-    docstring -- binned here, after `contribution` (the same (n, n_steps)
-    array L sums over time) is computed, since that's
-    the exact quantity being partitioned differently rather than collapsed.
+    """MUST USE io/bunch.py stream function!!
     """
     from .config import sigma_T
 

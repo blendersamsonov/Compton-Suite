@@ -11,10 +11,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from compton_suite.io.constants import C_LIGHT  # noqa: E402
-from compton_suite.io.enums import NoConvention, PhysicalMeaning, TimeConvention, WidthConvention  # noqa: E402
 from compton_suite.io.laser import GaussianParaxialLaser, laser_from_shared_fields, validate  # noqa: E402
-from compton_suite.io.quantities import PhysicalQuantity  # noqa: E402
+from compton_suite.io.units import (  # noqa: E402
+    C_LIGHT,
+    NoConvention,
+    PhysicalMeaning,
+    PhysicalQuantity,
+    TimeConvention,
+    WidthConvention,
+)
 
 _EXAMPLE_PULSE = GaussianParaxialLaser(
     pulse_energy_J=PhysicalQuantity(0.05, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),

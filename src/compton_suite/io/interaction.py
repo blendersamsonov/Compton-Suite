@@ -30,49 +30,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from .bunch import GaussianElectronBeam
-from .constants import C_LIGHT, E_CHARGE, HBAR, MEC2_EV
-from .enums import NoConvention, PhysicalMeaning
+from .units import C_LIGHT, E_CHARGE, HBAR, MEC2_EV, PhysicalQuantity
 from .laser import GaussianParaxialLaser
-from .quantities import PhysicalQuantity
 
-__all__ = ["InteractionGeometry", "InteractionParameters", "recoil_parameter"]
-
-
-def _pq(value: float, unit: str, meaning: PhysicalMeaning) -> PhysicalQuantity:
-    return PhysicalQuantity(value, unit, meaning, NoConvention.PLAIN)
-
-
-@dataclass(frozen=True)
-class InteractionGeometry:
-    """Collision geometry: foci displacement and crossing angle.
-
-    Every field is a :class:`PhysicalQuantity` carrying its unit and physical
-    meaning. All carry ``NoConvention.PLAIN`` since displacement and angle
-    have no convention ambiguity.
-    """
-
-    delta_x_m: PhysicalQuantity = _pq(0.0, "meter", PhysicalMeaning.DISPLACEMENT)
-    delta_y_m: PhysicalQuantity = _pq(0.0, "meter", PhysicalMeaning.DISPLACEMENT)
-    delta_z_m: PhysicalQuantity = _pq(0.0, "meter", PhysicalMeaning.DISPLACEMENT)
-    crossing_angle_rad: PhysicalQuantity = _pq(0.0, "radian", PhysicalMeaning.ANGLE)
-
-    # -- SI convenience helpers ---------------------------------------------
-    @property
-    def _dx_m(self) -> float:
-        return self.delta_x_m.to_unit("meter").magnitude
-
-    @property
-    def _dy_m(self) -> float:
-        return self.delta_y_m.to_unit("meter").magnitude
-
-    @property
-    def _dz_m(self) -> float:
-        return self.delta_z_m.to_unit("meter").magnitude
-
-    @property
-    def _cr_rad(self) -> float:
-        return self.crossing_angle_rad.to_unit("radian").magnitude
-
+__all__ = ["InteractionParameters", "recoil_parameter"]
 
 @dataclass(frozen=True)
 class InteractionParameters:
@@ -82,8 +43,6 @@ class InteractionParameters:
 
     beam: GaussianElectronBeam
     laser: GaussianParaxialLaser
-    geometry: InteractionGeometry = InteractionGeometry()
-    quantum: bool = False
 
 
 def recoil_parameter(gamma: float, wavelength_m: float) -> float:
