@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from compton_suite.io.units import (  # noqa: E402
+from gammaforge.io.units import (  # noqa: E402
     LIGHT_TIME_CONTEXT,
     AmplitudeConvention,
     PhysicalMeaning,

@@ -4,33 +4,28 @@ This file provides guidance to AI agents (Claude Code, etc.) when working with c
 
 ## What this is
 
-`ComptonSuite` is a single git repository for an inverse-Compton-scattering
+`GammaForge` is a single git repository for an inverse-Compton-scattering
 physics simulation + GUI suite. It used to be six independent git repos
 (one per component); they were merged here via `git subtree`, so each
 component's full commit history is preserved under its new path (use
 `git log --full-history -- <path>` to see pre-merge history, since the
 path changed at the merge). The components have since been consolidated
-into a single unified package (`compton_suite`) with sub-packages for
+into a single unified package (`gammaforge`) with sub-packages for
 io, gui, and models — see "Layout" below.
-
-**A future rename to "GammaForge"** (import alias `gfrg`) is planned but
-not yet started — the package is still `compton_suite` everywhere. Don't
-introduce partial `gfrg` aliasing outside a deliberate, complete rename
-pass.
 
 ## Layout
 
 | Directory | Python package | Role |
 |-----------|-----------------|------|
-| `src/compton_suite/io/` | `compton_suite.io` | Model-agnostic shared layer: `units.py` (pint registry, physical constants, the width/time/amplitude convention enums, `PhysicalQuantity`, and the raw `convert_width`/`convert_time`/`convert_amplitude` conversion functions — all in one file), electron-bunch (`bunch.py`) and laser-pulse (`laser.py`) representations, the shared (beam, laser) bundle (`interaction.py`), output/results dataclasses (`photons.py`), external I/O (`io_formats/`). **Depended on by everything else; depends on nothing in this repo.** There is no generic "ParameterSpec"/"ModelSpec"/`adapt_to_model` framework — each model converts a `PhysicalQuantity` to whatever convention/unit it needs directly via `convert_width`/`convert_time`/`convert_amplitude` at its own boundary. |
-| `src/compton_suite/gui/` | `compton_suite.gui` | Tkinter desktop GUI (`app.py`, `calculations.py`). Thin consumer of `io/` and `models/api.py` — no physics computation, only rendering, field parsing, and compiling a `Job` to hand to whichever adapter is selected. |
-| `src/compton_suite/models/api.py` | `compton_suite.models.api` | The `ModelAdapter` protocol, `Job`/`OutputSpec` dataclasses, the model registry (`register`/`registered_models`/`discover_models`). Every model plugs in here — see "Model registration" below. |
-| `src/compton_suite/models/kascade/` | `compton_suite.models.kascade` | CPU Monte Carlo physics engine (sequential multi-photon event generator), SI units, always available. |
-| `src/compton_suite/models/xigma_i/` | `compton_suite.models.xigma_i` | GPU (CuPy, numba CPU fallback) tabulated-overlap-table physics engine, CGS units, `k0_las`-normalised. `adapter.py` exposes **two** adapters: `XigmaAdapter` (registered as `"xigma-i"`, the full Stage 0/1/2 tabulated pipeline) and `DirectAdapter` (registered as `"delta"`, a brute-force per-macroparticle resonance-binning mode reusing this package's own Stage 0 directly — **not a separate model package**, just a different Stage-2 evaluation of the same engine). Greyed out (`UnavailableAdapter`) in the GUI if neither cupy/CUDA nor numba is usable. |
-| `src/compton_suite/models/analytical.py` | `compton_suite.models.analytical` | Fast, closed-form yield/spectrum/width estimates, in a single flat module (`estimate_yield`, `estimate_spectrum_width`, `angle_integrated_spectrum`, `Adapter`). No `Config` class — `Adapter`'s one numeric knob (`theta_col_rad`) lives directly on the adapter instance. Always-on GUI preview alongside whichever other model is selected (hardcoded in `gui/app.py` as `self.analytical_adapter`). |
-| `src/compton_suite/misc.py` | — | `detect_device()` — the one shared cupy/numba backend-detection helper every model that needs GPU/CPU dispatch imports. |
-| `src/compton_suite/` | `compton_suite` | Unified package: `discover_models` re-export (via `models.api`) and the `run_gui`/console-script entry point. |
-| `src/compton_suite/validation/` | `compton_suite.validation` | Cross-model validation suite — shared `Scenario`s (`scenarios.py`), per-model runners (`runners.py`, `Job`-based), tiered comparisons (`tier0_wiring.py`..`tier4_regime_boundary.py`, `run_cross_validation.py`), plotting (`visualize.py`), a commit-hash-keyed result cache (`cache.py`). |
+| `src/gammaforge/io/` | `gammaforge.io` | Model-agnostic shared layer: `units.py` (pint registry, physical constants, the width/time/amplitude convention enums, `PhysicalQuantity`, and the raw `convert_width`/`convert_time`/`convert_amplitude` conversion functions — all in one file), electron-bunch (`bunch.py`) and laser-pulse (`laser.py`) representations, the shared (beam, laser) bundle (`interaction.py`), output/results dataclasses (`photons.py`), external I/O (`io_formats/`). **Depended on by everything else; depends on nothing in this repo.** There is no generic "ParameterSpec"/"ModelSpec"/`adapt_to_model` framework — each model converts a `PhysicalQuantity` to whatever convention/unit it needs directly via `convert_width`/`convert_time`/`convert_amplitude` at its own boundary. |
+| `src/gammaforge/gui/` | `gammaforge.gui` | Tkinter desktop GUI (`app.py`, `calculations.py`). Thin consumer of `io/` and `models/api.py` — no physics computation, only rendering, field parsing, and compiling a `Job` to hand to whichever adapter is selected. |
+| `src/gammaforge/models/api.py` | `gammaforge.models.api` | The `ModelAdapter` protocol, `Job`/`OutputSpec` dataclasses, the model registry (`register`/`registered_models`/`discover_models`). Every model plugs in here — see "Model registration" below. |
+| `src/gammaforge/models/kascade/` | `gammaforge.models.kascade` | CPU Monte Carlo physics engine (sequential multi-photon event generator), SI units, always available. |
+| `src/gammaforge/models/xigma_i/` | `gammaforge.models.xigma_i` | GPU (CuPy, numba CPU fallback) tabulated-overlap-table physics engine, CGS units, `k0_las`-normalised. `adapter.py` exposes **two** adapters: `XigmaAdapter` (registered as `"xigma-i"`, the full Stage 0/1/2 tabulated pipeline) and `DirectAdapter` (registered as `"delta"`, a brute-force per-macroparticle resonance-binning mode reusing this package's own Stage 0 directly — **not a separate model package**, just a different Stage-2 evaluation of the same engine). Greyed out (`UnavailableAdapter`) in the GUI if neither cupy/CUDA nor numba is usable. |
+| `src/gammaforge/models/analytical.py` | `gammaforge.models.analytical` | Fast, closed-form yield/spectrum/width estimates, in a single flat module (`estimate_yield`, `estimate_spectrum_width`, `angle_integrated_spectrum`, `Adapter`). No `Config` class — `Adapter`'s one numeric knob (`theta_col_rad`) lives directly on the adapter instance. Always-on GUI preview alongside whichever other model is selected (hardcoded in `gui/app.py` as `self.analytical_adapter`). |
+| `src/gammaforge/misc.py` | — | `detect_device()` — the one shared cupy/numba backend-detection helper every model that needs GPU/CPU dispatch imports. |
+| `src/gammaforge/` | `gammaforge` | Unified package: `discover_models` re-export (via `models.api`) and the `run_gui`/console-script entry point. |
+| `src/gammaforge/validation/` | `gammaforge.validation` | Cross-model validation suite — shared `Scenario`s (`scenarios.py`), per-model runners (`runners.py`, `Job`-based), tiered comparisons (`tier0_wiring.py`..`tier4_regime_boundary.py`, `run_cross_validation.py`), plotting (`visualize.py`), a commit-hash-keyed result cache (`cache.py`). |
 | `tests/` | (not a package) | Root-level tests (`test_analytical.py`, `test_bunch_improvements.py`) plus `tests/io_tests/` (per-`io/`-module tests). |
 
 ## Architecture
@@ -85,7 +80,7 @@ Adapters live in each model's own package:
 unconditionally, and wraps xigma_i's registration in a `try/except`,
 falling back to `UnavailableAdapter` for both `"xigma-i"` and `"delta"` if
 neither cupy/CUDA nor numba is usable — one missing optional dependency
-never breaks `import compton_suite.models`.
+never breaks `import gammaforge.models`.
 
 **Only kascade has a standalone `Config` class.** xigma-i (`XigmaAdapter`),
 delta (`DirectAdapter`), and analytical (`Adapter`) don't have a `Config`
@@ -235,7 +230,7 @@ stdout.)
   boundary.** Use duck typing instead (e.g. `hasattr(x, "weight")`
   vs `hasattr(x, "dNdE_per_eV")`).
 - **Units differ per engine.** Each model converts at its own boundary.
-- **Physical constants have one source of truth**: `compton_suite.io.units`
+- **Physical constants have one source of truth**: `gammaforge.io.units`
   (constants, pint registry, and the convention enums all live in this one
   file now — there's no separate `constants.py`/`enums.py`/`quantities.py`).
 - **No model-local particle sampling, no model-local result contract.**
@@ -264,7 +259,7 @@ python3 scripts/run_gui.py
 python3 scripts/headless_test.py
 
 # Cross-model validation suite
-python3 src/compton_suite/validation/run_cross_validation.py
+python3 src/gammaforge/validation/run_cross_validation.py
 ```
 
 ## Where to look next

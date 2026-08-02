@@ -73,9 +73,9 @@ Four stages, plus shared config and validation/GUI layers.
 
 This package no longer samples its own electrons, and holds no separate
 "Bunch" class either: there is exactly one place electron bunches get
-drawn from a beam description (`compton_suite.io.bunch.sample_gaussian_bunch`),
+drawn from a beam description (`gammaforge.io.bunch.sample_gaussian_bunch`),
 not one per model, and `push_and_sample(params, macrobunch, n_steps=,
-backend=)` takes a `compton_suite.io.bunch.MacroBunch` (SI, engine-agnostic)
+backend=)` takes a `gammaforge.io.bunch.MacroBunch` (SI, engine-agnostic)
 directly, converting it to this pipeline's own CGS/`k0_las`-normalised
 positions inline (see `_normalise_bunch`) rather than via a separate,
 persistent class -- `gamma`/`theta_x`/`theta_y` pass through unchanged,
@@ -107,7 +107,7 @@ integral[a0_local(t)^2] dt` (Paper/xigma.tex eq. "ahattraj"), where
 *instantaneous* local field amplitude computed internally at each
 timestep, and `TrXi/2 = (1 + params.ellipticity**2) / 2` (eq. "Xi";
 `ellipticity=0` linear, `+-1` circular -- `CollisionParams.ellipticity`,
-set via `compton_suite.io.collision.build_params`). **The formation length spans the entire trajectory, not individual timesteps.** In the weakly-nonlinear regime (`a0 <~ 1`), each electron radiates one line shaped by a single effective intensity value (the trajectory average). This is fundamentally different from the synchrotron/wiggler regime (where formation length ~one laser cycle and the trajectory can be split into independent segments). **Do not deposit `a0_local(t)` per timestep into the kernel.**
+set via `gammaforge.io.collision.build_params`). **The formation length spans the entire trajectory, not individual timesteps.** In the weakly-nonlinear regime (`a0 <~ 1`), each electron radiates one line shaped by a single effective intensity value (the trajectory average). This is fundamentally different from the synchrotron/wiggler regime (where formation length ~one laser cycle and the trajectory can be split into independent segments). **Do not deposit `a0_local(t)` per timestep into the kernel.**
 
 **a0 factorises out of the table -- `a0_shape` and `deposition.retarget_a0`.**
 `ahat(zeta)` above splits *exactly* as `ahat(zeta) = compton.a0**2 *
@@ -195,7 +195,7 @@ the module's own docstring for the full per-block algorithm. `coef = 1.5`,
 a pure numerical constant from eq. "main"/"Fmatrix" in the accompanying
 paper. `calculate_angular_spectrum_4d(table, s, theta_x, theta_y, phi_pol,
 samples_per_point=, device=None)` is the host driver; `device=None|'cpu'|
-'gpu'` auto-detects via `compton_suite.io.collision.detect_device()` (re-exported
+'gpu'` auto-detects via `gammaforge.io.collision.detect_device()` (re-exported
 as `config._detect_device` for this package's own internal callers);
 callers pass
 `theta_x`/`theta_y`/`s` as `cp`/`np` arrays matching the chosen device
@@ -268,7 +268,7 @@ project -- kept here for now, still needed.
 ### Shared config -- `config.py`
 
 Physical constants (`me`, `c`, `el`, `rel`, `sigma_T`, `PHI`) -- `me`/`c`/
-`el` come from `compton_suite.io.constants` (see "Parameter semantics & units"
+`el` come from `gammaforge.io.constants` (see "Parameter semantics & units"
 below), not local literals; `rel`/`sigma_T` are still derived locally from
 those via this module's own CGS formula (`sigma_T`, the Thomson cross
 section, is the only locally-derived quantity), and `PHI`
@@ -276,40 +276,40 @@ section, is the only locally-derived quantity), and `PHI`
 constants `spectrum_kernel_4d` needs (`X_THREADS`, `MAX_RINGS`,
 `MAX_ARCS`, `PHI_EDGES`, `CDF_PHI_RESOLUTION`, ...; see "Sizing constants"
 in Conventions) also live here, plus `_detect_device` — a thin re-export
-of `compton_suite.io.misc.detect_device` kept so this package's own
+of `gammaforge.io.misc.detect_device` kept so this package's own
 internal callers (`spectrum4d.py`, `adapter.py`) don't need to change
 their import path.
 
-**`CollisionParams`/`build_params` moved to `compton_suite.io.collision`** (this
+**`CollisionParams`/`build_params` moved to `gammaforge.io.collision`** (this
 package was their only consumer, but the pipeline's CGS/`k0_las`
 convention has nothing xigma-specific about it beyond the `a0` formula --
 see that module's own docstring). `CollisionParams` is a plain, immutable
 (frozen) dataclass holding a laser-electron collision's physical
 parameters (`k0_las`, `Wph`, `a0`, `N_e`, `N_l`, `sigma_thx`/`sigma_thy`,
 `beta_ff`/`ellipticity`, ...); it runs no computation of its own.
-`compton_suite.io.collision.build_params(beam, laser, geometry=None, *,
+`gammaforge.io.collision.build_params(beam, laser, geometry=None, *,
 beta_ff=0.0, ellipticity=0.0, device=None)` is the *only* way to construct
-one: a pure function taking `compton_suite.io.bunch.GaussianElectronBeam`/
-`compton_suite.io.laser.GaussianParaxialLaser`/`compton_suite.io.interaction.
+one: a pure function taking `gammaforge.io.bunch.GaussianElectronBeam`/
+`gammaforge.io.laser.GaussianParaxialLaser`/`gammaforge.io.interaction.
 InteractionGeometry` directly (SI) and deriving this convention's CGS
 scalars in one call -- there is no `set_*`-mutated builder object to
 accumulate state across several calls. `device=None` auto-detects a
-backend via `compton_suite.io.collision.detect_device()`: a real CUDA GPU via
+backend via `gammaforge.io.collision.detect_device()`: a real CUDA GPU via
 cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else CPU (requires
 `numba`), else raises -- there is no third backend. `.xp` (`cp` or `np`)
 and `.asnumpy(x)` (`.get()` on GPU, no-op on CPU) are a thin convenience
 for host orchestration code (`adapter.py`'s adapters) that builds arrays on the
 chosen device and needs to bring results back to host afterwards.
 
-`particles.push_and_sample` takes a `compton_suite.io.collision.CollisionParams`
+`particles.push_and_sample` takes a `gammaforge.io.collision.CollisionParams`
 instance as its parameter source.
 
 ### GUI-facing engine -- `tabulated_engine.py`
 
-`TabulatedEngine` wraps a `compton_suite.io.collision.CollisionParams` instance
+`TabulatedEngine` wraps a `gammaforge.io.collision.CollisionParams` instance
 purely for its plain-data properties and drives Stages 0/1/2 for one
 collision config: `.run(n_steps=, n_bins=, scheme=, backend=, a0_max=0.5,
-n_time_bins=, n_spatial_bins=, bunch=)` (`bunch`, a `compton_suite.io.bunch.
+n_time_bins=, n_spatial_bins=, bunch=)` (`bunch`, a `gammaforge.io.bunch.
 MacroBunch`, is required and keyword-only -- electron sampling is the
 caller's job, not this engine's) pushes and samples it (`a0_shape`
 output), builds an `a0_kind='shape'` table, and retargets it to this run's
@@ -376,8 +376,8 @@ Tooling for resolution/deposition-scheme scans exists; no scan has been run
 and recorded yet. Pattern:
 
     import numpy as np
-    from compton_suite.io.bunch import sample_gaussian_bunch
-    from compton_suite.io.collision import build_params
+    from gammaforge.io.bunch import sample_gaussian_bunch
+    from gammaforge.io.collision import build_params
     from xigma_i import particles, deposition, spectrum4d
 
     params = build_params(beam, laser)  # beam: GaussianElectronBeam, laser: GaussianParaxialLaser
@@ -405,7 +405,7 @@ enough"):
   other three are a memory/accuracy tradeoff (a 128×128×128×32 float32
   table is ~270 MB).
 - **Particle statistics**: `n_particles` (passed to
-  `compton_suite.io.bunch.sample_gaussian_bunch`) sets how many
+  `gammaforge.io.bunch.sample_gaussian_bunch`) sets how many
   `(gamma, theta_x, theta_y, a0, weight)` rows land in the table --
   `push_and_sample` emits exactly one per particle. `n_steps`
   (`push_and_sample`) does *not* affect that count; it's purely the
@@ -473,7 +473,7 @@ devices default to float64, see Conventions).
 ## Environment
 
 CuPy with `cupyx.jit` rawkernels for the GPU path; `numba` for the CPU
-fallback (either is sufficient, see `compton_suite.io.collision.detect_device`).
+fallback (either is sufficient, see `gammaforge.io.collision.detect_device`).
 No build system beyond `pyproject.toml` (setuptools), no repo-tracked test
 suite at present (validation lives in ad hoc scripts run against
 `reference.py`/`spectrum_from_particles.py`/`deposition.py`'s functions,
@@ -489,7 +489,7 @@ path.
 
 ## GUI integration (`adapter.py`)
 
-`src/compton_suite/models/xigma_i/adapter.py` plugs this package into the GUI as a pluggable `ModelAdapter`. It exports two adapter classes:
+`src/gammaforge/models/xigma_i/adapter.py` plugs this package into the GUI as a pluggable `ModelAdapter`. It exports two adapter classes:
 
 - **`XigmaAdapter`** (registered as `"xigma-i"`) — the full tabulated pipeline (Stage 0/1/2).
 - **`DirectAdapter`** (registered as `"delta"`) — brute-force per-particle binning using only Stage 0, registered under a separate name but not a separate model package.
@@ -555,7 +555,7 @@ interpreter`).
   (`particles.push_and_sample`) directly as a library dependency.
 - `gui/` — the shared Tkinter GUI. Depends on this package only through
   `adapter.py`'s `ModelAdapter` interface (never touches `deposition.py`/etc. directly).
-- `IO/` (package `compton_suite.io`) -- shared physical constants, pint registry,
+- `IO/` (package `gammaforge.io`) -- shared physical constants, pint registry,
   and parameter-convention framework, depended on by this package
   (`config.py`, `params/`), the reverse direction from the `gui/`
 
@@ -569,19 +569,19 @@ this machine via the `core` env above.
 
 ## Physical constants and unit conversions
 
-Physical constants (`hbar`, `me`, `c`, `el`, `elC`) come from `compton_suite.io.constants` (the shared, audited source for all models). The shared `pint` unit registry from `compton_suite.io.units` includes a custom `"light_time"` context so a length can stand in for `c * duration`.
+Physical constants (`hbar`, `me`, `c`, `el`, `elC`) come from `gammaforge.io.constants` (the shared, audited source for all models). The shared `pint` unit registry from `gammaforge.io.units` includes a custom `"light_time"` context so a length can stand in for `c * duration`.
 
-Unit conversions from SI (shared beam/laser) to CGS (xigma-i's internal representation) happen at adapter boundaries via `convert_width`, `convert_time`, `convert_amplitude` functions from `compton_suite.io.units`—not via a generic parameter-semantics framework.
+Unit conversions from SI (shared beam/laser) to CGS (xigma-i's internal representation) happen at adapter boundaries via `convert_width`, `convert_time`, `convert_amplitude` functions from `gammaforge.io.units`—not via a generic parameter-semantics framework.
 
-**`compton_suite.io` is load-bearing, not optional.** `config.py` and the adapter both import constants and conversions directly. Model registration wraps xigma-i's import in a `try/except`, so a missing `compton_suite.io` install surfaces as "model unavailable" rather than a crash.
+**`gammaforge.io` is load-bearing, not optional.** `config.py` and the adapter both import constants and conversions directly. Model registration wraps xigma-i's import in a `try/except`, so a missing `gammaforge.io` install surfaces as "model unavailable" rather than a crash.
 
 **Parameter flow**: GUI reads fields → GUI compiles a `Job` → `XigmaAdapter.run(job)` reads `job.extra` (model-specific knobs like `n_particles_01`, `n_steps_0`, etc.) and `job.interaction` (shared beam+laser in SI) → adapter calls `convert_width`/`convert_time` to convert SI to CGS at the physics boundary
 "sigma0_x/sigma0_l wrinkle"). `scripts/physics_params_demo.py` exercises
-`xigma_i.params` end to end, alongside `compton_suite.models.kascade.
+`xigma_i.params` end to end, alongside `gammaforge.models.kascade.
 params.KASCADE_SPEC`.
 
 Needs `pint` (a hard dependency in `pyproject.toml`, transitively required
-by `compton_suite.io` — pure Python, no GPU/cupy involvement, so neither
-`compton_suite.io` nor `xigma_i.params`/`config.py` ever require cupy.
+by `gammaforge.io` — pure Python, no GPU/cupy involvement, so neither
+`gammaforge.io` nor `xigma_i.params`/`config.py` ever require cupy.
 The adapter (`adapter.py`) itself stays cupy-optional throughout (deferred
 import in `run()` method), see "GUI integration" above.

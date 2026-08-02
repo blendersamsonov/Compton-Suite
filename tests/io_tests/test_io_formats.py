@@ -14,16 +14,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 
-from compton_suite.io.bunch import GaussianElectronBeam, fit_gaussian, sample_gaussian_bunch  # noqa: E402
-from compton_suite.io.io_formats.sdds import load_elegant_ele, save_elegant_ele  # noqa: E402
-from compton_suite.io.io_formats.yaml_spec import (  # noqa: E402
+from gammaforge.io.bunch import GaussianElectronBeam, fit_gaussian, sample_gaussian_bunch  # noqa: E402
+from gammaforge.io.io_formats.sdds import load_elegant_ele, save_elegant_ele  # noqa: E402
+from gammaforge.io.io_formats.yaml_spec import (  # noqa: E402
     load_electron_beam,
     load_laser,
     save_electron_beam,
     save_laser,
 )
-from compton_suite.io.laser import GaussianParaxialLaser  # noqa: E402
-from compton_suite.io.units import (  # noqa: E402
+from gammaforge.io.laser import GaussianParaxialLaser  # noqa: E402
+from gammaforge.io.units import (  # noqa: E402
     PhysicalMeaning,
     PhysicalQuantity,
     TimeConvention,

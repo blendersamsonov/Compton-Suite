@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from compton_suite.io.laser import GaussianParaxialLaser, validate  # noqa: E402
-from compton_suite.io.units import (  # noqa: E402
+from gammaforge.io.laser import GaussianParaxialLaser, validate  # noqa: E402
+from gammaforge.io.units import (  # noqa: E402
     NoConvention,
     PhysicalMeaning,
     PhysicalQuantity,

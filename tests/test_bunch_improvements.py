@@ -7,7 +7,7 @@ vacuum propagation, structured Gaussian fitting, and fit quality metrics.
 import numpy as np
 import pytest
 
-from compton_suite.io.bunch import (
+from gammaforge.io.bunch import (
     GaussianElectronBeam,
     Bunch,
     drift,
@@ -16,7 +16,7 @@ from compton_suite.io.bunch import (
     sample_gaussian_bunch,
     sample_gaussian_canonical,
 )
-from compton_suite.io.units import PhysicalMeaning, PhysicalQuantity
+from gammaforge.io.units import PhysicalMeaning, PhysicalQuantity
 
 
 # ---------------------------------------------------------------------------

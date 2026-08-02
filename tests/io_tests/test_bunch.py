@@ -14,14 +14,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 
-from compton_suite.io.bunch import (  # noqa: E402
+from gammaforge.io.bunch import (  # noqa: E402
     GaussianElectronBeam,
     Bunch,
     fit_gaussian,
     sample_gaussian_bunch,
     validate,
 )
-from compton_suite.io.units import PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention  # noqa: E402
+from gammaforge.io.units import PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention  # noqa: E402
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
     bunch_charge_C=PhysicalQuantity(100e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),

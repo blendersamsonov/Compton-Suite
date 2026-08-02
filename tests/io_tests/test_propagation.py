@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 
-from compton_suite.io.bunch import (  # noqa: E402
+from gammaforge.io.bunch import (  # noqa: E402
     Bunch,
     GaussianElectronBeam,
     ballistic_position_z0_reference,
@@ -22,7 +22,7 @@ from compton_suite.io.bunch import (  # noqa: E402
     sample_gaussian_bunch,
     stream,
 )
-from compton_suite.io.units import (  # noqa: E402
+from gammaforge.io.units import (  # noqa: E402
     C_LIGHT,
     PhysicalMeaning,
     PhysicalQuantity,

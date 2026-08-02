@@ -1,4 +1,4 @@
-# ComptonSuite model-agnostic-core refactor: status
+# GammaForge model-agnostic-core refactor: status
 
 **Status**: Complete — all items resolved. Kept as a historical record.
 **Location**: `docs/refactor/core-simulation-api.md`
@@ -8,10 +8,10 @@
 ## What changed since this doc was first written
 
 The original version of this doc (2026-07-26) proposed extracting a new
-`compton_suite.core` package (`core/protocol.py`, `core/collision.py`,
+`gammaforge.core` package (`core/protocol.py`, `core/collision.py`,
 `core/simulation.py`, `core/adapters/`) between `io/` and `gui/`/`models/`.
 **That package was never built.** Instead, the repo consolidated directly
-into a single `src/compton_suite` package with `io/`, `gui/`, `models/`,
+into a single `src/gammaforge` package with `io/`, `gui/`, `models/`,
 `validation/` submodules — `io/` (née `compton_io`) *is* the model-agnostic
 shared layer this doc originally wanted `core/` to be. Individual pieces
 of physics/config logic have been moved out of models and into `io/` one
@@ -22,7 +22,7 @@ list instead of a speculative package-creation plan.
 ## Current package layout
 
 ```
-src/compton_suite/
+src/gammaforge/
 ├── io/            # shared-nothing dependency layer (was compton_io)
 │   ├── bunch.py, laser.py          # GaussianElectronBeam / GaussianParaxialLaser (SI, v0.1 contracts)
 │   ├── laser_envelope.py           # gaussian_pulse_envelope (see "Landed" below)
@@ -30,7 +30,7 @@ src/compton_suite/
 │   ├── collision.py                # CollisionParams / build_params (CGS/k0_las)
 │   ├── interaction.py, photons.py, results.py, constants.py, units.py, ...
 │   └── io_formats/                 # elegant .ele, YAML spec I/O
-├── gui/           # Tkinter GUI (compton_suite.gui) — still a thick consumer, see "Still open" below
+├── gui/           # Tkinter GUI (gammaforge.gui) — still a thick consumer, see "Still open" below
 ├── models/
 │   ├── kascade/       # SI, sequential multi-photon MC, arbitrary crossing angle
 │   ├── xigma_i/        # CGS/k0_las-normalised, tabulated-overlap GPU/CPU pipeline
@@ -81,7 +81,7 @@ once a second consumer needed the same thing:
   `a0_from_fields` docstring.
 - **Two copies of `validation/`** — a top-level `validation/` directory
   (runtime artifacts only: `__pycache__/`, `.cache/`, `.ele`, `plots/`)
-  alongside the live `src/compton_suite/validation/`. Safe to `rm -rf`
+  alongside the live `src/gammaforge/validation/`. Safe to `rm -rf`
   the stale top-level copy.
 
 ## Explicitly dropped from the original plan
@@ -90,7 +90,7 @@ once a second consumer needed the same thing:
   — no second package layer was introduced; each model's adapter
   (`models/*/gui_adapter.py` or `kascade_adapter.py`) still talks to the
   GUI's own `gui/model_api.py` directly.
-- The backward-compatibility section's "`compton_suite.io.collision.build_params`
+- The backward-compatibility section's "`gammaforge.io.collision.build_params`
   kept (deprecated, delegates to core)" — not applicable; `build_params`
   in `io/collision.py` already *is* the landed target, not a shim around
   something else.

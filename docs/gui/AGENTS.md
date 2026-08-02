@@ -1,6 +1,6 @@
 # GUI Integration via ModelAdapter
 
-The GUI (`src/compton_suite/gui/app.py`) is model-agnostic and plugs in physics engines through the `ModelAdapter` protocol. This decouples the GUI from any specific simulation engine, allowing new models to be added without touching GUI code.
+The GUI (`src/gammaforge/gui/app.py`) is model-agnostic and plugs in physics engines through the `ModelAdapter` protocol. This decouples the GUI from any specific simulation engine, allowing new models to be added without touching GUI code.
 
 ## The ModelAdapter Protocol
 
@@ -37,7 +37,7 @@ class ModelAdapter(Protocol):
 
 ## Results Contract
 
-Every model's `run()` returns `compton_suite.io.photons.Photons`. The spectrum can be one of two shapes:
+Every model's `run()` returns `gammaforge.io.photons.Photons`. The spectrum can be one of two shapes:
 
 - **`SampledPhotonSpectrum`** (unbinned, per-macroparticle): Has `weight` field; used by Monte Carlo models (kascade).
 - **`BinnedPhotonSpectrum`** (smooth binned density): Has `dNdE_per_eV`/`rate`/`density` fields; used by semi-analytic models (xigma-i, delta, analytical).
@@ -54,7 +54,7 @@ This is critical because separate model packages define their own structurally-i
 
 ## Model Registration
 
-The `discover_models()` function in `src/compton_suite/models/api.py` registers all available adapters:
+The `discover_models()` function in `src/gammaforge/models/api.py` registers all available adapters:
 
 - **kascade** (`models/kascade/kascade_adapter.py`) — CPU Monte Carlo, always available.
 - **xigma-i** (`models/xigma_i/adapter.py::XigmaAdapter`) — GPU tabulated pipeline, greyed out if cupy/CUDA unavailable.
@@ -65,7 +65,7 @@ The `discover_models()` function in `src/compton_suite/models/api.py` registers 
 
 Pattern for adding a new spectral visualization (e.g., polarization, temporal envelope):
 
-1. **Define dataclass pair** in `src/compton_suite/io/photons.py`:
+1. **Define dataclass pair** in `src/gammaforge/io/photons.py`:
    - `SampledPolarizationSpectrum` (with `weight` field for Monte Carlo models)
    - `BinnedPolarizationSpectrum` (with binned arrays for semi-analytic models)
    - Add optional `Photons.polarization_spectrum: SampledPolarizationSpectrum | BinnedPolarizationSpectrum | None`
@@ -75,7 +75,7 @@ Pattern for adding a new spectral visualization (e.g., polarization, temporal en
    - xigma-i/delta: check `core.py` kernel functions before adding new computation.
    - analytical: derive from analytic formulas.
 
-3. **Render in GUI** (`src/compton_suite/gui/app.py`):
+3. **Render in GUI** (`src/gammaforge/gui/app.py`):
    - Add tab in `_build_plot_area()`.
    - Add `_render_polarization_spectrum()` method using duck-typing (not isinstance).
    - Gate visibility in `_apply_model_capabilities()` if not all models support it.

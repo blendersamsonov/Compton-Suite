@@ -20,8 +20,8 @@ Create the basic UI framework for the Calculations section with tabs for each mo
 - Add results display area (1D plot area + 2D selection list)
 
 ### Files to Create/Modify
-- `src/compton_suite/gui/calculations.py` - New file for calculations UI
-- `src/compton_suite/gui/app.py` - Integrate calculations section
+- `src/gammaforge/gui/calculations.py` - New file for calculations UI
+- `src/gammaforge/gui/app.py` - Integrate calculations section
 
 ### Acceptance Criteria
 - [ ] Calculations section appears in GUI
@@ -48,7 +48,7 @@ Implement per-model tabs with "Use for calculations" checkbox and model-specific
 - Default values from model's default config
 
 ### Files to Create/Modify
-- `src/compton_suite/gui/calculations.py` - Add model tab implementation
+- `src/gammaforge/gui/calculations.py` - Add model tab implementation
 
 ### Acceptance Criteria
 - [ ] Each model has its own tab
@@ -76,8 +76,8 @@ Implement the calculation runner that runs all selected models and stores result
 - Handle errors gracefully (show warning if model fails)
 
 ### Files to Create/Modify
-- `src/compton_suite/gui/calculations.py` - Add calculation runner
-- `src/compton_suite/gui/runner.py` - May need to extend or create new runner
+- `src/gammaforge/gui/calculations.py` - Add calculation runner
+- `src/gammaforge/gui/runner.py` - May need to extend or create new runner
 
 ### Acceptance Criteria
 - [ ] Calculate button runs all selected models
@@ -103,7 +103,7 @@ Implement 1D plot display that shows results from all models on same figure with
 - Handle case where model doesn't have 1D results
 
 ### Files to Create/Modify
-- `src/compton_suite/gui/calculations.py` - Add 1D plot display
+- `src/gammaforge/gui/calculations.py` - Add 1D plot display
 
 ### Acceptance Criteria
 - [ ] 1D plots from all models appear on same figure
@@ -128,7 +128,7 @@ Implement 2D plot display with a list to select and view results from a particul
 - Handle case where model doesn't have 2D results
 
 ### Files to Create/Modify
-- `src/compton_suite/gui/calculations.py` - Add 2D plot display
+- `src/gammaforge/gui/calculations.py` - Add 2D plot display
 
 ### Acceptance Criteria
 - [ ] Selection list shows models with 2D results
@@ -154,8 +154,8 @@ Integrate all components and test the complete workflow.
 - Test edge cases (no models selected, model fails, etc.)
 
 ### Files to Create/Modify
-- `src/compton_suite/gui/calculations.py` - Final integration
-- `src/compton_suite/gui/app.py` - Final integration
+- `src/gammaforge/gui/calculations.py` - Final integration
+- `src/gammaforge/gui/app.py` - Final integration
 
 ### Acceptance Criteria
 - [ ] Complete workflow works end-to-end

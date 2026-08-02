@@ -2,7 +2,7 @@
 estimate_spectrum_width/angle_integrated_spectrum.
 
 Needs the dev-install (see this repo's top-level CLAUDE.md) so
-compton_suite.io and compton_suite.models.analytical are importable. Run
+gammaforge.io and gammaforge.models.analytical are importable. Run
 with `python3 -m pytest tests/` or `python3 tests/test_analytical.py`
 directly (plain asserts).
 """
@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from compton_suite.models import analytical
-from compton_suite.io.bunch import GaussianElectronBeam
-from compton_suite.io.laser import GaussianParaxialLaser
-from compton_suite.io.units import NoConvention, PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention
+from gammaforge.models import analytical
+from gammaforge.io.bunch import GaussianElectronBeam
+from gammaforge.io.laser import GaussianParaxialLaser
+from gammaforge.io.units import NoConvention, PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
     bunch_charge_C=PhysicalQuantity(100.0e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),

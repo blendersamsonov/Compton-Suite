@@ -97,7 +97,7 @@ H[γ, θx, θy, a0], которая строится прямой депозиц
 
 ```text
 Stage 0 (particles.py). Электронный сгусток сэмплируется вызывающей
-стороной через compton_suite.io.bunch.sample_gaussian_bunch (единственное место
+стороной через gammaforge.io.bunch.sample_gaussian_bunch (единственное место
 сэмплирования сгустка на весь проект) и передаётся напрямую в
 push_and_sample, который конвертирует его в формат этого пакета внутри
 себя, получая реальные per-particle (x0, y0, z0, γ, θx, θy). push_and_sample баллистически проталкивает каждую частицу через импульс и для каждой
@@ -232,7 +232,7 @@ reference.py (см. §8).
 | Произвольное лазерное поле из файла | нет | |
 | Заданная геометрия столкновения | нет | Только head-on (crossing_angle = 0), с возможным смещением фокусов (delta_x, delta_y, delta_z). Угол между пучками не поддерживается архитектурно (см. §4.4). |
 | Детектор / апертура | да | `calculate_angular_spectrum_4d` принимает произвольную сетку углов наблюдения theta_x, theta_y — можно имитировать прямоугольную или круговую апертуру выбором сетки. |
-| Воспроизводимый запуск | частично | `compton_suite.io.bunch.sample_gaussian_bunch` принимает `rng=` (numpy Generator) — воспроизводимо при фиксированном seed для сэмплирования сгустка; `push_and_sample` сам по себе детерминирован при фиксированном входном сгустке; GUI-путь (`gui_adapter.py`) фиксированный seed не прокидывает по умолчанию. |
+| Воспроизводимый запуск | частично | `gammaforge.io.bunch.sample_gaussian_bunch` принимает `rng=` (numpy Generator) — воспроизводимо при фиксированном seed для сэмплирования сгустка; `push_and_sample` сам по себе детерминирован при фиксированном входном сгустке; GUI-путь (`gui_adapter.py`) фиксированный seed не прокидывает по умолчанию. |
 
 ### 7.2. Поддерживаемые выходные данные
 
@@ -296,7 +296,7 @@ reference.py (см. §8).
 | Название минимального test / benchmark case | не зафиксировано (нет фиксированного эталонного конфига) |
 | Основной config-файл | нет — этот пакет является чистой физической библиотекой без своего CLI/TOML-конфига (стандаловый скрипт `calculate-spec-ang.py -c example-config.toml` был удалён при переходе на модели-как-библиотеки); минимальный воспроизводимый запуск — через `TabulatedEngine.run(...)` как библиотеку (см. `CLAUDE.md`, "GUI-facing engine") или через `gui/scripts/headless_test.py` |
 | Команда запуска | `conda run -n core --no-capture-output python3 gui/scripts/headless_test.py` (сквозной прогон через GUI-адаптер) |
-| Seed, если используется | опционально: передаётся сэмплированию сгустка (`compton_suite.io.bunch.sample_gaussian_bunch(..., rng=...)`) |
+| Seed, если используется | опционально: передаётся сэмплированию сгустка (`gammaforge.io.bunch.sample_gaussian_bunch(..., rng=...)`) |
 | Путь к output | не стандартизирован (`Table.save` пишет `.npz`) |
 | Путь к benchmark-результату / отчету сравнения | не зафиксировано |
 | Ссылка на README / инструкцию запуска | `CLAUDE.md` в корне репозитория |
@@ -315,7 +315,7 @@ conda run -n core --no-capture-output python3 gui/scripts/headless_test.py
 ### 10.1. Что уже работает
 
 ```text
-1. Stage 0 (compton_suite.io.bunch.sample_gaussian_bunch + particles.push_and_sample) — сэмплирование сгустка и баллистический
+1. Stage 0 (gammaforge.io.bunch.sample_gaussian_bunch + particles.push_and_sample) — сэмплирование сгустка и баллистический
    толкатель, с траекторно-усреднённым a0 (ahat) и a0-независимым "shape"-профилем
    (retarget_a0 для дешёвой смены энергии импульса без пересчёта частиц).
 2. Stage 1 (deposition.py) — депозиция nearest/CIC в 4D-таблицу H, CPU и GPU,

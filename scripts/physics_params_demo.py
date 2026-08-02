@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Exercise compton_suite.io + compton_suite.models.kascade.params + compton_suite.models.xigma_i.params
+"""Exercise gammaforge.io + gammaforge.models.kascade.params + gammaforge.models.xigma_i.params
 end to end.
 
 Takes one set of laser/electron parameters expressed the way a GUI user
 would naturally type them (FWHM in micrometres, a duration in
 picoseconds, ...), pushes each through the canonical layer, and adapts it
-to both KASCADE_SPEC (compton_suite.models.kascade.params) and
-XIGMA_SPEC (compton_suite.models.xigma_i.params). Prints the result and asserts the two models
+to both KASCADE_SPEC (gammaforge.models.kascade.params) and
+XIGMA_SPEC (gammaforge.models.xigma_i.params). Prints the result and asserts the two models
 land on the same numbers -- expected, since both engines' hand-written
 params_to_config already agree on convention (see kascade/params/spec.py's
 docstring); this is the machine-checked version of that fact.
 
 Builds exactly *one* raw_inputs dict now, unlike an earlier version of
-this script: compton_suite.models.kascade.params and compton_suite.models.xigma_i.params both
-re-export the same compton_suite.io classes (see each package's __init__.py
+this script: gammaforge.models.kascade.params and gammaforge.models.xigma_i.params both
+re-export the same gammaforge.io classes (see each package's __init__.py
 docstring, "Parameter semantics & units"), so a PhysicalQuantity built via
 either module's re-exported name is literally the same class -- the
 identity assertion below is a permanent regression guard against that
 silently re-diverging into two independent copies again.
 
-No cupy/GPU/tkinter needed -- pure compton_suite.io/kascade.params/
+No cupy/GPU/tkinter needed -- pure gammaforge.io/kascade.params/
 xigma_i.params + pint.
 
     python3 scripts/physics_params_demo.py
@@ -27,9 +27,9 @@ xigma_i.params + pint.
 
 from __future__ import annotations
 
-import compton_suite.models.kascade.params as kascade_params
-import compton_suite.models.xigma_i.params as xigma_params
-from compton_suite.io import (
+import gammaforge.models.kascade.params as kascade_params
+import gammaforge.models.xigma_i.params as xigma_params
+from gammaforge.io import (
     PhysicalMeaning,
     PhysicalQuantity,
     TimeConvention,
@@ -37,19 +37,19 @@ from compton_suite.io import (
     adapt_to_model,
     params_to_floats,
 )
-from compton_suite.models.kascade.params import KASCADE_SPEC
-from compton_suite.models.xigma_i.params import XIGMA_SPEC
+from gammaforge.models.kascade.params import KASCADE_SPEC
+from gammaforge.models.xigma_i.params import XIGMA_SPEC
 
-# Regression guard: compton_suite.models.kascade.params and compton_suite.models.xigma_i.params
-# must both be re-exporting the *same* compton_suite.io classes, not
+# Regression guard: gammaforge.models.kascade.params and gammaforge.models.xigma_i.params
+# must both be re-exporting the *same* gammaforge.io classes, not
 # independently defined look-alikes -- see module docstring.
 assert kascade_params.PhysicalQuantity is xigma_params.PhysicalQuantity, (
-    "compton_suite.models.kascade.params.PhysicalQuantity and compton_suite.models.xigma_i.params."
+    "gammaforge.models.kascade.params.PhysicalQuantity and gammaforge.models.xigma_i.params."
     "PhysicalQuantity are no longer the same class -- the two packages "
     "have re-diverged into independent copies of the framework."
 )
 assert kascade_params.PhysicalMeaning is xigma_params.PhysicalMeaning, (
-    "compton_suite.models.kascade.params.PhysicalMeaning and compton_suite.models.xigma_i.params."
+    "gammaforge.models.kascade.params.PhysicalMeaning and gammaforge.models.xigma_i.params."
     "PhysicalMeaning are no longer the same class."
 )
 
@@ -81,14 +81,14 @@ for key in XIGMA_SPEC:
 
 # sigma0_l came in as a FWHM; confirm the module actually converted it
 # (sigma = FWHM / 2.35...), not just passed the number through.
-from compton_suite.io.converters import fwhm_to_sigma_intensity  # noqa: E402
+from gammaforge.io.converters import fwhm_to_sigma_intensity  # noqa: E402
 
 expected_sigma0_l = fwhm_to_sigma_intensity(12.0e-6)
 assert abs(xigma_out["sigma0_l"] - expected_sigma0_l) < 1e-12, "FWHM->sigma conversion did not apply"
 
 # sigma_par_L/sigma_par_e came in as durations (ps); confirm the light-time
 # context turned them into c*duration lengths.
-from compton_suite.io.units import ureg  # noqa: E402
+from gammaforge.io.units import ureg  # noqa: E402
 
 c = ureg.Quantity(1.0, "speed_of_light").to("meter/second").magnitude
 expected_sigma_par_L = 2.0e-12 * c
@@ -97,5 +97,5 @@ assert abs(xigma_out["sigma_par_L"] - expected_sigma_par_L) < 1e-12 * expected_s
 )
 
 print("\nOK: xigma-i and kascade specs agree; FWHM->sigma and duration->length "
-      "conversions verified; compton_suite.models.kascade.params and compton_suite.models.xigma_i.params "
-      "confirmed to share the same compton_suite.io classes.")
+      "conversions verified; gammaforge.models.kascade.params and gammaforge.models.xigma_i.params "
+      "confirmed to share the same gammaforge.io classes.")

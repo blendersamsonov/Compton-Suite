@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "compton-suite"
+name = "gammaforge"
 version = "0.1.0"
 description = "Inverse-Compton scattering physics simulation toolkit: shared framework (io), GUI (gui), and models (kascade, xigma_i, delta, analytical)"
 authors = [{name = "Alexander Samsonov", email = "asams@ipfran.ru"}]
@@ -21,8 +21,8 @@ gpu = ["cupy>=13.6"]
 cpu = ["numba>=0.55"]
 
 [project.scripts]
-comptonsuite-gui = "compton_suite.gui:run_gui"
+gammaforge-gui = "gammaforge.gui:run_gui"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["compton_suite*"]
+include = ["gammaforge*"]

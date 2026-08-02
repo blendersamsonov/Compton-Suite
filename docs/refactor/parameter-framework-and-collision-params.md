@@ -7,8 +7,8 @@
 
 Surfaced during the 2026-07-27 config-unification session (PR #1,
 `worktree-core-simulation-api-refactor`): while explaining why
-`compton_suite.io.quantities.PhysicalQuantity` is only exercised in tests/
-`scripts/physics_params_demo.py`, and why `compton_suite.io.collision.
+`gammaforge.io.quantities.PhysicalQuantity` is only exercised in tests/
+`scripts/physics_params_demo.py`, and why `gammaforge.io.collision.
 CollisionParams` carries fields that look redundant with `GaussianElectronBeam`,
 two genuinely separate, independently-actionable follow-ups fell out:
 
@@ -98,7 +98,7 @@ offset support, reintroduce these with a real consumer, not preemptively.
 
 ### Steps
 
-Touches exactly one file, `src/compton_suite/io/collision.py`:
+Touches exactly one file, `src/gammaforge/io/collision.py`:
 
 1. Delete these fields from the `CollisionParams` dataclass (lines
    ~89-116): `emit_x`, `emit_y`, `sigma_ez`, `beta_x`, `beta_y`,
@@ -119,7 +119,7 @@ Touches exactly one file, `src/compton_suite/io/collision.py`:
 
 - `python3 scripts/headless_test.py` -- all 4 models ALL PASS (no changes
   expected, `CollisionParams` is xigma_i/delta-internal).
-- `python3 src/compton_suite/validation/run_cross_validation.py` -- diff
+- `python3 src/gammaforge/validation/run_cross_validation.py` -- diff
   full stdout before/after; expect byte-identical (same technique used to
   verify the config-unification PR: `git stash` the change, capture
   output, pop, re-run, `diff`).
@@ -267,7 +267,7 @@ For each of `kascade_adapter.py`, `xigma_i/gui_adapter.py`,
   extended to call `params_to_config` itself (optional, stronger check)
   rather than only the spec objects directly.
 - `python3 scripts/headless_test.py` -- all 4 models ALL PASS.
-- `python3 src/compton_suite/validation/run_cross_validation.py` -- diff
+- `python3 src/gammaforge/validation/run_cross_validation.py` -- diff
   before/after; expect byte-identical (this is meant to be a pure
   restructuring: same numeric conversion, now framework-verified instead of
   hand-derived).
@@ -280,7 +280,7 @@ For each of `kascade_adapter.py`, `xigma_i/gui_adapter.py`,
 
 - The remaining magic-literal unit arithmetic in `params_to_config`
   (`1e-6`, `1e-9`, `510_998.950`/`2.99792458e8` hardcoded instead of
-  imported from `compton_suite.io.constants`, `eps0`/`N_e`/`lambda_L`/
+  imported from `gammaforge.io.constants`, `eps0`/`N_e`/`lambda_L`/
   `pulse_energy_J`/`delta_x/y/z` conversions) -- these are simple,
   unambiguous unit conversions, not convention choices, so they don't need
   `PhysicalQuantity`; replacing them with `pint`-based conversions is a

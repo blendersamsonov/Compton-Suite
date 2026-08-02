@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 
 import numpy as np
 
-from compton_suite.io.laser import GaussianParaxialLaser  # noqa: E402
+from gammaforge.io.laser import GaussianParaxialLaser  # noqa: E402
 
 gaussian_pulse_envelope = GaussianParaxialLaser.pulse_envelope
 

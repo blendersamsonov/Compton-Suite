@@ -27,11 +27,11 @@ if _SRC not in sys.path:
 
 import numpy as np
 
-from compton_suite.io.bunch import GaussianElectronBeam, sample_gaussian_bunch
-from compton_suite.io.laser import GaussianParaxialLaser
-from compton_suite.io.interaction import InteractionParameters
-from compton_suite.io.units import NoConvention, PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention
-from compton_suite.models.api import Job, OutputSpec, discover_models, validate_results
+from gammaforge.io.bunch import GaussianElectronBeam, sample_gaussian_bunch
+from gammaforge.io.laser import GaussianParaxialLaser
+from gammaforge.io.interaction import InteractionParameters
+from gammaforge.io.units import NoConvention, PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention
+from gammaforge.models.api import Job, OutputSpec, discover_models, validate_results
 
 # Same rough operating point as the GUI's Electrons/Laser panel defaults.
 _BEAM = GaussianElectronBeam(

@@ -23,10 +23,10 @@ Add a separate "Calculations" section to the GUI that allows users to:
 ### Technical Details
 
 #### Current GUI Architecture
-- `src/compton_suite/gui/app.py` - Main GUI application (1174 lines)
-- `src/compton_suite/gui/model_api.py` - ModelAdapter protocol
-- `src/compton_suite/gui/runner.py` - Headless runner
-- `src/compton_suite/gui/output.py` - Output/plot handling
+- `src/gammaforge/gui/app.py` - Main GUI application (1174 lines)
+- `src/gammaforge/gui/model_api.py` - ModelAdapter protocol
+- `src/gammaforge/gui/runner.py` - Headless runner
+- `src/gammaforge/gui/output.py` - Output/plot handling
 
 #### Model Adapters
 Each model has an adapter implementing:
