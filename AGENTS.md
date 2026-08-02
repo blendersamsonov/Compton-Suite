@@ -24,10 +24,10 @@ pass.
 |-----------|-----------------|------|
 | `src/compton_suite/io/` | `compton_suite.io` | Model-agnostic shared layer: `units.py` (pint registry, physical constants, the width/time/amplitude convention enums, `PhysicalQuantity`, and the raw `convert_width`/`convert_time`/`convert_amplitude` conversion functions — all in one file), electron-bunch (`bunch.py`) and laser-pulse (`laser.py`) representations, the shared (beam, laser) bundle (`interaction.py`), output/results dataclasses (`photons.py`), external I/O (`io_formats/`). **Depended on by everything else; depends on nothing in this repo.** There is no generic "ParameterSpec"/"ModelSpec"/`adapt_to_model` framework — each model converts a `PhysicalQuantity` to whatever convention/unit it needs directly via `convert_width`/`convert_time`/`convert_amplitude` at its own boundary. |
 | `src/compton_suite/gui/` | `compton_suite.gui` | Tkinter desktop GUI (`app.py`, `calculations.py`). Thin consumer of `io/` and `models/api.py` — no physics computation, only rendering, field parsing, and compiling a `Job` to hand to whichever adapter is selected. |
-| `src/compton_suite/models/api.py` | `compton_suite.models.api` | The `ModelAdapter` protocol, `Job`/`OutputSpec`/`ModelCapabilities` dataclasses, the model registry (`register`/`registered_models`/`discover_models`). Every model plugs in here — see "Model registration" below. |
+| `src/compton_suite/models/api.py` | `compton_suite.models.api` | The `ModelAdapter` protocol, `Job`/`OutputSpec` dataclasses, the model registry (`register`/`registered_models`/`discover_models`). Every model plugs in here — see "Model registration" below. |
 | `src/compton_suite/models/kascade/` | `compton_suite.models.kascade` | CPU Monte Carlo physics engine (sequential multi-photon event generator), SI units, always available. |
 | `src/compton_suite/models/xigma_i/` | `compton_suite.models.xigma_i` | GPU (CuPy, numba CPU fallback) tabulated-overlap-table physics engine, CGS units, `k0_las`-normalised. `adapter.py` exposes **two** adapters: `XigmaAdapter` (registered as `"xigma-i"`, the full Stage 0/1/2 tabulated pipeline) and `DirectAdapter` (registered as `"delta"`, a brute-force per-macroparticle resonance-binning mode reusing this package's own Stage 0 directly — **not a separate model package**, just a different Stage-2 evaluation of the same engine). Greyed out (`UnavailableAdapter`) in the GUI if neither cupy/CUDA nor numba is usable. |
-| `src/compton_suite/models/analytical.py` | `compton_suite.models.analytical` | Fast, closed-form yield/spectrum/width estimates, in a single flat module (`estimate_yield`, `estimate_spectrum_width`, `angle_integrated_spectrum`, `Adapter`). No `Config` class — `Adapter`'s one numeric knob (`theta_col_rad`) lives directly on the adapter instance. Always-on GUI preview alongside whichever other model is selected (`ModelCapabilities.is_fast_preview=True`). |
+| `src/compton_suite/models/analytical.py` | `compton_suite.models.analytical` | Fast, closed-form yield/spectrum/width estimates, in a single flat module (`estimate_yield`, `estimate_spectrum_width`, `angle_integrated_spectrum`, `Adapter`). No `Config` class — `Adapter`'s one numeric knob (`theta_col_rad`) lives directly on the adapter instance. Always-on GUI preview alongside whichever other model is selected (hardcoded in `gui/app.py` as `self.analytical_adapter`). |
 | `src/compton_suite/misc.py` | — | `detect_device()` — the one shared cupy/numba backend-detection helper every model that needs GPU/CPU dispatch imports. |
 | `src/compton_suite/` | `compton_suite` | Unified package: `discover_models` re-export (via `models.api`) and the `run_gui`/console-script entry point. |
 | `src/compton_suite/validation/` | `compton_suite.validation` | Cross-model validation suite — shared `Scenario`s (`scenarios.py`), per-model runners (`runners.py`, `Job`-based), tiered comparisons (`tier0_wiring.py`..`tier4_regime_boundary.py`, `run_cross_validation.py`), plotting (`visualize.py`), a commit-hash-keyed result cache (`cache.py`). |
@@ -58,16 +58,12 @@ depends on `io/` and `models/api.py`, never on a sibling model.
 The GUI plugs in physics engines through the `ModelAdapter` protocol
 (`models/api.py`) instead of hardcoded imports. Every adapter implements:
 
-- `capabilities() -> ModelCapabilities` — static, cheap metadata (display
-  name, `is_fast_preview`, `trust_level`, `uses_shared_sample_count`). No
-  computation, no dependency on whether this model's runtime requirements
-  are actually available.
 - `model_params() -> list[tuple[str, float | str, str]]` — model-specific
   numeric/choice fields as `(label, default, key)` triples, for the GUI's
   "Model Parameters" panel.
-- `model_choices() -> dict[str, list[str]]` — allowed values for any
-  choice-type keys from `model_params()` (renders as a dropdown).
-- `run(job: Job) -> Photons` — the one call that actually runs the model.
+- `model_choices() -> dict[str, list[str]]` — optional; allowed values for any
+  choice-type keys from `model_params()` (renders as a dropdown). Return `{}` if the model has no choice fields.
+- `run(job: Job) -> Photons` — the one call that actually runs the model, taking a pre-compiled config and returning unbinned or binned spectrum results.
 
 `Job` (`models/api.py`) is the single compiled-from-UI config object —
 "GUI just calls model's adapter run with the config compiled from ui". It
@@ -403,7 +399,7 @@ In priority order, as recorded in `docs/gui/tasks.md` and `docs/models/tasks.md`
 
 - [ ] **Streaming GPU usage:** query VRAM, cap allocation at ~70%.
 - [ ] **Crossing angle support** (should only change the polarization factor).
-- [ ] **Rename:** drop "-i" suffix → just "XIGMA". (Note: `ModelCapabilities.display_name` for `"xigma-i"` is already `"XIGMA"`; the registry key/package name itself still says `xigma_i`/`xigma-i`.)
+- [ ] **Rename:** drop "-i" suffix → just "XIGMA". (Note: the adapter's display name is already `"XIGMA"`; the registry key and package name themselves still say `xigma_i`/`xigma-i`.)
 - [ ] **Gamma-axis rescaling** analogous to a0 rescaling, to vary mean energy without recomputing Stages 0-1.
 
 ### Analytical model
