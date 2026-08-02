@@ -25,13 +25,13 @@
     "semantic_hash": "3ea725724bc8ebe483c9f13d6aa1124f"
   },
   "AGENTS.md": {
-    "mtime": 1785650388.659571,
-    "ast_hash": "9fe95f726af0116de3aa5a73b379b0cd",
+    "mtime": 1785652718.974813,
+    "ast_hash": "6f58a2edf6aeb627422f674cf6bc00f6",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785650388.659571,
-    "ast_hash": "9fe95f726af0116de3aa5a73b379b0cd",
+    "mtime": 1785652718.974813,
+    "ast_hash": "6f58a2edf6aeb627422f674cf6bc00f6",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
@@ -140,9 +140,9 @@
     "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/reference.py": {
-    "mtime": 1785649960.8745294,
-    "ast_hash": "2174f59c4989a69b9e490c656d676258",
-    "semantic_hash": "2174f59c4989a69b9e490c656d676258"
+    "mtime": 1785652864.369565,
+    "ast_hash": "3696a5c5b76a793c4fdd478bebbee327",
+    "semantic_hash": ""
   },
   "src/compton_suite/models/xigma_i/spectrum4d.py": {
     "mtime": 1785649960.874881,
@@ -190,13 +190,13 @@
     "semantic_hash": ""
   },
   "src/compton_suite/validation/scenarios.py": {
-    "mtime": 1785650340.2885227,
-    "ast_hash": "d1787a0859ed873f98eb2761564906ed",
+    "mtime": 1785652898.5161138,
+    "ast_hash": "5ad13bc97a3f2e27c5176135e5e25913",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/tier0_wiring.py": {
-    "mtime": 1785650340.2888982,
-    "ast_hash": "c2bf5e646876ad78316133b7bb30cc6b",
+    "mtime": 1785652874.33902,
+    "ast_hash": "1aa98b4a92d9c70175a077452f706cd4",
     "semantic_hash": ""
   },
   "src/compton_suite/validation/tier1_yield.py": {
@@ -210,9 +210,9 @@
     "semantic_hash": ""
   },
   "src/compton_suite/validation/tier3_angular_shape.py": {
-    "mtime": 1785650340.2896883,
-    "ast_hash": "492163ae32b17596a812a515b7521936",
-    "semantic_hash": "492163ae32b17596a812a515b7521936"
+    "mtime": 1785652885.5130358,
+    "ast_hash": "245f294b93a4482191d645ede2263253",
+    "semantic_hash": ""
   },
   "src/compton_suite/validation/tier4_regime_boundary.py": {
     "mtime": 1785649960.8800945,
@@ -260,8 +260,8 @@
     "semantic_hash": ""
   },
   "docs/io/AGENTS.md": {
-    "mtime": 1785650421.706646,
-    "ast_hash": "67022155cb571fc02d68eadfb8c12eea",
+    "mtime": 1785652769.384878,
+    "ast_hash": "2d50c9bfff3e061eed7d439e13e40a7c",
     "semantic_hash": ""
   },
   "docs/io/specs/electron_beam_io_v0.1_full.md": {
@@ -285,8 +285,8 @@
     "semantic_hash": "4e3c194c1a5ca50e1df5ecf3f5305907"
   },
   "docs/models/xigma.md": {
-    "mtime": 1785650547.4272883,
-    "ast_hash": "a8110e391f40d19801e031d4a21d426b",
+    "mtime": 1785652844.679979,
+    "ast_hash": "8292515acb72437ed9d94108d717c0b0",
     "semantic_hash": ""
   },
   "docs/models/xigma_passport.md": {
