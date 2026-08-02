@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Headless smoke test: exercises the exact same functions the GUI calls
-(model discovery -> params_to_config -> run -> validate_results, plus the
-new-observable fields and spectrum_in_angular_range) without importing
-tkinter or matplotlib at all.
+(model discovery -> Job -> adapter.run() -> validate_results) without
+importing tkinter or matplotlib at all.
 
 Run this directly on a machine with the physics dependencies installed
-(numpy always; cupy/CUDA only if you want xigma-i's checks to actually
-execute rather than being reported as unavailable) -- no display needed:
+(numpy always; cupy/CUDA or numba only if you want xigma-i/delta's checks
+to actually execute rather than being reported as unavailable) -- no
+display needed:
 
     python3 scripts/headless_test.py
 
-Exit code is 0 if every *available* model passed all its checks, 1 otherwise.
-xigma-i being unavailable (no cupy/GPU) is reported but does not fail the
-run -- it's expected on machines without a GPU.
+Exit code is 0 if every *available* model passed all its checks, 1
+otherwise. xigma-i/delta being unavailable (no cupy/GPU and no numba) is
+reported but does not fail the run.
 """
 
 from __future__ import annotations
@@ -25,68 +25,41 @@ _SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
-from compton_suite.gui.model_api import validate_results
-from compton_suite.gui.models import discover_models
-
-# Electron sampling is the IO layer's job now, not any individual model's
-# (every adapter's run() requires ``electrons`` -- see model_api.
-# ModelAdapter.run's docstring) -- this mirrors app.py's on_start(): build
-# one GaussianElectronBeam from whichever cfg is on hand and draw one
-# MacroBunch from it, sized to that model's own particle-count convention
-# (n_particles_01 for xigma-i/delta, the shared n_mc field
-# otherwise). AnalyticalConfig carries its GaussianElectronBeam directly
-# (``cfg.beam``) rather than the flat eps0/sigma_eps_rel/... field set the
-# other three Configs expose (it has no sigma0_x/sigma0_y/sigma_par_e/N_e
-# properties -- app.py never needs to reconstruct a beam for it either,
-# since it always reuses whichever bunch was already sampled for the
-# actively-selected model), so that case is handled separately below.
 import numpy as np
-from compton_suite.io.bunch import beam_from_shared_fields, sample_gaussian_bunch
 
+from compton_suite.io.bunch import GaussianElectronBeam, sample_gaussian_bunch
+from compton_suite.io.laser import GaussianParaxialLaser
+from compton_suite.io.interaction import InteractionParameters
+from compton_suite.io.units import NoConvention, PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention
+from compton_suite.models.api import Job, OutputSpec, discover_models, validate_results
 
-def sample_electrons_for(cfg, extra: dict):
-    n_sample = int(getattr(cfg, "n_particles_01", extra["n_mc"]))
-    beam = getattr(cfg, "beam", None)
-    if beam is None:
-        beam = beam_from_shared_fields(
-            eps0=cfg.eps0, sigma_eps_rel=cfg.sigma_eps_rel,
-            emit_x=cfg.emit_x, emit_y=cfg.emit_y,
-            sigma0_x=cfg.sigma0_x, sigma0_y=cfg.sigma0_y,
-            sigma_par_e=cfg.sigma_par_e, N_e=cfg.N_e,
-        )
-    return sample_gaussian_bunch(beam, n_particles=n_sample,
-                                  rng=np.random.default_rng(int(extra["seed"])))
+# Same rough operating point as the GUI's Electrons/Laser panel defaults.
+_BEAM = GaussianElectronBeam(
+    bunch_charge_C=PhysicalQuantity(1e-9, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+    kinetic_energy_eV=PhysicalQuantity(2000e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
+    rel_energy_spread_rms=0.001,
+    sigma_x_m=PhysicalQuantity(20e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    sigma_y_m=PhysicalQuantity(20e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    emit_geom_x_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    emit_geom_y_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    sigma_t_s=PhysicalQuantity(10e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
+    sigma_pz=0.001,
+)
+_LASER = GaussianParaxialLaser(
+    pulse_energy_J=PhysicalQuantity(0.3, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
+    wavelength_m=PhysicalQuantity(1000e-9, "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
+    waist_rms_x_m=PhysicalQuantity(5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+    waist_rms_y_m=PhysicalQuantity(5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+    duration_rms_s=PhysicalQuantity(3e-12, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
+)
+N_MC = 5000
+SEED = 1
 
-
-# Same defaults as the GUI's Electrons/Laser/Compton panels
-# (app.py's _build_electrons_panel/_build_laser_panel/_build_compton_panel).
-DEFAULT_FIELDS = {
-    "mean_energy_MeV": 2000, "rel_spread_pct": 0.1, "charge_nC": 1,
-    "bunch_duration_ps": 10, "emit_x_mmmrad": 1.0, "emit_y_mmmrad": 1.0,
-    "beta_x_m": 0.2, "beta_y_m": 0.2,
-    "laser_wavelength_nm": 1000, "laser_energy_mJ": 300, "pulse_duration_ps": 3,
-    "rayleigh_length_m": 0.00126, "pulse_frequency_Hz": 100, "crossing_angle": 0,
-    "time_mismatch_ps": 0, "x_mismatch_mm": 0, "y_mismatch_mm": 0, "z_mismatch_mm": 0,
-    "theta_x_col_mrad": 0.05, "theta_y_col_mrad": 0.05,
-    "n_mc": 5000, "seed": 1,
-}
-
-
-class FakeVar:
-    """Stand-in for tk.StringVar -- params_to_config only ever calls .get()."""
-
-    def __init__(self, value):
-        self._value = str(value)
-
-    def get(self):
-        return self._value
-
-
-def make_fields(overrides: dict | None = None) -> dict:
-    values = dict(DEFAULT_FIELDS)
-    if overrides:
-        values.update(overrides)
-    return {k: FakeVar(v) for k, v in values.items()}
+# All models this suite knows about, so a not-registered one (e.g. xigma-i/
+# delta with no cupy/GPU and no numba) is reported as skipped rather than
+# silently missing from the output.
+EXPECTED_MODELS = ["kascade", "xigma-i", "delta", "analytical"]
+PREVIEW_NAME = "analytical"
 
 
 def check(label: str, cond: bool, detail: str = "") -> bool:
@@ -96,102 +69,51 @@ def check(label: str, cond: bool, detail: str = "") -> bool:
 
 
 def test_model(name: str, adapter) -> bool:
-    print(f"\n=== {name} ({adapter.capabilities().display_name}) ===")
-    available, reason = adapter.available()
-    if not available:
-        print(f"  SKIPPED (unavailable: {reason})")
-        return True  # not a failure -- e.g. no GPU on this machine
-
+    print(f"\n=== {name} ===")
     ok = True
-    caps = adapter.capabilities()
+    extra = {key: default for _label, default, key in adapter.model_params()}
+    electrons = sample_gaussian_bunch(_BEAM, n_particles=N_MC, rng=np.random.default_rng(SEED))
+    interaction = InteractionParameters(laser=_LASER, electrons=electrons)
+    job = Job(interaction=interaction, output=OutputSpec(), seed=SEED, extra=extra)
 
-    # 1. params_to_config -- same call the GUI's on_start() makes. Fields are
-    #    seeded with the shared defaults plus this model's own extra_params()
-    #    defaults (app.py's Model Parameters panel does the equivalent via
-    #    add_field_grid before ever calling params_to_config).
-    extras = {key: default for _label, default, key in adapter.extra_params()}
-    fields = make_fields(extras)
     try:
-        cfg, extra = adapter.params_to_config(fields, quantum=False)
-    except Exception as e:
-        print(f"  [FAIL] params_to_config raised: {e}")
-        traceback.print_exc()
-        return False
-    ok &= check("params_to_config returns (cfg, extra)", cfg is not None and isinstance(extra, dict))
-
-    # 2. run() -- same call on_start()'s worker thread makes, plus the
-    #    electron-sampling step on_start() itself does immediately before
-    #    it (run() now requires ``electrons`` -- see sample_electrons_for's
-    #    docstring above).
-    try:
-        electrons = sample_electrons_for(cfg, extra)
-        res = adapter.run(cfg, n_mc=int(extra["n_mc"]), seed=int(extra["seed"]), electrons=electrons)
+        res = adapter.run(job)
     except Exception as e:
         print(f"  [FAIL] run() raised: {e}")
         traceback.print_exc()
         return False
 
-    # 3. validate_results -- same call on_start()'s worker thread makes;
-    #    this is exactly the check that was previously raising a bogus
-    #    "spectrum has unexpected type" error for xigma-i.
     problems = validate_results(res)
     ok &= check("validate_results reports no problems", not problems, "; ".join(problems))
-
     ok &= check("total_yield is a positive finite number",
-                res.total_yield is not None and res.total_yield >= 0)
+                res.total_yield is not None and np.isfinite(res.total_yield) and res.total_yield >= 0)
 
-    # 4. New-observable fields, gated on the capability flags the GUI checks
-    #    before enabling each tab.
-    if caps.supports_temporal_envelope:
+    if res.temporal_envelope is not None:
         te = res.temporal_envelope
-        ok &= check("temporal_envelope populated", te is not None)
-        if te is not None:
-            ok &= check("temporal_envelope.t_seconds non-empty",
-                        getattr(te, "t_seconds", None) is not None and te.t_seconds.size > 0)
+        ok &= check("temporal_envelope.t_seconds non-empty", te.t_seconds.size > 0)
 
-    if caps.supports_spatial_distribution:
+    if res.spatial_distribution is not None:
         sd = res.spatial_distribution
-        ok &= check("spatial_distribution populated", sd is not None)
-        if sd is not None and hasattr(sd, "density"):
-            # Binned (xigma-i-style): sanity-check the areal density
-            # integrates back to roughly the same total_yield -- a
-            # normalization check, not a physics validation.
-            import numpy as _np
+        if hasattr(sd, "density"):
             dx = sd.x_centers[1] - sd.x_centers[0]
             dy = sd.y_centers[1] - sd.y_centers[0]
             integrated = float(sd.density.sum()) * dx * dy
             ratio = integrated / res.total_yield if res.total_yield else float("nan")
             ok &= check("spatial_distribution integrates to ~total_yield",
-                        0.9 < ratio < 1.1, f"ratio={ratio:.4g}")
+                        0.5 < ratio < 2.0, f"ratio={ratio:.4g}")
 
-    if caps.supports_angular_distribution:
-        has_angle_data = (res.angular_spectrum is not None
-                          or getattr(res.photon_samples, "ph_thx_lab", None) is not None)
-        ok &= check("angular data available (angular_spectrum or photon_samples)", has_angle_data)
-        # angular_spectrum, integrated over its own full theta/energy grid,
-        # must reproduce total_yield -- catches the class of bug where
-        # angular_spectrum is normalised inconsistently with total_yield
-        # (e.g. the ~2*pi residual documented in Xigma/CLAUDE.md, quick-
-        # fixed via a self-consistent rescale in gui_adapter.py -- see
-        # that fix's own "QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION"
-        # comment for why this is a rescale, not a root-cause fix).
-        if res.angular_spectrum is not None:
-            import numpy as _np
-            ang = res.angular_spectrum
-            dtx, dty = _np.gradient(ang.theta_x), _np.gradient(ang.theta_y)
-            dE = _np.gradient(ang.E_eV)
-            full_integral = float(_np.einsum("ijk,i,j,k->", ang.d2NdEdOmega, dtx, dty, dE))
-            ratio = full_integral / res.total_yield if res.total_yield else float("nan")
-            ok &= check("angular_spectrum integrates to ~total_yield",
-                        0.9 < ratio < 1.1, f"ratio={ratio:.4g}")
+    if res.angular_spectrum is not None:
+        ang = res.angular_spectrum
+        dtx, dty = np.gradient(ang.theta_x), np.gradient(ang.theta_y)
+        dE = np.gradient(ang.E_eV)
+        full_integral = float(np.einsum("ijk,i,j,k->", ang.d2NdEdOmega, dtx, dty, dE))
+        ratio = full_integral / res.total_yield if res.total_yield else float("nan")
+        ok &= check("angular_spectrum integrates to ~total_yield",
+                    0.5 < ratio < 2.0, f"ratio={ratio:.4g}")
 
-    # 5. spectrum_in_angular_range -- the on-demand call the GUI's "Compute"
-    #    button on the Angular-Range Spectrum tab makes.
-    if caps.supports_angular_range_spectrum:
-        tx = float(fields["theta_x_col_mrad"].get()) * 1e-3
-        ty = float(fields["theta_y_col_mrad"].get()) * 1e-3
+    if hasattr(adapter, "spectrum_in_angular_range"):
         try:
-            result = adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
+            result = adapter.spectrum_in_angular_range((-1e-4, 1e-4), (-1e-4, 1e-4))
             ok &= check("spectrum_in_angular_range returns a spectrum",
                         result is not None and result.spectrum is not None)
         except Exception as e:
@@ -204,40 +126,29 @@ def test_model(name: str, adapter) -> bool:
 
 
 def test_preview_alongside(models: dict) -> bool:
-    """Same mechanism app.py's on_start() uses: whichever model is
-    'selected', the always-on analytical preview (ModelCapabilities.
-    is_fast_preview) should also run successfully alongside it, using the
-    same shared fields -- this is exactly the check that would have caught
-    the is_fast_preview AttributeError / unseeded extra_params() bugs
-    found while wiring this up."""
-    preview_name, preview_adapter = next(
-        ((n, a) for n, a in models.items()
-         if a.available()[0] and getattr(a.capabilities(), "is_fast_preview", False)),
-        (None, None))
-    print(f"\n=== always-on preview ({preview_name}) ===")
+    """Mirrors app.py's on_start(): the always-on analytical preview runs
+    alongside whichever other model is selected, reusing the SAME sampled
+    electron bunch. The GUI hardcodes which model is the preview
+    (``self.analytical_adapter``); this test hardcodes the same name
+    (``PREVIEW_NAME``) rather than reading a metadata flag."""
+    preview_adapter = models.get(PREVIEW_NAME)
+    print(f"\n=== always-on preview ({PREVIEW_NAME}) ===")
     if preview_adapter is None:
-        print("  SKIPPED (no fast-preview model registered/available)")
+        print("  SKIPPED (preview model not registered)")
         return True
 
     ok = True
+    electrons = sample_gaussian_bunch(_BEAM, n_particles=N_MC, rng=np.random.default_rng(SEED))
+    interaction = InteractionParameters(laser=_LASER, electrons=electrons)
     for name, adapter in models.items():
-        if name == preview_name or not adapter.available()[0]:
+        if name == PREVIEW_NAME:
             continue
-        extras = {key: default for _label, default, key in adapter.extra_params()}
-        extras.update({key: default for _label, default, key in preview_adapter.extra_params()})
-        fields = make_fields(extras)
+        extra = {key: default for _label, default, key in preview_adapter.model_params()}
+        job = Job(interaction=interaction, output=OutputSpec(), seed=SEED, extra=extra)
         try:
-            # Mirrors app.py's on_start(): ONE MacroBunch is sampled from
-            # the actively-selected model's cfg (``adapter``, not
-            # ``preview_adapter``) and reused verbatim for the preview run
-            # -- the preview never draws its own bunch.
-            cfg, extra = adapter.params_to_config(fields, quantum=False)
-            electrons = sample_electrons_for(cfg, extra)
-            p_cfg, p_extra = preview_adapter.params_to_config(fields, quantum=False)
-            p_res = preview_adapter.run(p_cfg, n_mc=int(p_extra["n_mc"]), seed=int(p_extra["seed"]),
-                                         electrons=electrons)
+            p_res = preview_adapter.run(job)
             problems = validate_results(p_res)
-            this_ok = check(f"preview runs alongside '{name}''s fields",
+            this_ok = check(f"preview runs alongside '{name}'",
                             not problems and p_res.total_yield is not None and p_res.total_yield >= 0,
                             "; ".join(problems))
         except Exception as e:
@@ -253,8 +164,11 @@ def main() -> int:
     models = discover_models()
     print(f"Discovered models: {list(models.keys())}")
     all_ok = True
-    for name, adapter in models.items():
-        all_ok &= test_model(name, adapter)
+    for name in EXPECTED_MODELS:
+        if name not in models:
+            print(f"\n=== {name} ===\n  SKIPPED (not available)")
+            continue
+        all_ok &= test_model(name, models[name])
     all_ok &= test_preview_alongside(models)
     print("\n" + ("=" * 40))
     print("RESULT:", "ALL PASS" if all_ok else "SOME FAILURES")

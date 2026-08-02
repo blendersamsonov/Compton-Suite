@@ -1,217 +1,86 @@
-# Compton-GUIde
+# GUI Integration via ModelAdapter
 
-Standalone, model-agnostic Tkinter GUI for Compton-scattering physics
-engines. Plugs in physics packages through a shared `ModelAdapter`
-contract (`model_api.py`) instead of a hardcoded import, so this project
-and the physics packages it drives don't depend on each other's
-internals — only on the adapter shape. Python package name: `compton_suite.gui`
-(repo/brand name stylized `Compton-GUIde` — "GUI" capitalized on purpose).
+The GUI (`src/compton_suite/gui/app.py`) is model-agnostic and plugs in physics engines through the `ModelAdapter` protocol. This decouples the GUI from any specific simulation engine, allowing new models to be added without touching GUI code.
 
-Four models are currently registered (`compton_suite.gui.models.py`):
-- `kascade` (`models/kascade/kascade.py`), an event-generator MC, always available (CPU only).
-- `xigma-i` (the `compton_suite.models.xigma_i` package, GPU/cupy-only `Compton` class), shown greyed-out in the Model menu if cupy/CUDA isn't usable.
-- `delta` (the `compton_suite.models.delta` package), brute-force per-particle binning, same GPU/cupy availability story as `xigma-i`.
-- `analytical` (`models/analytical/`), a fast closed-form estimate, always available; also runs automatically as a preview alongside whichever other model is active.
+## The ModelAdapter Protocol
 
-## Layout
+Every model adapter must implement three methods:
 
-```
-src/compton_suite/gui/
-  app.py              # ComptonGuideApp(tk.Tk) — the actual GUI. ~1180 lines.
-  models.py           # discover_models() — model registry setup. Deliberately
-                       # has NO tkinter/matplotlib import, so it (and anything
-                       # built on it) can be exercised headlessly.
-  model_api.py         # The contract: CommonResults, ModelCapabilities,
-                       # ModelAdapter protocol, SampledSpectrum/BinnedSpectrum
-                       # and their temporal/spatial/angular-range counterparts,
-                       # validate_results(), MODEL_REGISTRY.
-  physics_constants.py  # Re-export of compton_suite.io.constants (C_LIGHT, HBAR,
-                         # MEC2_EV, ...) for the GUI's local formula helpers.
-scripts/
-  run_gui.py           # Entry point: python3 scripts/run_gui.py
-  headless_test.py     # No-display smoke test — see "Testing" below.
-```
-scripts/
-  run_gui.py           # Entry point: python3 scripts/run_gui.py
-  headless_test.py     # No-display smoke test — see "Testing" below.
-```
-
-Note: `xigma_i`'s adapter (`gui_adapter.py`) lives in the `xigma_i` package itself,
-not here — it was already-completed integration work at the time this repo
-was split out, and moving it would have touched that package more than
-necessary. `compton_suite.gui` only ever does `from compton_suite.models.xigma_i import gui_adapter`;
-decoupling is achieved without relocating that file.
-
-## The ModelAdapter contract, and the bug it caused
-
-`model_api.py` defines `SampledSpectrum`/`BinnedSpectrum`/`BinnedTemporalEnvelope`/
-etc. `xigma_i/gui_adapter.py` (in the *other* package) deliberately defines its
-own **structurally-identical but not-the-same-class** local dataclasses,
-rather than importing these — so that `xigma_i` doesn't have to depend on
-this GUI package. This is intentional and documented in both files.
-
-**Consequence: never use `isinstance(x, SampledSpectrum)` / `isinstance(x, BinnedSpectrum)`
-etc. to distinguish "sampled" from "binned" results if both branches check a
-specific class.** A single `isinstance(x, SampledSpectrum)` check with an
-`else` for everything else is fine (real for kascade, and correctly false for
-anything from xigma-i). But `if isinstance(x, A): ... elif isinstance(x, B): ...`
-against *both* `model_api` classes will silently do nothing for xigma-i's
-duck-typed equivalents. This exact bug hit `validate_results()` (raised a
-bogus "unexpected type" error, reported as "error on unexpected
-BinnedSpectrum") and three `app.py` render methods (silently rendered blank
-tabs). Fixed by switching to duck-typing: check `hasattr(x, "weight")` (sampled)
-vs. `hasattr(x, "dNdE_per_eV"/"rate"/"density")` (binned) instead. If you add
-a new paired Sampled/Binned dataclass, follow the same pattern.
-
-## Model-specific parameters (`extra_params()`)
-
-Beyond the shared Electrons/Laser/Compton-photons panels (common to every
-model), an adapter can declare extra numeric fields with no shared-panel
-analogue via `ModelAdapter.extra_params() -> list[(label, default, key)]`
-(same shape `add_field_grid` already consumes). `app.py`'s grey
-"MODEL PARAMETERS" panel (`_build_model_params_panel`/`_rebuild_model_params_panel`)
-rebuilds itself from this whenever the active model changes, feeding the
-resulting values into the same flat `fields` dict passed to
-`params_to_config`. `kascade` currently declares none (`[]`); `xigma-i`
-declares `beta_ff`/`phi_pol` (its own extras with no `kascade` analogue).
-Return `[]` if a model has nothing extra to add.
-
-## Parameter semantics & units (`physics_params/`), and `compton_suite.io`
-
-`src/compton_suite/gui/physics_params/` implements `Conventions-and-units.md`'s
-design, but **the framework itself lives in `compton_suite.io` (sub-package `compton_suite.io`),
-not here** — this package is a thin re-export
-(`physics_params/__init__.py` imports `compton_suite.io`'s `PhysicalQuantity`,
-the `PhysicalMeaning`/`WidthConvention`/`TimeConvention`/
-`AmplitudeConvention` enums, `canonical.py`'s conversion machinery,
-`ParameterSpec`/`ModelSpec`, `adapt_to_model`, verbatim, so
-`compton_suite.gui.physics_params.PhysicalQuantity` is the literal same class
-as `compton_suite.models.xigma_i.params.PhysicalQuantity`, not an independently-defined
-look-alike). An earlier version of this gave each consumer its own copy
-of the framework — structurally identical, not the same Python classes, so
-a `PhysicalQuantity` built with one copy's enums failed
-`validate_against_spec`'s `meaning` check against the other's `ModelSpec`.
-`compton_suite.io` exists specifically to eliminate that; see its own
-`CLAUDE.md`.
-
-Physical constants also moved: `physics_constants.py` is a thin re-export
-of `compton_suite.io.constants` (was its own hand-typed literal block before).
-`adapters/kascade_adapter.py`'s `params_to_config` reads
-`compton_suite.io.constants.MEC2_EV`/`E_CHARGE`/`C_LIGHT` directly too, rather
-than the live `kascade` module's own copies — one less independent
-representation of `c` floating around this codebase.
-
-**Both models' schemas now live in their own packages, not here.**
-`xigma_i/params/spec.py`'s `XIGMA_SPEC`/`XIGMA_DIAGNOSTIC_SPEC` (see
-`docs/models/xigma.md`, "Conventions") and
-`models/kascade/params/spec.py`'s `KASCADE_SPEC`/`KASCADE_DIAGNOSTIC_SPEC`
-(moved out of this package's own `physics_params/schemas/`, which no
-longer exists) — each model declares its own parameter contract instead of
-the GUI declaring it on the model's behalf.
-
-Both schemas were written by reading each engine's actual source
-(`kascade.py`'s `laser_density`/`Config` field comments for `KASCADE_SPEC`;
-`xigma_i/config.py`'s `set_laser_parameters` comment for `XIGMA_SPEC`), not
-guessed — and turn out to declare the *same* convention (RMS of the
-density/intensity profile, lengths standing in for durations, peak — not
-RMS — `a0`) on every field both `Config`s share, which is why
-`KASCADE_SPEC`'s docstring calls this "machine-checking" a fact rather
-than fixing a real mismatch: both adapters' hand-written `params_to_config`
-already agreed, this just makes that agreement explicit and enforced
-instead of implicit and silently breakable.
-
-**Partially wired into `params_to_config`** in both adapters:
-`sigma_par_e`/`sigma_par_L` (the two genuinely raw, convention-ambiguous
-duration inputs) go through `adapt_to_model`/`params_to_floats` against
-each model's own spec; `sigma0_x`/`sigma0_y`/`sigma0_l` still do the
-emittance/beta/Rayleigh-length arithmetic by hand, since they're derived
-from other unambiguous fields rather than typed directly in an ambiguous
-convention (see `docs/refactor/parameter-framework-and-collision-params.md`'s
-"sigma0_x/sigma0_l wrinkle"). `scripts/physics_params_demo.py` is a
-GPU-free, tkinter-free demo/self-check: builds **one** raw-input dict in
-mixed conventions (a FWHM in µm, a duration in ps), adapts it to both
-`XIGMA_SPEC` and `KASCADE_SPEC`, asserts the two models' outputs agree and
-that the FWHM→sigma and duration→length conversions actually ran, and
-asserts `compton_suite.models.kascade.params.PhysicalQuantity is
-compton_suite.models.xigma_i.params.PhysicalQuantity` as a permanent
-regression guard against the two re-export shims silently re-diverging
-into independent copies again.
-
-```bash
-python3 scripts/physics_params_demo.py
+```python
+class ModelAdapter(Protocol):
+    def model_params(self) -> list[tuple[str, float | str, str]]:
+        """Model-specific parameters as (label, default, key) triples.
+        
+        Used by GUI to populate the Model Parameters panel. Default can be
+        float (numeric) or str (choice/enum). For choice fields, also
+        implement model_choices()."""
+        ...
+    
+    def model_choices(self) -> dict[str, list[str]]:
+        """Optional: dict mapping parameter keys to allowed string values.
+        
+        If a key appears here, GUI renders a dropdown instead of text entry.
+        Example: {"device_preference": ["auto", "gpu", "cpu"]}"""
+        return {}
+    
+    def run(self, job: Job) -> Photons:
+        """Run the simulation with compiled config; return results.
+        
+        Job bundles:
+        - interaction: InteractionParameters (shared beam+laser)
+        - electrons: Bunch (pre-sampled macroparticles)
+        - output: OutputSpec (resolution knobs)
+        - seed: int (random seed)
+        - extra: dict (this model's model_params() values, read live from GUI)"""
+        ...
 ```
 
-Needs the dev-install (see root `CLAUDE.md`) so `xigma_i` and `compton_suite.io`
-are importable; needs neither cupy nor a GPU.
+## Results Contract
 
-## Running it
+Every model's `run()` returns `compton_suite.io.photons.Photons`. The spectrum can be one of two shapes:
 
-```bash
-python3 scripts/run_gui.py
+- **`SampledPhotonSpectrum`** (unbinned, per-macroparticle): Has `weight` field; used by Monte Carlo models (kascade).
+- **`BinnedPhotonSpectrum`** (smooth binned density): Has `dNdE_per_eV`/`rate`/`density` fields; used by semi-analytic models (xigma-i, delta, analytical).
+
+**Duck-type these shapes, never use `isinstance()` against both boundaries simultaneously:**
+```python
+if hasattr(spectrum, "weight"):  # Sampled
+    ...
+elif hasattr(spectrum, "dNdE_per_eV"):  # Binned
+    ...
 ```
 
-Needs `numpy`, `matplotlib`, system Tk (`tkinter`), `pint` (for
-`compton_suite.io`), and — only if you want `xigma-i`/`delta` enabled
-rather than greyed-out — `cupy` + a working CUDA setup.
+This is critical because separate model packages define their own structurally-identical dataclasses to avoid coupling to this GUI package.
 
-On this dev machine specifically: system Python has no pip/cupy/matplotlib.
-There's a conda env (`miniforge3`, env name `core`) that already has
-cupy 14.0.1 + numpy + matplotlib + tkinter working against the local GPU:
+## Model Registration
 
-```bash
-conda run -n core --no-capture-output python3 scripts/run_gui.py
-```
+The `discover_models()` function in `src/compton_suite/models/api.py` registers all available adapters:
 
-(`conda run` without `--no-capture-output` silently swallows stdout — always
-pass it when you want to see anything.)
+- **kascade** (`models/kascade/kascade_adapter.py`) — CPU Monte Carlo, always available.
+- **xigma-i** (`models/xigma_i/adapter.py::XigmaAdapter`) — GPU tabulated pipeline, greyed out if cupy/CUDA unavailable.
+- **delta** (`models/xigma_i/adapter.py::DirectAdapter`) — brute-force per-particle binning (xigma-i's Stage 0 only), greyed out if cupy/CUDA unavailable.
+- **analytical** (`models/analytical.py::Adapter`) — closed-form estimate, always available, runs as real-time preview.
 
-## Testing (headless, no display needed)
+## Adding a New Observable
 
-```bash
-python3 scripts/headless_test.py                       # kascade only, cupy not required
-conda run -n core --no-capture-output python3 scripts/headless_test.py   # + xigma-i, needs GPU
-```
+Pattern for adding a new spectral visualization (e.g., polarization, temporal envelope):
 
-This calls the *exact* sequence the GUI's `on_start()` calls:
-`discover_models() → params_to_config() → run() → validate_results()`, plus
-the temporal/spatial/angular-distribution fields and
-`spectrum_in_angular_range()`. It's the tool that caught the isinstance bug
-above — run it after touching either adapter or either physics engine.
-`xigma-i` reporting "unavailable" is expected and not a failure on a machine
-without cupy/GPU.
+1. **Define dataclass pair** in `src/compton_suite/io/photons.py`:
+   - `SampledPolarizationSpectrum` (with `weight` field for Monte Carlo models)
+   - `BinnedPolarizationSpectrum` (with binned arrays for semi-analytic models)
+   - Add optional `Photons.polarization_spectrum: SampledPolarizationSpectrum | BinnedPolarizationSpectrum | None`
 
-## Adding a new GUI observable
+2. **Populate in adapter's run() method**:
+   - kascade: usually cheap since raw arrays already computed.
+   - xigma-i/delta: check `core.py` kernel functions before adding new computation.
+   - analytical: derive from analytic formulas.
 
-Pattern established by the existing four (temporal envelope, spatial
-distribution, angular distribution, angular-range spectrum):
-1. Add a `Sampled*`/`Binned*` dataclass pair to `model_api.py` if the shape
-   differs between an event-generator model (kascade) and a semi-analytic one
-   (xigma-i); add a `supports_*` flag to `ModelCapabilities` (default `False`).
-2. Populate it in `KascadeAdapter.run()` (usually cheap — kascade already has the
-   raw per-photon arrays) and in `xigma_i/gui_adapter.py`'s `run_simulation`
-   (check whether `core.Compton` already computes what you need internally
-   before assuming a new kernel is required — `time_envelope` and the
-   angular-range spectrum both turned out to need zero `core.py` changes;
-   only spatial distribution genuinely needed new kernel work).
-3. Add a tab in `app.py`'s `_build_plot_area`, a `_render_*` method following
-   the existing duck-typing convention (not `isinstance` against both variants),
-   and gate it via `_apply_model_capabilities`'s tab-disabling loop.
-4. Extend `headless_test.py`'s `test_model()` to check the new field.
-5. Run `headless_test.py` to verify.
+3. **Render in GUI** (`src/compton_suite/gui/app.py`):
+   - Add tab in `_build_plot_area()`.
+   - Add `_render_polarization_spectrum()` method using duck-typing (not isinstance).
+   - Gate visibility in `_apply_model_capabilities()` if not all models support it.
 
-## Known gaps
+4. **Test** (`scripts/headless_test.py`):
+   - Extend `test_model()` to verify the new field is populated for each adapter.
 
-- `xigma_i`'s spatial-distribution normalization is self-consistently
-  rescaled against `calculate_total()` rather than derived from first
-  principles (see that package's CLAUDE.md) — fine for visualization, not
-  independently validated as an absolute physical calibration.
-- No automated test for `app.py`'s actual Tkinter rendering (only the
-  adapter/model layer is covered by `headless_test.py`) — testing the real
-  widget tree needs a display (or Xvfb), which hasn't been set up.
-- `Conventions-and-units.md` in this directory is implemented as `compton_suite.io/`
-  (framework + constants), re-exported here as
-  `physics_params/`/`physics_constants.py`. Both models' schemas now live
-  in their own packages (`xigma_i/params/spec.py` and
-  `models/kascade/params/spec.py`), partially wired into `params_to_config`
-  via `adapt_to_model`/`params_to_floats` for the `sigma_par_e`/`sigma_par_L`
-  duration inputs.
+5. **Verify**: `python3 scripts/headless_test.py` to confirm all models run without errors.

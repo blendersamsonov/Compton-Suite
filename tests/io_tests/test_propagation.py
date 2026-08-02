@@ -13,40 +13,54 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 
-from compton_suite.io.bunch import GaussianElectronBeam, fit_gaussian, sample_gaussian_bunch  # noqa: E402
-from compton_suite.io.constants import C_LIGHT  # noqa: E402
-from compton_suite.io.propagation import (  # noqa: E402
-    ballistic_position_simultaneous,
+from compton_suite.io.bunch import (  # noqa: E402
+    Bunch,
+    GaussianElectronBeam,
     ballistic_position_z0_reference,
+    fit_gaussian,
     propagate,
+    sample_gaussian_bunch,
     stream,
+)
+from compton_suite.io.units import (  # noqa: E402
+    C_LIGHT,
+    PhysicalMeaning,
+    PhysicalQuantity,
+    TimeConvention,
+    WidthConvention,
 )
 
 _EXAMPLE_BEAM = GaussianElectronBeam(
-    bunch_charge_C=100.0e-12,
-    kinetic_energy_eV=200.0e6,
+    bunch_charge_C=PhysicalQuantity(100e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+    kinetic_energy_eV=PhysicalQuantity(200e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
     rel_energy_spread_rms=0.001,
-    sigma_x_m=10.0e-6,
-    sigma_y_m=10.0e-6,
-    emit_geom_x_m=0.05e-6,
-    emit_geom_y_m=0.05e-6,
-    sigma_t_s=1.0e-12,
+    sigma_x_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    sigma_y_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+    emit_geom_x_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    emit_geom_y_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+    sigma_t_s=PhysicalQuantity(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
     sigma_pz=0.001,
 )
 
 
-def test_ballistic_position_simultaneous_straight_line():
+def test_propagate_per_particle_positions_match_hand_formula():
+    # propagate()'s per-particle push (the old ballistic_position_simultaneous,
+    # now folded into drift()'s generalized per-particle-L body -- see
+    # bunch.py's propagate() docstring) against a hand-rolled formula.
     x0, y0, z0 = np.array([1.0, -2.0]), np.array([0.5, 0.0]), np.array([0.0, 3.0])
     thx, thy = np.array([0.01, -0.02]), np.array([0.0, 0.01])
-    dt = 5.0
-    x, y, z = ballistic_position_simultaneous(x0, y0, z0, thx, thy, dt)
+    gamma = np.array([500.0, 500.0])
+    bunch = Bunch(x=x0, y=y0, z=z0, thx=thx, thy=thy, gamma=gamma, weight=1.0)
+    dt = 5.0 / C_LIGHT
+    moved = propagate(bunch, dt)
     vz = np.sqrt(1.0 - thx**2 - thy**2)
-    assert np.allclose(x, x0 + thx * vz * dt)
-    assert np.allclose(y, y0 + thy * vz * dt)
-    assert np.allclose(z, z0 + vz * dt)
+    L = vz * C_LIGHT * dt
+    assert np.allclose(moved.x, x0 + thx * L)
+    assert np.allclose(moved.y, y0 + thy * L)
+    assert np.allclose(moved.z, z0 + L)
     # dt=0 is a no-op.
-    x0_, y0_, z0_ = ballistic_position_simultaneous(x0, y0, z0, thx, thy, 0.0)
-    assert np.allclose(x0_, x0) and np.allclose(y0_, y0) and np.allclose(z0_, z0)
+    same = propagate(bunch, 0.0)
+    assert np.allclose(same.x, x0) and np.allclose(same.y, y0) and np.allclose(same.z, z0)
 
 
 def test_ballistic_position_z0_reference_matches_hand_formula():
@@ -86,8 +100,10 @@ def test_propagate_recovers_waist_after_drift():
     assert np.std(drifted.x) > np.std(bunch_at_waist.x) * 1.5
 
     fit = fit_gaussian(drifted)
-    assert abs(fit.sigma_x_m / _EXAMPLE_BEAM.sigma_x_m - 1.0) < 0.03
-    assert abs(fit.emit_geom_x_m / _EXAMPLE_BEAM.emit_geom_x_m - 1.0) < 0.03
+    assert abs(fit.sigma_x_m.to_unit("meter").magnitude
+               / _EXAMPLE_BEAM.sigma_x_m.to_unit("meter").magnitude - 1.0) < 0.03
+    assert abs(fit.emit_geom_x_m.to_unit("meter").magnitude
+               / _EXAMPLE_BEAM.emit_geom_x_m.to_unit("meter").magnitude - 1.0) < 0.03
 
 
 def test_stream_yields_one_snapshot_per_time():

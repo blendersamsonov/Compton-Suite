@@ -1,23 +1,27 @@
-"""The shared "interaction parameters" bundle: an electron beam, a laser
-pulse, and their collision geometry, considered together.
+"""The shared "interaction parameters" bundle: one canonical (laser,
+electrons) pair every model's ``run(job)`` reads from directly
+(``job.interaction``), rather than each model re-deriving/duplicating the
+physics parameters itself.
 
-Every model's own ``Config`` used to carry beam+laser+geometry fields as a
-flat, independently-duplicated bag (see ``bunch.beam_from_shared_fields``/
-``laser.laser_from_shared_fields`` for the per-piece migration this
-generalizes). This module gives that bundle one shared shape so a caller
-holding one canonical (beam, pulse, geometry) triple can build every
-model's own numerics-only ``Config`` from it, rather than each model
-re-deriving/duplicating the physics parameters themselves.
+``electrons`` is the full sampled :class:`Bunch` (not just its
+``gaussian_fit``) -- electron sampling is the caller's job (see
+``compton_suite.io.bunch.sample_gaussian_bunch``), so by the time an
+``InteractionParameters`` exists, sampling has already happened. A model
+that needs beam-level scalars (charge, emittance, ...) reads
+``electrons.gaussian_fit.<attr>``; every ``Bunch`` reaching a ``Job`` is
+expected to have ``gaussian_fit`` populated (only a raw ``.ele``-file load
+that hasn't been fit yet would leave it ``None`` -- see ``gui/app.py``'s
+``on_start()``).
 
-Deliberately excludes anything with no cross-model meaning (grid/step/bin
-counts, per-model numerical-control knobs) -- those stay model-owned, see
-each model's own ``Config``. ``crossing_angle_rad``/``quantum`` are real
-physics, not numerics, but not every model supports a nonzero/True value
-(``xigma_i``/``delta`` are head-on-only with no quantum toggle) --
-included here anyway since they're still physically meaningful collision
-parameters, just sometimes unsupported by a particular model (that model's
-own ``params_to_config`` is responsible for rejecting what it can't do,
-same as today).
+Deliberately minimal otherwise: geometry/crossing-angle and any classical/
+quantum toggle are NOT part of this shared bundle -- not every model
+supports a nonzero/True value (kascade has a real ``crossing_angle``/
+``quantum`` toggle; xigma_i/delta are head-on-only with no quantum toggle),
+so those stay model-owned fields, read straight from ``Job.extra`` at each
+adapter's own boundary (see each adapter's ``run()``).
+
+Every physical parameter travels as a :class:`PhysicalQuantity` (never a
+bare float).
 """
 
 from __future__ import annotations
@@ -26,33 +30,20 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .bunch import GaussianElectronBeam
-from .constants import C_LIGHT, E_CHARGE, HBAR, MEC2_EV
+from .bunch import Bunch
+from .units import C_LIGHT, E_CHARGE, HBAR, MEC2_EV, PhysicalQuantity
 from .laser import GaussianParaxialLaser
 
-__all__ = ["InteractionGeometry", "InteractionParameters", "recoil_parameter"]
-
-
-@dataclass(frozen=True)
-class InteractionGeometry:
-    """Collision geometry: foci displacement and crossing angle. SI units."""
-
-    delta_x_m: float = 0.0
-    delta_y_m: float = 0.0
-    delta_z_m: float = 0.0
-    crossing_angle_rad: float = 0.0
-
+__all__ = ["InteractionParameters", "recoil_parameter"]
 
 @dataclass(frozen=True)
 class InteractionParameters:
-    """One canonical (beam, pulse, geometry) triple -- the physics-parameter
-    subset every model's ``Config`` should be built from, instead of each
-    model owning its own copy of these fields."""
+    """One canonical (laser, electrons) pair -- the physics-parameter
+    bundle every model's ``run(job)`` reads from, instead of each model
+    owning its own copy of these fields."""
 
-    beam: GaussianElectronBeam
     laser: GaussianParaxialLaser
-    geometry: InteractionGeometry = InteractionGeometry()
-    quantum: bool = False
+    electrons: Bunch
 
 
 def recoil_parameter(gamma: float, wavelength_m: float) -> float:

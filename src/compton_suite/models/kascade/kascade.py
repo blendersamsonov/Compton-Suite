@@ -63,27 +63,28 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from compton_suite.io import constants as _io_constants
-from compton_suite.io.bunch import MacroBunch as _MacroBunch
+from compton_suite.io import units as _io_units
+from compton_suite.io.bunch import Bunch as _Bunch
 from compton_suite.io.interaction import InteractionParameters as _InteractionParameters
 from compton_suite.io.io_formats.sdds import save_elegant_ele as _save_elegant_ele
-from compton_suite.io.laser_envelope import gaussian_pulse_envelope as _gaussian_pulse_envelope
+from compton_suite.io.laser import GaussianParaxialLaser as _GaussianParaxialLaser
 
 # ---------------------------------------------------------------------------
-# Physical constants (SI) -- from compton_suite.io.constants (shared, pint-
+# Physical constants (SI) -- from compton_suite.io.units (shared, pint-
 # derived source of truth also used by compton_suite.gui/xigma_i) rather than
 # hand-typed literals. Zero numeric change here: this module's previous
 # literals already agreed with compton_suite.io's values to their quoted
 # precision (unlike xigma_i's older-CODATA-vintage hbar/electron mass,
 # which did need an actual, deliberate numeric update).
 # ---------------------------------------------------------------------------
-C_LIGHT = _io_constants.C_LIGHT           # speed of light            [m/s]
-E_CHARGE = _io_constants.E_CHARGE         # elementary charge         [C]
-HBAR = _io_constants.HBAR                 # reduced Planck constant   [J s]
-EPS0 = _io_constants.EPS0                 # vacuum permittivity       [F/m]
-SIGMA_T = _io_constants.SIGMA_T_M2        # Thomson cross section     [m^2]
-MEC2_EV = _io_constants.MEC2_EV           # electron rest energy      [eV]
+C_LIGHT = _io_units.C_LIGHT               # speed of light            [m/s]
+E_CHARGE = _io_units.E_CHARGE             # elementary charge         [C]
+HBAR = _io_units.HBAR                     # reduced Planck constant   [J s]
+EPS0 = _io_units.EPS0                     # vacuum permittivity       [F/m]
+SIGMA_T = _io_units.SIGMA_T_M2            # Thomson cross section     [m^2]
+MEC2_EV = _io_units.MEC2_EV               # electron rest energy      [eV]
 MEC2_J = MEC2_EV * E_CHARGE               # electron rest energy      [J]
+LIGHT_TIME_CONTEXT = _io_units.LIGHT_TIME_CONTEXT
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -92,14 +93,35 @@ MEC2_J = MEC2_EV * E_CHARGE               # electron rest energy      [J]
 class Config:
     """Physical parameters for the bunch, the laser and the interaction.
 
-    ``interaction`` holds the shared (beam, laser, geometry, quantum) bundle
-    (:mod:`compton_suite.io.interaction`) -- every flat physics field this
-    class used to carry directly is now a property deriving from it, so
-    ``run_multiphoton_chain``/``laser_density``/etc. below keep reading
-    ``cfg.eps0``, ``cfg.beta_x``, ... by the same names as before.
+    ``interaction`` holds the shared (laser, electrons) bundle
+    (:mod:`compton_suite.io.interaction`) -- the single source of truth for
+    every physical quantity (gamma0, N_e, wavelength, ...), the latter via
+    ``interaction.electrons.gaussian_fit``. ``Config`` itself carries no
+    derived-value properties duplicating what's already there: the physics
+    functions below (``laser_density``, ``build_lambda_grid``, ...) read
+    ``cfg.interaction.electrons.gaussian_fit``/``cfg.interaction.laser``
+    directly, or via the small kascade-specific helper functions right
+    below this class (``_eps_L``, ``_sigma0_l``, ``_R_sf`` -- genuinely
+    kascade-specific conventions/approximations, not generic input-parameter
+    values, so they don't belong on the shared ``GaussianParaxialLaser``
+    itself).
+
+    Collision geometry (foci displacement, crossing angle) and the
+    classical/quantum toggle are kascade-owned fields, not part of the
+    shared ``InteractionParameters`` bundle: not every model supports a
+    nonzero/True value (xigma_i/delta are head-on-only with no quantum
+    toggle today), so each model owns what it can actually act on instead
+    of the shared bundle carrying fields most models ignore.
     """
 
     interaction: _InteractionParameters
+
+    # ---- collision geometry (kascade-owned) -------------------------------
+    crossing_angle: float = 0.0        # rad; laser tilt from head-on counter-propagation
+    delta_x: float = 0.0               # m; laser focus offset from the interaction point
+    delta_y: float = 0.0
+    delta_z: float = 0.0
+    quantum: bool = False              # classical Thomson vs. Klein-Nishina + recoil
 
     # ---- output angular window (goal 3 of dfe4.lyx) ----------------------
     Theta_x: float = 0.0
@@ -114,113 +136,34 @@ class Config:
     max_photons: int = 30
     chunk: int = 5_000
 
-    # ---- electron bunch (derived from self.interaction.beam) -------------
-    @property
-    def eps0(self) -> float:
-        return self.interaction.beam.gamma0
 
-    @property
-    def sigma_eps_rel(self) -> float:
-        return self.interaction.beam.sigma_gamma_over_gamma0
+# ---------------------------------------------------------------------------
+# Laser-quantity helpers -- kascade-specific conventions computed on demand
+# from the shared ``GaussianParaxialLaser`` input, never stored as model
+# state (see Config's own docstring).
+# ---------------------------------------------------------------------------
+def _eps_L(laser) -> float:
+    """Laser photon energy, in units of m_e c^2 -- a kascade-specific
+    relativistic-units convention, not a property of the shared
+    (unit-system-agnostic) ``GaussianParaxialLaser`` itself."""
+    return HBAR * laser.omega0.to("1 / second").magnitude / MEC2_J
 
-    @property
-    def emit_x(self) -> float:
-        return self.interaction.beam.emit_geom_x_m
 
-    @property
-    def emit_y(self) -> float:
-        return self.interaction.beam.emit_geom_y_m
+def _sigma0_l(laser) -> float:
+    """Laser transverse RMS (photon-density) width -- round-beam collapse
+    of the laser's (possibly elliptical) x/y waists, same geometric-mean
+    convention ``models.analytical.estimate_yield`` uses, since
+    ``laser_density``'s underlying ``GaussianParaxialLaser.pulse_envelope``
+    only takes one round-beam width."""
+    wx_m = laser.waist_rms_x_m.to_unit("meter").magnitude
+    wy_m = laser.waist_rms_y_m.to_unit("meter").magnitude
+    return (wx_m * wy_m) ** 0.5
 
-    @property
-    def sigma0_x(self) -> float:
-        return self.interaction.beam.sigma_x_m
 
-    @property
-    def sigma0_y(self) -> float:
-        return self.interaction.beam.sigma_y_m
-
-    @property
-    def sigma_par_e(self) -> float:
-        return self.interaction.beam.sigma_z_m
-
-    @property
-    def N_e(self) -> float:
-        return self.interaction.beam.N_e
-
-    @property
-    def beta_x(self) -> float:
-        return self.interaction.beam.beta_star_x_m
-
-    @property
-    def beta_y(self) -> float:
-        return self.interaction.beam.beta_star_y_m
-
-    # ---- laser pulse (derived from self.interaction.laser) ---------------
-    @property
-    def lambda_L(self) -> float:
-        return self.interaction.laser.wavelength_m
-
-    @property
-    def sigma0_l(self) -> float:
-        return self.interaction.laser.waist_rms_x_m
-
-    @property
-    def sigma_par_L(self) -> float:
-        return self.interaction.laser.duration_rms_s * C_LIGHT
-
-    @property
-    def pulse_energy_J(self) -> float:
-        return self.interaction.laser.pulse_energy_J
-
-    @property
-    def N_L(self) -> float:
-        return self.interaction.laser.n_photons
-
-    @property
-    def R_sf(self) -> float:
-        return self.interaction.laser.rayleigh_x_m
-
-    @property
-    def omega_L(self) -> float:
-        return 2.0 * np.pi * C_LIGHT / self.lambda_L
-
-    @property
-    def hbar_omega_L_J(self) -> float:
-        return HBAR * self.omega_L
-
-    @property
-    def eps_L(self) -> float:
-        return self.hbar_omega_L_J / MEC2_J
-
-    # ---- collision geometry (derived from self.interaction.geometry) -----
-    @property
-    def delta_x(self) -> float:
-        return self.interaction.geometry.delta_x_m
-
-    @property
-    def delta_y(self) -> float:
-        return self.interaction.geometry.delta_y_m
-
-    @property
-    def delta_z(self) -> float:
-        return self.interaction.geometry.delta_z_m
-
-    @property
-    def crossing_angle(self) -> float:
-        # laser tilt from head-on [rad]; 0 = head-on; laser propagates
-        # along (sin phi, 0, -cos phi)
-        return self.interaction.geometry.crossing_angle_rad
-
-    # ---- quantum options ---------------------------------------------
-    @property
-    def quantum(self) -> bool:
-        # True -> Klein-Nishina cross section + recoil; False -> classical
-        # Thomson (dfe4)
-        return self.interaction.quantum
-
-    @property
-    def sigma_eps(self) -> float:
-        return self.sigma_eps_rel * self.eps0
+def _R_sf(laser) -> float:
+    """Rayleigh range for the round-beam-collapsed ``_sigma0_l``."""
+    wl_m = laser.wavelength_m.to_unit("meter").magnitude
+    return 4.0 * np.pi * _sigma0_l(laser) ** 2 / wl_m
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +208,7 @@ def recoil_X(eps, cfg: Config):
 
     The recoil-shifted Compton edge is ``D eps_L/(1+X)``.  Head-on: X = 4 eps eps_L.
     """
-    return doppler_D(eps, cfg) * cfg.eps_L / np.clip(np.asarray(eps, float), 1e-30, None)
+    return doppler_D(eps, cfg) * _eps_L(cfg.interaction.laser) / np.clip(np.asarray(eps, float), 1e-30, None)
 
 
 def kn_sigma_ratio(k):
@@ -316,15 +259,17 @@ def laser_density(x, y, z, t, cfg: Config):
     and delta = 0.  The waist is at the focus point ``delta`` and the pulse
     centre passes the focus at ``t = 0``.
 
-    Thin SI wrapper over compton_suite.io.laser_envelope.gaussian_pulse_envelope
-    (the shared, unit-convention-agnostic evaluator this formula was
-    extracted into -- see that function's docstring) -- ``t`` (seconds) is
-    converted to ``C_LIGHT * t`` (a length) at this boundary, since the
-    shared function takes light-travel-time as a length, not a bare ``t``.
+    Thin SI wrapper over ``GaussianParaxialLaser.pulse_envelope`` (the
+    shared, unit-convention-agnostic evaluator this formula was extracted
+    into -- see that method's docstring) -- ``t`` (seconds) is converted to
+    ``C_LIGHT * t`` (a length) at this boundary, since the shared method
+    takes light-travel-time as a length, not a bare ``t``.
     """
-    return _gaussian_pulse_envelope(
+    laser = cfg.interaction.laser
+    return _GaussianParaxialLaser.pulse_envelope(
         x, y, z, C_LIGHT * t,
-        sigma0=cfg.sigma0_l, rayleigh_range=cfg.R_sf, sigma_ct=cfg.sigma_par_L,
+        sigma0=_sigma0_l(laser), rayleigh_range=_R_sf(laser),
+        sigma_ct=laser.duration_rms_s.to_unit("meter", context=LIGHT_TIME_CONTEXT).magnitude,
         axis=laser_axis(cfg), focus=(cfg.delta_x, cfg.delta_y, cfg.delta_z),
         xp=np,
     )
@@ -332,8 +277,9 @@ def laser_density(x, y, z, t, cfg: Config):
 
 def laser_a0sq(x, y, z, t, cfg: Config):
     """Normalised laser vector-potential squared a_0^2(r,t) (as in dfe4)."""
-    k_a0 = (2.0 * E_CHARGE ** 2 * HBAR * C_LIGHT ** 2 * cfg.N_L
-            / (EPS0 * MEC2_J ** 2 * cfg.omega_L))
+    laser = cfg.interaction.laser
+    k_a0 = (2.0 * E_CHARGE ** 2 * HBAR * C_LIGHT ** 2 * laser.n_photons
+            / (EPS0 * MEC2_J ** 2 * laser.omega0.to("1 / second").magnitude))
     return k_a0 * laser_density(x, y, z, t, cfg)
 
 
@@ -405,7 +351,9 @@ def build_lambda_grid(x_w, thx, y_w, thy, z0, cfg: Config):
     tstar = A / (C_LIGHT * one_minus_m)
 
     # common relative-time grid; longitudinal envelope width in t
-    sigma_t = cfg.sigma_par_L / (C_LIGHT * (1.0 - nz))   # 1 - nz = 1 + cos phi
+    beam, laser = cfg.interaction.electrons.gaussian_fit, cfg.interaction.laser
+    dur_s = laser.duration_rms_s.to_unit("second").magnitude
+    sigma_t = (dur_s * C_LIGHT) / (C_LIGHT * (1.0 - nz))   # 1 - nz = 1 + cos phi
     tau = np.linspace(-cfg.n_sigma_time * sigma_t,
                       cfg.n_sigma_time * sigma_t, cfg.n_time)
     dt = tau[1] - tau[0]
@@ -415,14 +363,15 @@ def build_lambda_grid(x_w, thx, y_w, thy, z0, cfg: Config):
     x = x_w[:, None] + z * thx[:, None]
     y = y_w[:, None] + z * thy[:, None]
 
-    beta0 = float(beta_of(cfg.eps0))
+    gamma0 = beam.gamma0
+    beta0 = float(beta_of(gamma0))
     flux = 1.0 - beta0 * cos_collision(cfg)             # = 1 + beta0 cos phi
     sigma_scale = 1.0
     if cfg.quantum:
-        k0 = 0.5 * float(recoil_X(cfg.eps0, cfg))       # rest-frame photon energy
+        k0 = 0.5 * float(recoil_X(gamma0, cfg))       # rest-frame photon energy
         sigma_scale = float(kn_sigma_ratio(k0))
 
-    w_T = (cfg.N_L * SIGMA_T * sigma_scale * C_LIGHT * flux
+    w_T = (laser.n_photons * SIGMA_T * sigma_scale * C_LIGHT * flux
            * laser_density(x, y, z, t, cfg))
     trap = 0.5 * (w_T[:, 1:] + w_T[:, :-1]) * dt
     Lambda = np.concatenate([np.zeros((x_w.shape[0], 1)), np.cumsum(trap, axis=1)], axis=1)
@@ -458,6 +407,7 @@ def run_multiphoton_chain(x_w, thx, y_w, thy, z0, eps, cfg: Config,
     """
     n = x_w.shape[0]
     tau, tstar, Lambda = build_lambda_grid(x_w, thx, y_w, thy, z0, cfg)
+    eps_L = _eps_L(cfg.interaction.laser)
 
     eps_cur = eps.copy()
     thx_cur = thx.copy()
@@ -500,7 +450,7 @@ def run_multiphoton_chain(x_w, thx, y_w, thy, z0, eps, cfg: Config,
         # Doppler factor and recoil parameter at the electron's current energy
         eps_e = eps_cur[emit_idx]
         Dfac = doppler_D(eps_e, cfg)
-        Xrec = Dfac * cfg.eps_L / eps_e
+        Xrec = Dfac * eps_L / eps_e
 
         # step 3: photon angle from L_theta (x Klein-Nishina weight if quantum)
         if cfg.quantum:
@@ -515,7 +465,7 @@ def run_multiphoton_chain(x_w, thx, y_w, thy, z0, eps, cfg: Config,
 
         # step 3/4: photon energy (Doppler D, non-linear a0^2/2, quantum recoil X)
         X_on = Xrec if cfg.quantum else 0.0
-        k_n = Dfac * cfg.eps_L / (1.0 + eps_e ** 2 * theta2 + 0.5 * a0sq + X_on)
+        k_n = Dfac * eps_L / (1.0 + eps_e ** 2 * theta2 + 0.5 * a0sq + X_on)
         eps_next = np.clip(eps_e - k_n, 1e-6, None)
 
         # step 4: recoil kick to the electron angle
@@ -627,8 +577,8 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         sampling is the caller's job, not this engine's -- build a
         ``compton_suite.io.bunch.GaussianElectronBeam`` and draw one via
         ``compton_suite.io.bunch.sample_gaussian_bunch``, then convert the
-        resulting ``MacroBunch`` to this dict shape (see
-        ``kascade_adapter._macrobunch_to_kascade_electrons``
+        resulting ``Bunch`` to this dict shape (see
+        ``kascade_adapter._bunch_to_kascade_electrons``
         or ``validation/runners.py`` for the conversion). Passing
         ``electrons=None`` raises a plain ``TypeError`` below (indexing
         ``None``), not a silent internal resample: there is exactly one
@@ -636,7 +586,10 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         model.
     """
     rng = np.random.default_rng(seed)
-    weight = cfg.N_e / n_mc
+    N_e = cfg.interaction.electrons.gaussian_fit.N_e
+    gamma0 = cfg.interaction.electrons.gaussian_fit.gamma0
+    eps_L = _eps_L(cfg.interaction.laser)
+    weight = N_e / n_mc
 
     # Honour the size of the supplied bunch; clamp n_mc to its length.
     n_loaded = int(np.asarray(electrons["eps"]).shape[0])
@@ -644,7 +597,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         raise ValueError("run_simulation: 'electrons' must be non-empty")
     if n_loaded != n_mc:
         n_mc = n_loaded
-        weight = cfg.N_e / n_mc
+        weight = N_e / n_mc
     el = dict(
         z0=np.asarray(electrons["z0"], dtype=float),
         eps=np.asarray(electrons["eps"], dtype=float),
@@ -712,7 +665,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     total_photons = ph_E_eV.size
 
     # on-axis collimation (lab-frame angle)
-    gamma_theta_lab = cfg.eps0 * np.hypot(ph_thx_lab_a, ph_thy_lab_a)
+    gamma_theta_lab = gamma0 * np.hypot(ph_thx_lab_a, ph_thy_lab_a)
     onaxis_mask = gamma_theta_lab < cfg.theta_onaxis_gamma
 
     # angular window filter (goal 3)
@@ -725,16 +678,16 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
 
     # ---- summary quantities --------------------------------------------
     mean_lambda = float(lambda_total.mean())
-    N_gamma_total = cfg.N_e * mean_lambda
+    N_gamma_total = N_e * mean_lambda
     eloss = np.bincount(ph_parent, weights=ph_E_eV / MEC2_EV, minlength=n_mc) \
         if total_photons else np.zeros(n_mc)
     frac0_measured = float(np.mean(n_phot == 0))
     frac0_poisson = float(np.mean(np.exp(-lambda_total)))
 
-    D0 = float(doppler_D(cfg.eps0, cfg))
-    X0 = float(recoil_X(cfg.eps0, cfg))
+    D0 = float(doppler_D(gamma0, cfg))
+    X0 = float(recoil_X(gamma0, cfg))
     edge_factor = D0 / (1.0 + X0) if cfg.quantum else D0
-    E_gamma_max_eV = edge_factor * cfg.eps_L * MEC2_EV
+    E_gamma_max_eV = edge_factor * eps_L * MEC2_EV
 
     n_onaxis = int(onaxis_mask.sum())
     E_onaxis = ph_E_eV[onaxis_mask]
@@ -790,14 +743,14 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     #   2) the mean of the *initial* simulated Lorentz factors
     #      (``mean(eps_i)``), so the column tracks the user-set mean energy
     #      in the Electrons panel.
-    eps_i_mean = float(np.mean(el["eps"])) if el["eps"].size else float(cfg.eps0)
+    eps_i_mean = float(np.mean(el["eps"])) if el["eps"].size else gamma0
     ref_gamma = eps_i_mean
     if electrons.get("params"):
         params = electrons["params"]
         if params.get("Energy"):
             ref_gamma = float(params["Energy"]) * 1000.0 * 1e6 / MEC2_EV
     if not (np.isfinite(ref_gamma) and ref_gamma > 0):
-        ref_gamma = float(cfg.eps0) if cfg.eps0 > 0 else 1.0
+        ref_gamma = gamma0 if gamma0 > 0 else 1.0
     # save_elegant_ele derives the dP column from this reference gamma
     # (dP = gamma/reference_gamma - 1) -- ultra-relativistic limit
     # p ~ E, so (p - p0) / p0 ~= (eps - eps0) / eps0.
@@ -811,7 +764,7 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
     elif os.environ.get("KASCADE_FINAL_ELE_PATH"):
         final_ele_path = os.environ["KASCADE_FINAL_ELE_PATH"]
     _save_elegant_ele(
-        _MacroBunch(x=x_f, y=y_f, z=z_f, thx=thx_f, thy=thy_f, gamma=eps_f, weight=weight),
+        _Bunch(x=x_f, y=y_f, z=z_f, thx=thx_f, thy=thy_f, gamma=eps_f, weight=weight),
         final_ele_path,
         reference_gamma=ref_gamma,
         description=("Final 6D electron distribution after "

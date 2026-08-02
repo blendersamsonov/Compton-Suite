@@ -32,10 +32,10 @@ agree within ~15% (clustered around a still-open, deliberately-deferred
 spectrum` -- see that module's `direct_binning_spectrum` docstring).
 `spectrum_kernel_4d` has a CPU/numba fallback (`spectrum4d_cpu.py`),
 validated against the real GPU kernel (see "Architecture" below). The GUI
-integration (`gui_adapter.py`) is fully wired onto this pipeline -- total
-yield, angle-integrated spectrum, angular spectrum, temporal envelope, and
-spatial distribution all come from it; nothing in this repo runs any other
-compute path.
+integration (`adapter.py` with `XigmaAdapter`/`DirectAdapter`) is fully wired onto this
+pipeline — total yield, angle-integrated spectrum, angular spectrum, temporal
+envelope, and spatial distribution all come from it; nothing in this repo runs
+any other compute path.
 
 One open caveat: in narrow-angle/sparse-table configs, `spectrum_kernel_4d`
 alone shows large, unstable variance (overshoots the other two reference
@@ -57,11 +57,9 @@ out of the table" below. `a0_max` is a fixed *model* parameter (the a0
 range the weakly-nonlinear approximation is meant to be valid over), not
 derived per-collision from `compton.a0` -- current default guidance is
 `a0_max=0.5`. `deposition.build_table_streaming` and `tabulated_engine.py`
-both use this convention consistently; this package's model-local
-`validation/` subdirectory (which used to contain scripts treating
-`push_and_sample`'s 4th output column as physical `ahat` directly, predating
-the `a0_shape`/`retarget_a0` split) has since been deleted entirely, so
-there is no remaining code path in this repo with that mismatch.
+both use this convention consistently; there is no remaining code path in
+this repo that treats `push_and_sample`'s 4th output column as physical `ahat`
+directly (only `a0_shape` is correct).
 
 **Not done**: systematic resolution/convergence scans (tooling exists, see
 "Convergence testing" below -- no results recorded yet); chasing the
@@ -109,19 +107,7 @@ integral[a0_local(t)^2] dt` (Paper/xigma.tex eq. "ahattraj"), where
 *instantaneous* local field amplitude computed internally at each
 timestep, and `TrXi/2 = (1 + params.ellipticity**2) / 2` (eq. "Xi";
 `ellipticity=0` linear, `+-1` circular -- `CollisionParams.ellipticity`,
-set via `compton_suite.io.collision.build_params`). This is a genuine, previously-made mistake, not a
-hypothetical one: an earlier version of this code deposited `a0_local(t)`
-itself into `H` once per timestep, i.e. treated `a0` the same way as
-`gamma`/`theta_x`/`theta_y` -- one distribution smeared over each
-particle's whole trajectory. That's only valid in the synchrotron/wiggler
-regime, where the photon formation length is about one laser cycle and
-the trajectory can be split into independently-radiating segments. This
-codebase is in the opposite, weakly-nonlinear regime (`a0 <~ 1`; see the
-paper's regime-validity discussion), where the formation length spans the
-*whole* trajectory: an electron radiates one line, shaped by the single
-effective intensity value it experienced over its entire passage, not a
-sequence of per-instant emissions. **Do not reintroduce per-timestep a0
-deposition.**
+set via `compton_suite.io.collision.build_params`). **The formation length spans the entire trajectory, not individual timesteps.** In the weakly-nonlinear regime (`a0 <~ 1`), each electron radiates one line shaped by a single effective intensity value (the trajectory average). This is fundamentally different from the synchrotron/wiggler regime (where formation length ~one laser cycle and the trajectory can be split into independent segments). **Do not deposit `a0_local(t)` per timestep into the kernel.**
 
 **a0 factorises out of the table -- `a0_shape` and `deposition.retarget_a0`.**
 `ahat(zeta)` above splits *exactly* as `ahat(zeta) = compton.a0**2 *
@@ -213,8 +199,8 @@ samples_per_point=, device=None)` is the host driver; `device=None|'cpu'|
 as `config._detect_device` for this package's own internal callers);
 callers pass
 `theta_x`/`theta_y`/`s` as `cp`/`np` arrays matching the chosen device
-(caller converts via `xp.asarray`, not the function itself -- see
-`gui_adapter.py`'s calls for the pattern).
+(caller converts via `xp.asarray`, not the function itself — see
+`adapter.py`'s `run()` method for the pattern).
 
 **CPU/numba fallback (`spectrum4d_cpu.py`).** `spectrum4d.py`'s
 `cupy`/`cupyx` import is a `try/except` at module scope (own `_HAS_CUPY`),
@@ -285,14 +271,13 @@ Physical constants (`me`, `c`, `el`, `rel`, `sigma_T`, `PHI`) -- `me`/`c`/
 `el` come from `compton_suite.io.constants` (see "Parameter semantics & units"
 below), not local literals; `rel`/`sigma_T` are still derived locally from
 those via this module's own CGS formula (`sigma_T`, the Thomson cross
-section, is the only thing left that still needs a local CGS derivation --
-everything else that used to live here moved out, see below), and `PHI`
+section, is the only locally-derived quantity), and `PHI`
 (golden ratio, unrelated to physics) stays local. The GPU kernel sizing
 constants `spectrum_kernel_4d` needs (`X_THREADS`, `MAX_RINGS`,
 `MAX_ARCS`, `PHI_EDGES`, `CDF_PHI_RESOLUTION`, ...; see "Sizing constants"
-in Conventions) also live here, plus `_detect_device` -- a thin re-export
-of `compton_suite.io.collision.detect_device` kept so this package's own
-internal callers (`spectrum4d.py`, `gui_adapter.py`) don't need to change
+in Conventions) also live here, plus `_detect_device` — a thin re-export
+of `compton_suite.io.misc.detect_device` kept so this package's own
+internal callers (`spectrum4d.py`, `adapter.py`) don't need to change
 their import path.
 
 **`CollisionParams`/`build_params` moved to `compton_suite.io.collision`** (this
@@ -313,16 +298,11 @@ backend via `compton_suite.io.collision.detect_device()`: a real CUDA GPU via
 cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else CPU (requires
 `numba`), else raises -- there is no third backend. `.xp` (`cp` or `np`)
 and `.asnumpy(x)` (`.get()` on GPU, no-op on CPU) are a thin convenience
-for host orchestration code (`gui_adapter.py`) that builds arrays on the
-chosen device and needs to bring results back to host afterwards. The
-`estimate_yield`/`estimate_spectrum_width` cheap-analytic-estimate methods
-that used to live on `CollisionParams` were removed entirely (dead code --
-never used by the real computation, and `models/analytical/analytical.py`
-already has its own independent, SI-based reimplementation of the same
-estimates for the GUI's always-on preview).
+for host orchestration code (`adapter.py`'s adapters) that builds arrays on the
+chosen device and needs to bring results back to host afterwards.
 
 `particles.push_and_sample` takes a `compton_suite.io.collision.CollisionParams`
-instance as its parameter source, same as before the move.
+instance as its parameter source.
 
 ### GUI-facing engine -- `tabulated_engine.py`
 
@@ -457,14 +437,7 @@ devices default to float64, see Conventions).
 
 ## Traps
 
-- **`cupyx.scatter_add`'s dtype restriction.** It's backed by `cupy.add.at`,
-  which only supports `int32, float16, float32, float64, uint32, uint64` --
-  notably not `int64`. `deposition.py`'s occupancy counting used to
-  accumulate in `int64` and hit `TypeError: cupy.add.at only supports
-  int32, float16, float32, float64, uint32, uint64` on some cupy/driver
-  combinations but not others (nothing to do with problem size or GPU
-  model) -- fixed by switching occupancy to `int32` (plenty for realistic
-  per-cell counts). Any new GPU scatter-add target must stay off `int64`.
+- **`cupyx.scatter_add`'s dtype restriction.** It only supports `int32, float16, float32, float64, uint32, uint64` — not `int64`. Occupancy counting must use `int32` (sufficient for realistic per-cell counts). Any new GPU scatter-add target must avoid `int64`.
 - **`Table.a0_kind` mismatch.** A `'shape'` table (built from
   `push_and_sample`'s `a0_shape`) is not spectrum-ready -- its 4th axis
   isn't a physical `ahat`, so feeding it straight to `spectrum_kernel_4d`/
@@ -472,18 +445,8 @@ devices default to float64, see Conventions).
   the wrong `a0` values. Both assert `a0_kind='ahat'` and raise instead of
   computing garbage; always route a `'shape'` table through
   `deposition.retarget_a0(table, a0)` first.
-- **Depositing `a0` per timestep instead of trajectory-averaged.** A real
-  mistake made and fixed on this codebase, not hypothetical -- see
-  "Stage 0"'s "a0 is a trajectory average" section. If you're about to
-  make `push_and_sample` emit more than one row per particle, or bin
-  `a0_local(t)` directly into `H`, stop and re-read that section first.
-- **The `1/(1+a0)` Jacobian factor.** `spectrum_kernel_4d`'s resonance
-  condition and evaluation prefactor both depend on `a0` (eq. "Gamma",
-  "Fmatrix" in the accompanying paper) -- `g` and `prefac` must be
-  recomputed *inside* the per-a0-bin quadrature loop, not shared across
-  bins. An earlier version of this kernel (and `reference.spectrum_from_table`)
-  got this wrong, using a single a0-independent `g` and missing the
-  `1/(1+a0)` factor entirely -- a real, previously-made mistake.
+- **`a0` must be trajectory-averaged, not per-timestep.** Do not make `push_and_sample` emit more than one row per particle or bin `a0_local(t)` directly into `H`. See "Stage 0"'s "a0 is a trajectory average" section for the physics.
+- **The `1/(1+a0)` Jacobian factor.** `spectrum_kernel_4d`'s resonance condition `g` and evaluation prefactor `prefac` both depend on `a0` (eq. "Gamma", "Fmatrix"). These must be recomputed *inside* the per-a0-bin loop, not shared across bins. A single a0-independent `g` produces wrong results.
 - **Shared-memory aliasing.** Adding a shared array without accounting for
   `TMP_FLOAT_ARRAY`/`rings`/`phi_cur` overlap corrupts the arc geometry in
   ways that produce plausible-looking output.
@@ -524,68 +487,24 @@ CUDA driver) for `deposition.py`'s GPU deposition path specifically --
 `deposition.py` itself doesn't *require* cupy to import or to run its CPU
 path.
 
-## GUI integration (`gui_adapter.py`)
+## GUI integration (`adapter.py`)
 
-`src/xigma_i/gui_adapter.py` is the bridge that plugs this package into
-`gui/`'s Tkinter desktop GUI as one of several pluggable `ModelAdapter`s
-(the others being `kascade`, `delta`, and `analytical`). See
-`passport.md` for the full physics "passport" this adapter reports
-through its `capabilities()`.
+`src/compton_suite/models/xigma_i/adapter.py` plugs this package into the GUI as a pluggable `ModelAdapter`. It exports two adapter classes:
 
-- Never imports `cupy`/`config`/`tabulated_engine` at module scope -- only
-  inside `available()`/`run_simulation()`/`spectrum_in_angular_range()` --
-  so `import xigma_i.gui_adapter` degrades gracefully when cupy/CUDA isn't
-  installed (the GUI wraps that import in `try/except` and shows the model
-  greyed-out instead of crashing).
-- Defines its **own local** `BinnedSpectrum`/`BinnedAngularSpectrum`/
-  `BinnedTemporalEnvelope`/`BinnedSpatialDistribution`/
-  `AngularRangeSpectrumResult` dataclasses -- deliberately *not* imported
-  from `compton_gui.model_api`, so this package doesn't have to depend on
-  the GUI project. They're structurally identical, duck-type compatible,
-  but **not the same Python class** -- this tripped up an
-  `isinstance`-based check on the GUI side once; don't "fix" it by
-  importing `compton_gui` here, the decoupling is intentional.
-- `Config` mirrors `dfe5_compton_mc.Config`'s field names/SI units where a
-  physical mapping exists (so the GUI's model-agnostic spread-estimate
-  formula keeps working regardless of active model), but converts to CGS
-  at the `set_*_parameters` call boundary. `crossing_angle` must be `0.0`
-  (head-on only -- this pipeline has no crossing-angle support at all).
-  `quantum` is accepted for interface symmetry but has no effect. `beta_ff`/
-  `phi_pol`, plus a block of pipeline numerical/resolution knobs
-  (`n_particles_01`, `n_steps_0`, `n_bins_gamma`/`n_bins_theta_x`/
-  `n_bins_theta_y`/`n_bins_a0`, `a0_max`, `samples_per_point_2`,
-  `n_time_bins`, `n_spatial_bins_x`/`n_spatial_bins_y`), are xigma-i-only
-  extras with no dfe5 analogue -- surfaced in the GUI through
-  `XigmaAdapter.extra_params()` (a small `(label, default, key)` spec list,
-  mirrored in `compton_gui.model_api.ModelAdapter.extra_params`) rather
-  than the shared Electrons/Laser/Compton field panels, since those are
-  common to every model. The numerical knobs have no physical meaning --
-  they're `run_simulation`'s former hardcoded module constants
-  (`_N_PARTICLES_NEW_*`/`_N_STEPS_NEW`/`_N_BINS_NEW`/
-  `_SAMPLES_PER_POINT_NEW`/`_N_TIME_BINS_NEW`/`_N_SPATIAL_BINS_NEW`),
-  moved onto `Config` (the only object `run_simulation` receives) so the
-  GUI can tune Stage 0/1/2 cost/accuracy per run instead of it being fixed
-  at import time; the shared "Number of macroelectrons" field (`n_mc`) is
-  parsed but ignored by xigma-i now that `n_particles_01` is the real
-  Stage 0/1 particle-count knob (`params_to_config` raises a warning
-  saying so). `run_simulation` still clamps `n_particles_01` against a
-  `_N_PARTICLES_SANITY_MAX` ceiling (2,000,000) as a guard against a
-  fat-fingered GUI value hanging the GPU/CPU; every numerical field is
-  otherwise floored at 1 in `params_to_config`, not re-validated later.
-  There is no nonlinearity-emulation field on `Config` at all -- this
-  pipeline has no such axis (`a0` is a real table axis, not a
-  phenomenological correction; see `capabilities()`'s
-  `supports_nonlinearity_emulation=False`).
-- `XigmaAdapter` caches `self._last_results` (a `compton_suite.io.results.
-  CommonResults` which itself carries private `_params`/`_gamma_0`/
-  `_sigma_gamma_0`/`_engine`/`_device`, stashed as plain post-construction
-  attributes by `run_simulation`'s `_attach_private_cache` helper) so
-  `spectrum_in_angular_range()` can reuse the cached `TabulatedEngine`'s
-  table for a fresh on-demand `calculate_angular_spectrum_4d` call over a
-  user-picked window, without re-running the whole simulation or
-  rebuilding the table. `_params` is `TabulatedEngine`'s config source
-  (see "Shared config" above).
-- `run_simulation` builds one `CollisionParams` via `build_params`, wraps
+- **`XigmaAdapter`** (registered as `"xigma-i"`) — the full tabulated pipeline (Stage 0/1/2).
+- **`DirectAdapter`** (registered as `"delta"`) — brute-force per-particle binning using only Stage 0, registered under a separate name but not a separate model package.
+
+Both:
+- Never import `cupy`/`config`/`tabulated_engine` at module scope — only inside `run()` — so the module degrades gracefully when cupy/CUDA isn't available (GUI wraps registration in `try/except`, shows the model greyed-out).
+- Define `model_params() -> list[tuple[str, float | str, str]]` to surface pipeline knobs (`n_particles_01`, `n_steps_0`, `n_bins_*`, `a0_max`, `samples_per_point_2`, `n_time_bins`, `n_spatial_bins_*`) as tunable GUI fields rather than hardcoded module constants.
+- Return `Photons` with `BinnedPhotonSpectrum`/`BinnedAngularSpectrum` etc. from `run(job)`.
+- Store persistent `engine` (TabulatedEngine) and `params` (CollisionParams) as `self` attributes after a run, enabling on-demand `spectrum_in_angular_range()` recomputes without rerunning the full simulation.
+
+`XigmaAdapter` reads numeric parameters from `job.extra` (GUI values for `n_particles_01`, `n_steps_0`, etc.) and converts shared beam/laser parameters via `convert_width`/`convert_time` from SI to CGS at the `set_laser_parameters` boundary. Crossing-angle support is planned but not implemented; `job.interaction.crossing_angle` must be zero.
+
+After running, `XigmaAdapter` stores its `TabulatedEngine` and `CollisionParams` as `self.engine`/`self.params` so that `spectrum_in_angular_range()` can reuse the cached table for a fresh on-demand `calculate_angular_spectrum_4d` query over a user-selected window, without re-running the whole simulation or rebuilding the table.
+
+`run_simulation` internally builds one `CollisionParams` via `build_params`, wraps
   it in a `TabulatedEngine`, and calls `.run(..., n_time_bins=, n_spatial_bins=)`
   once to get every observable the GUI needs (total yield, angle-integrated
   spectrum, angular spectrum, temporal envelope, spatial distribution) in
@@ -604,17 +523,14 @@ through its `capabilities()`.
 
 ### GUI-side testing
 
-No unit tests in this directory. Validated via `gui/`'s
-`scripts/headless_test.py` (calls `params_to_config -> run ->
-validate_results` plus the temporal/spatial/angular fields through
-`XigmaAdapter`), and via standalone smoke scripts exercising
-`XigmaAdapter.available`/`params_to_config`/
-`run`/`spectrum_in_angular_range` end-to-end on three configurations: the
-real GPU backend, a forced-CPU backend (numba, cupy still importable), and
-a forced-CPU backend with cupy import actually blocked -- all three
+No unit tests in this directory. Validated via `scripts/headless_test.py` (calls
+`discover_models()` → instantiate adapter → call `run(job)` → check results
+including temporal/spatial/angular fields), and via end-to-end smoke tests on
+three configurations: the real GPU backend, a forced-CPU backend (numba + cupy
+importable), and a forced-CPU backend with cupy import blocked. All three
 produce finite, sane `total_yield`/`spectrum`/`angular_spectrum`/
-`temporal_envelope`/`spatial_distribution`, and GPU/CPU `total_yield`
-agree to <0.01%.
+`temporal_envelope`/`spatial_distribution`, and GPU/CPU `total_yield` agree
+to <0.01%.
 
 On this dev machine: system Python has no pip/cupy/matplotlib. Use the
 `miniforge3` conda env named `core` (has cupy 14.0.1, numpy, matplotlib,
@@ -637,8 +553,8 @@ interpreter`).
   engine plugged into the same GUI. No dependency either direction.
 - `models/delta/` -- reuses this package's Stage 0 physics
   (`particles.push_and_sample`) directly as a library dependency.
-- `gui/` -- the shared Tkinter GUI. Depends on this package only through
-  `gui_adapter.py`'s contract (never touches `deposition.py`/etc. directly).
+- `gui/` — the shared Tkinter GUI. Depends on this package only through
+  `adapter.py`'s `ModelAdapter` interface (never touches `deposition.py`/etc. directly).
 - `IO/` (package `compton_suite.io`) -- shared physical constants, pint registry,
   and parameter-convention framework, depended on by this package
   (`config.py`, `params/`), the reverse direction from the `gui/`
@@ -651,47 +567,21 @@ cupy-cudaXXx` doesn't find a matching wheel, a conda/mamba env
 (conda-forge) is the more reliable install path -- confirmed working on
 this machine via the `core` env above.
 
-## Parameter semantics & units (`params/`), and `compton_suite.io`
+## Physical constants and unit conversions
 
-`src/xigma_i/params/` is this model's own declaration of parameter
-semantics and units for values crossing the `compton_suite.gui` boundary --
-`spec.py`'s `XIGMA_SPEC` (the convention/unit contract for
-`gui_adapter.Config`'s own fields) and `XIGMA_DIAGNOSTIC_SPEC` (derived/
-read-only quantities, e.g. `a0`, that aren't GUI inputs). The framework
-those specs are built on -- `PhysicalQuantity` (value + unit +
-`PhysicalMeaning` + a convention enum -- `WidthConvention`/
-`TimeConvention`/`AmplitudeConvention`), canonical conversion
-(`to_canonical`/`from_canonical`), `ParameterSpec`/`ModelSpec`,
-`adapt_to_model` -- is **not defined here**; it's re-exported unchanged
-from `compton_suite.io` (`IO/`), so `xigma_i.params.PhysicalQuantity` and (say)
-`compton_suite.gui.physics_params.PhysicalQuantity` are the literal same
-Python class, not two independently-defined look-alikes. `compton_suite.io`
-also provides the shared `pint` unit registry (including a custom
-`"light_time"` context so a length can stand in for `c * duration` --
-`Config` stores pulse/bunch length that way).
+Physical constants (`hbar`, `me`, `c`, `el`, `elC`) come from `compton_suite.io.constants` (the shared, audited source for all models). The shared `pint` unit registry from `compton_suite.io.units` includes a custom `"light_time"` context so a length can stand in for `c * duration`.
 
-**`compton_suite.io` is load-bearing, not optional.** `config.py` (see "Shared
-config" above -- `hbar`/`me`/`c`/`el`/`elC` come from
-`compton_suite.io.constants`) and `params/__init__.py` both import it directly.
-Every caller that imports `xigma_i` (`gui_adapter.available()`,
-`compton_suite.gui`'s model discovery) wraps the import in a broad
-`try/except Exception`, so a missing `compton_suite.io` install surfaces as
-"model unavailable: <error>" exactly like a missing cupy/numba does,
-never a crash.
+Unit conversions from SI (shared beam/laser) to CGS (xigma-i's internal representation) happen at adapter boundaries via `convert_width`, `convert_time`, `convert_amplitude` functions from `compton_suite.io.units`—not via a generic parameter-semantics framework.
 
-**Partially wired into `gui_adapter.params_to_config`**: `sigma_par_e`/
-`sigma_par_L` (genuinely raw, convention-ambiguous duration inputs) now go
-through `adapt_to_model`/`params_to_floats` against a `sigma_par_e`/
-`sigma_par_L`-only subset of `XIGMA_SPEC`; `sigma0_x`/`sigma0_y`/`sigma0_l`
-still do the emittance/beta/Rayleigh-length arithmetic by hand, since they
-aren't raw convention-ambiguous inputs today (see `spec.py`'s module
-docstring and `docs/refactor/parameter-framework-and-collision-params.md`'s
+**`compton_suite.io` is load-bearing, not optional.** `config.py` and the adapter both import constants and conversions directly. Model registration wraps xigma-i's import in a `try/except`, so a missing `compton_suite.io` install surfaces as "model unavailable" rather than a crash.
+
+**Parameter flow**: GUI reads fields → GUI compiles a `Job` → `XigmaAdapter.run(job)` reads `job.extra` (model-specific knobs like `n_particles_01`, `n_steps_0`, etc.) and `job.interaction` (shared beam+laser in SI) → adapter calls `convert_width`/`convert_time` to convert SI to CGS at the physics boundary
 "sigma0_x/sigma0_l wrinkle"). `scripts/physics_params_demo.py` exercises
 `xigma_i.params` end to end, alongside `compton_suite.models.kascade.
 params.KASCADE_SPEC`.
 
 Needs `pint` (a hard dependency in `pyproject.toml`, transitively required
-by `compton_suite.io` -- pure Python, no GPU/cupy involvement, so neither
-`compton_suite.io` nor `xigma_i.params`/`config.py`'s use of it ever requires
-cupy, even though `gui_adapter.py` itself stays cupy-optional throughout,
-see "GUI integration" above).
+by `compton_suite.io` — pure Python, no GPU/cupy involvement, so neither
+`compton_suite.io` nor `xigma_i.params`/`config.py` ever require cupy.
+The adapter (`adapter.py`) itself stays cupy-optional throughout (deferred
+import in `run()` method), see "GUI integration" above.

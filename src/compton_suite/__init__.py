@@ -11,7 +11,7 @@ Subpackages:
 
 from __future__ import annotations
 
-from .gui.models import discover_models
+from .models.api import discover_models
 
 __all__ = ["discover_models", "run_gui"]
 

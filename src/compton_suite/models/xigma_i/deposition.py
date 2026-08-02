@@ -579,8 +579,8 @@ def build_table(gamma, theta_x, theta_y, a0, weight, *, grid=None, scheme='neare
     )
 
 
-def build_table_streaming(params, beam, n_particles, n_steps, *, chunk_particles,
-                           chirp=0.0, angle_energy_corr=0.0, rng=None,
+def build_table_streaming(beam, laser, n_particles, n_steps, *, chunk_particles,
+                           rng=None,
                            push_backend='numpy', grid=None, scheme='nearest', device=None,
                            n_bins=(128, 128, 128, 32), margin=0.05, accumulate_dtype=np.float64,
                            gamma_quantile=1e-4, a0_kind='ahat', quiet=True, **scheme_kwargs):
@@ -595,20 +595,25 @@ def build_table_streaming(params, beam, n_particles, n_steps, *, chunk_particles
     already-materialised sample array). Deriving the grid from the first
     chunk if not supplied, so every chunk deposits into the same fixed grid.
 
-    params: this pipeline's compton_suite.io.collision.CollisionParams (see build_params).
     beam: a compton_suite.io.bunch.GaussianElectronBeam (SI) describing the
         electron beam to sample -- electron sampling happens here via
         compton_suite.io, not internally to this model (see
-        compton_suite.io.bunch.sample_gaussian_bunch); each chunk's SI MacroBunch
-        is passed straight to particles.push_and_sample, which converts to
-        this pipeline's own CGS convention inline.
+        compton_suite.io.bunch.sample_gaussian_bunch); each chunk's SI
+        MacroBunch is passed straight to particles.push_and_sample.
+    laser: a compton_suite.io.laser.GaussianParaxialLaser describing the
+        laser pulse -- converted to this pipeline's own CGS/k0_las
+        convention once below, before the streaming loop (no shared
+        CGS parameter bundle; see particles.push_and_sample's docstring).
     chunk_particles: particles drawn+pushed+deposited per iteration -- size
         this so chunk_particles*n_steps fits comfortably in push_backend's
         memory (GPU memory for 'cupy', system RAM for 'numpy'/'numba').
-    chirp, angle_energy_corr, rng: passed to
-        compton_suite.io.bunch.sample_gaussian_bunch for each chunk; rng is
-        shared/advanced across chunks (a fresh `np.random.default_rng()`
-        if not supplied).
+    rng: passed to compton_suite.io.bunch.sample_gaussian_bunch for each
+        chunk; shared/advanced across chunks (a fresh
+        `np.random.default_rng()` if not supplied). Chirp/dispersion
+        correlations are no longer separate per-call arguments here -- they
+        live on `beam.chirp_h`/`beam.dispersion_x`/`beam.dispersion_y` and
+        are honored automatically by `sample_gaussian_bunch` for every
+        chunk.
     push_backend: passed to particles.push_and_sample for each chunk --
         'numpy' (default, matching push_and_sample's own default -- always
         available, no GPU required), 'cupy', or 'numba'.
@@ -625,23 +630,35 @@ def build_table_streaming(params, beam, n_particles, n_steps, *, chunk_particles
     quiet: if False, prints per-chunk progress.
 
     Each chunk's macroparticle weight is rescaled by n_chunk/n_particles:
-    push_and_sample derives weight = params.N_e/n_chunk internally (as if
-    this chunk alone were the whole population), so its output `w` is
-    rescaled to params.N_e/n_particles here, the correct per-macroparticle
-    weight for a fraction of a streamed bunch -- omitting this inflates the
-    total deposited weight by n_particles/chunk_particles. `w` scales
-    linearly with the per-particle weight push_and_sample used internally,
-    so rescaling its output is equivalent to rescaling the input weight.
+    push_and_sample derives weight = N_e/n_chunk internally (as if this
+    chunk alone were the whole population), so its output `w` is rescaled
+    to N_e/n_particles here, the correct per-macroparticle weight for a
+    fraction of a streamed bunch -- omitting this inflates the total
+    deposited weight by n_particles/chunk_particles. `w` scales linearly
+    with the per-particle weight push_and_sample used internally, so
+    rescaling its output is equivalent to rescaling the input weight.
 
     Returns a Table (same as build_table).
     """
     from compton_suite.io.bunch import sample_gaussian_bunch
+    from compton_suite.io.units import LIGHT_TIME_CONTEXT
 
     if scheme not in _DEPOSIT_FUNCS:
         raise ValueError(f"scheme must be one of {list(_DEPOSIT_FUNCS)}, got {scheme!r}")
     xp = {'cpu': np, 'gpu': cp}.get(device)
     if device is not None and xp is None:
         raise ValueError(f"device must be 'cpu', 'gpu', or None, got {device!r}")
+
+    k0_las = (2.0 * np.pi / laser.wavelength_m.quantity).to("1 / centimeter").magnitude
+    beta_ff = laser.beta_ff
+    sigma_lr0 = laser.waist_rms_x_m.to_unit("centimeter").magnitude
+    sigma_lz = laser.duration_rms_s.to_unit("centimeter", context=LIGHT_TIME_CONTEXT).magnitude
+    omega_las = laser.omega0.to("1 / second").magnitude
+    N_l = laser.n_photons
+    ellipticity = laser.ellipticity
+    N_e = beam.N_e
+    sigma_ex = beam.sigma_x_m.to_unit("centimeter").magnitude
+    sigma_ey = beam.sigma_y_m.to_unit("centimeter").magnitude
 
     rng = np.random.default_rng() if rng is None else rng
     n_done = 0
@@ -653,9 +670,11 @@ def build_table_streaming(params, beam, n_particles, n_steps, *, chunk_particles
     t0 = time.time()
     while n_done < n_particles:
         n_chunk = min(chunk_particles, n_particles - n_done)
-        macrobunch = sample_gaussian_bunch(beam, n_chunk, chirp=chirp,
-                                            angle_energy_corr=angle_energy_corr, rng=rng)
-        gamma, tx, ty, a0, w = particles.push_and_sample(params, macrobunch, n_steps=n_steps, backend=push_backend)
+        macrobunch = sample_gaussian_bunch(beam, n_chunk, rng=rng)
+        gamma, tx, ty, a0, w = particles.push_and_sample(
+            macrobunch, k0_las=k0_las, beta_ff=beta_ff, sigma_lr0=sigma_lr0, sigma_lz=sigma_lz,
+            omega_las=omega_las, N_l=N_l, ellipticity=ellipticity, N_e=N_e,
+            sigma_ex=sigma_ex, sigma_ey=sigma_ey, n_steps=n_steps, backend=push_backend)
         w = w * (n_chunk / n_particles)
 
         if xp is None:
