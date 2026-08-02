@@ -56,6 +56,7 @@
   "54": "bunch.py",
   "55": "models.py — discover_models() model registry setup (no tkinter/matplotlib import)",
   "56": "test_constants.py",
+  "57": "TestIntegration",
   "58": "opencode.json",
   "59": "_const",
   "61": "kascade run_simulation",
