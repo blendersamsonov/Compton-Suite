@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from gammaforge.models.api import total_yield  # noqa: E402
 from gammaforge.validation.scenarios import BASELINE, Scenario  # noqa: E402
 from gammaforge.validation.runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402
 
@@ -60,9 +61,9 @@ def run(scenario: Scenario = BASELINE, results: dict | None = None) -> bool:
     res_analytical = results.get("analytical") or run_analytical(scenario)
 
     y_kascade = _total_yield_kascade(res_kascade)
-    y_xigma = float(res_xigma.total_yield)
-    y_delta = float(res_delta.total_yield)
-    y_analytical = float(res_analytical.total_yield)
+    y_xigma = total_yield(res_xigma)
+    y_delta = total_yield(res_delta)
+    y_analytical = total_yield(res_analytical)
 
     print(f"  kascade        total_yield = {y_kascade:.6e}")
     print(f"  xigma-i        total_yield = {y_xigma:.6e}")

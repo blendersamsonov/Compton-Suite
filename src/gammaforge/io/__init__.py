@@ -36,10 +36,9 @@ per-model.
    ``InteractionParameters(laser, electrons)``, the (laser, sampled Bunch)
    pair every model's own ``Config``/``Job`` builds from -- beam-level
    scalars come from ``electrons.gaussian_fit``.
-5. **Photon/observable representations** -- ``photons.py``: the
-   spectrum/angular-spectrum/temporal-envelope/spatial-distribution
-   dataclasses every model reports results through, and the results
-   contract every model's ``run()`` returns (``Photons``).
+5. **Photon/observable representations** -- ``photons.py``: ``PhasespaceSlice``
+   (a density over <=4 axes of the 6D photon phase space) and the results
+   contract every model's ``run()`` returns (``Results``).
 6. **External-format I/O** -- ``io_formats/``: ``sdds.py`` (elegant
    ``.ele``), ``yaml_spec.py`` (this package's own ``gaussian_6d_waist``/
    ``gaussian_paraxial`` YAML formats).
@@ -62,7 +61,7 @@ from __future__ import annotations
 
 from . import bunch, interaction, io_formats, laser, photons, units
 from .interaction import InteractionParameters, recoil_parameter
-from .photons import Photons, validate_results
+from .photons import PhasespaceSlice, Results, validate_results
 from .units import (
     ALPHA,
     C_LIGHT,
@@ -104,7 +103,8 @@ __all__ = [
     "convert_amplitude",
     "InteractionParameters",
     "recoil_parameter",
-    "Photons",
+    "PhasespaceSlice",
+    "Results",
     "validate_results",
     "bunch",
     "laser",

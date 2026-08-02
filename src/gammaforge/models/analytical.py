@@ -33,9 +33,9 @@ from scipy.special import erfcx
 
 from gammaforge.io.bunch import Bunch, GaussianElectronBeam
 from gammaforge.io.laser import GaussianParaxialLaser
-from gammaforge.io.photons import BinnedSpectrum, Photons
+from gammaforge.io.photons import PhasespaceSlice
 from gammaforge.io.units import C_LIGHT, E_CHARGE, HBAR, SIGMA_T_M2
-from gammaforge.models.api import Job
+from gammaforge.models.api import AXIS_ENERGY, Job, Results, find_slice_request
 
 __all__ = ["estimate_yield", "estimate_spectrum_width", "angle_integrated_spectrum", "Adapter"]
 
@@ -128,7 +128,7 @@ class Adapter:
     def model_choices(self) -> dict[str, list[str]]:
         return {}
 
-    def run(self, job: Job) -> Photons:
+    def run(self, job: Job) -> Results:
         self.theta_col_rad = float(job.extra.get("theta_col_rad", self.theta_col_rad))
 
         electrons: Bunch = job.interaction.electrons
@@ -143,36 +143,39 @@ class Adapter:
         total_yield = float(estimate_yield(beam, pulse))
         width = float(estimate_spectrum_width(beam, pulse, self.theta_col_rad))
 
-        gamma_arr = np.asarray(electrons.gamma, dtype=float)
-        weight_arr = np.full(electrons.n_particles, electrons.weight)
+        photon_slices = [PhasespaceSlice(axes={}, distr=np.asarray(total_yield))]
 
-        omega0 = pulse.omega0.to("1 / second").magnitude
-        Wph_eV = HBAR * omega0 / E_CHARGE
-        n_bins = job.output.n_energy_bins
-        s_grid = np.linspace(1e-3, 1.0 - 1e-3, n_bins)
-        dNds = angle_integrated_spectrum(gamma_arr, weight_arr, s_grid)
-        E_eV = 4.0 * beam.gamma0**2 * Wph_eV * s_grid
-        dNdE_per_eV = dNds / (4.0 * Wph_eV)
+        energy_req = find_slice_request(job.output.slices, AXIS_ENERGY)
+        if energy_req is not None:
+            gamma_arr = np.asarray(electrons.gamma, dtype=float)
+            weight_arr = np.full(electrons.n_particles, electrons.weight)
 
-        # QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION: angle_integrated_spectrum
-        # returns a per-electron kinematic SHAPE only -- it has no dependence
-        # on the laser pulse (a0/n_photons) at all, so its raw absolute scale
-        # has nothing to do with the pulse-energy-dependent total_yield
-        # estimate_yield() actually computes (confirmed: this raw integral is
-        # bit-identical across scenarios that only change pulse_energy_J).
-        # Same self-consistent-rescale pattern applied to xigma-i/delta's
-        # angular_spectrum vs total_yield mismatch: force the spectrum shape
-        # to integrate to the trusted total_yield, rather than trust its own
-        # absolute normalization.
-        _raw_integral = float(np.trapezoid(dNdE_per_eV, E_eV))
-        if _raw_integral > 0:
-            dNdE_per_eV = dNdE_per_eV * (total_yield / _raw_integral)
+            omega0 = pulse.omega0.to("1 / second").magnitude
+            Wph_eV = HBAR * omega0 / E_CHARGE
+            n_bins = energy_req.bins[0]
+            s_grid = np.linspace(1e-3, 1.0 - 1e-3, n_bins)
+            dNds = angle_integrated_spectrum(gamma_arr, weight_arr, s_grid)
+            E_eV = 4.0 * beam.gamma0**2 * Wph_eV * s_grid
+            dNdE_per_eV = dNds / (4.0 * Wph_eV)
 
-        return Photons(
-            model_name="analytical",
-            n_mc=electrons.n_particles,
-            total_yield=total_yield,
-            spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
-            summary={"estimated_spectrum_width_fwhm": width, "gamma0": beam.gamma0,
-                     "N_e": beam.N_e, "n_photons": pulse.n_photons, "a0_interaction": pulse.a0_interaction},
+            # QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION: angle_integrated_spectrum
+            # returns a per-electron kinematic SHAPE only -- it has no dependence
+            # on the laser pulse (a0/n_photons) at all, so its raw absolute scale
+            # has nothing to do with the pulse-energy-dependent total_yield
+            # estimate_yield() actually computes (confirmed: this raw integral is
+            # bit-identical across scenarios that only change pulse_energy_J).
+            # Same self-consistent-rescale pattern applied to xigma-i/delta's
+            # angular_spectrum vs total_yield mismatch: force the spectrum shape
+            # to integrate to the trusted total_yield, rather than trust its own
+            # absolute normalization.
+            _raw_integral = float(np.trapezoid(dNdE_per_eV, E_eV))
+            if _raw_integral > 0:
+                dNdE_per_eV = dNdE_per_eV * (total_yield / _raw_integral)
+
+            photon_slices.append(PhasespaceSlice(axes={AXIS_ENERGY: E_eV}, distr=dNdE_per_eV))
+
+        return Results(
+            photon_slices=photon_slices,
+            model_specific={"estimated_spectrum_width_fwhm": width, "gamma0": beam.gamma0,
+                            "N_e": beam.N_e, "n_photons": pulse.n_photons, "a0_interaction": pulse.a0_interaction},
         )

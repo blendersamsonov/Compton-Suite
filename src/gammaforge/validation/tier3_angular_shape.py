@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from gammaforge.models.api import total_yield  # noqa: E402
 from gammaforge.validation.scenarios import BASELINE, Scenario  # noqa: E402
 from gammaforge.validation.runners import run_xigma_live, run_delta_live  # noqa: E402
 
@@ -30,7 +31,7 @@ def collimated_fraction(adapter, res, theta_rad: float) -> float:
     which a cached (pickled) Photons result alone can't provide (see
     runners.py's module docstring)."""
     result = adapter.spectrum_in_angular_range((-theta_rad, theta_rad), (-theta_rad, theta_rad))
-    return result.n_photons_in_range / res.total_yield
+    return result.n_photons_in_range / total_yield(res)
 
 
 def run(scenario: Scenario = BASELINE, results: dict | None = None) -> bool:

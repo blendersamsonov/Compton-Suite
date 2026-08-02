@@ -37,17 +37,20 @@ from __future__ import annotations
 import numpy as np
 
 from gammaforge.io.interaction import InteractionParameters
-from gammaforge.io.photons import (
-    AngularRangeSpectrumResult,
-    BinnedAngularSpectrum,
-    BinnedSpatialDistribution,
-    BinnedSpectrum,
-    BinnedTemporalEnvelope,
-    Photons,
-)
+from gammaforge.io.photons import AngularRangeSpectrumResult, PhasespaceSlice
 from gammaforge.io.units import HBAR_Q, LIGHT_TIME_CONTEXT, M_TO_CM
 from gammaforge.misc import get_xp, to_host
-from gammaforge.models.api import Job
+from gammaforge.models.api import (
+    AXIS_ENERGY,
+    AXIS_THETA_X,
+    AXIS_THETA_Y,
+    AXIS_TIME,
+    AXIS_X,
+    AXIS_Y,
+    Job,
+    Results,
+    find_slice_request,
+)
 
 # The a0 range the weakly-nonlinear approximation this whole codebase is
 # built on (a0 <~ 1) is meant to be valid over -- a fixed *model*
@@ -130,7 +133,7 @@ class XigmaAdapter:
     def model_choices(self) -> dict[str, list[str]]:
         return {"device_preference": ["auto", "gpu", "cpu"]}
 
-    def run(self, job: Job) -> Photons:
+    def run(self, job: Job) -> Results:
         from .tabulated_engine import TabulatedEngine
 
         extra = job.extra
@@ -153,6 +156,14 @@ class XigmaAdapter:
 
         gamma_0 = beam.gamma0
 
+        time_req = find_slice_request(job.output.slices, AXIS_TIME)
+        space_req = find_slice_request(job.output.slices, AXIS_X, AXIS_Y)
+        energy_req = find_slice_request(job.output.slices, AXIS_ENERGY)
+        energy_angle_req = find_slice_request(job.output.slices, AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
+
+        n_time_bins = time_req.bins[0] if time_req is not None else 128
+        n_spatial_bins = space_req.bins if space_req is not None else (64, 64)
+
         # Total yield, angle-integrated spectrum, angular spectrum, temporal
         # envelope, and spatial distribution all come from TabulatedEngine,
         # which holds (beam, laser) directly and converts to CGS itself,
@@ -163,12 +174,12 @@ class XigmaAdapter:
 
         n_particles_new = electrons.n_particles
         n_bins = (self.n_bins_gamma, self.n_bins_theta_x, self.n_bins_theta_y, self.n_bins_a0)
-        n_spatial_bins = (job.output.n_spatial_bins_x, job.output.n_spatial_bins_y)
         engine.run(n_steps=self.n_steps_0,
                    n_bins=n_bins, backend=push_backend, a0_max=self.a0_max,
-                   n_time_bins=job.output.n_time_bins, n_spatial_bins=n_spatial_bins,
+                   n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins,
                    bunch=electrons)
         total_yield = engine.total_yield
+        photon_slices = [PhasespaceSlice(axes={}, distr=np.asarray(total_yield))]
 
         # engine.temporal_envelope/.spatial_distribution: rate vs seconds /
         # areal density vs cm. Convert cm/photons-per-cm^2 to SI. These stay
@@ -176,33 +187,59 @@ class XigmaAdapter:
         # _bin_temporal/_bin_spatial never convert to host -- so must be
         # converted here before matplotlib (which cannot implicitly convert a
         # cupy array).
-        t_seconds_raw, rate_raw = engine.temporal_envelope
-        t_seconds = to_host(t_seconds_raw, device)
-        rate = to_host(rate_raw, device)
-        temporal_envelope = BinnedTemporalEnvelope(t_seconds=t_seconds, rate=rate)
+        if time_req is not None:
+            t_seconds_raw, rate_raw = engine.temporal_envelope
+            t_seconds = to_host(t_seconds_raw, device)
+            rate = to_host(rate_raw, device)
+            photon_slices.append(PhasespaceSlice(axes={AXIS_TIME: t_seconds}, distr=rate))
 
-        x_centers_cm, y_centers_cm, density_per_cm2 = engine.spatial_distribution
-        spatial_distribution = BinnedSpatialDistribution(
-            x_centers=to_host(x_centers_cm, device) / M_TO_CM,
-            y_centers=to_host(y_centers_cm, device) / M_TO_CM,
-            density=to_host(density_per_cm2, device) * (M_TO_CM ** 2))
+        if space_req is not None:
+            x_centers_cm, y_centers_cm, density_per_cm2 = engine.spatial_distribution
+            x_centers = to_host(x_centers_cm, device) / M_TO_CM
+            y_centers = to_host(y_centers_cm, device) / M_TO_CM
+            density = to_host(density_per_cm2, device) * (M_TO_CM ** 2)
+            photon_slices.append(PhasespaceSlice(axes={AXIS_X: x_centers, AXIS_Y: y_centers}, distr=density))
 
-        # Angle-integrated spectrum, s in [0, 1.1*gamma0^2] (covers up to just
-        # past the classical Compton edge), 512 points.
-        s_tot = (xp.linspace(0.0, 1.1, 512, dtype=xp.float32) * gamma_0 ** 2)
-        dNds_tot = to_host(engine.spectrum(s_tot), device)
         Wph_MeV = (HBAR_Q * laser.omega0).to("megaelectron_volt").magnitude
         s_scale_MeV = 4.0 * Wph_MeV
-        E_eV = (to_host(s_tot, device) * s_scale_MeV) * 1e6
-        dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6  # dN/ds -> dN/dE(MeV) -> dN/dE(eV)
 
-        # Angular spectrum, precomputed over a generous fixed theta window and a
-        # coarser energy grid (kept smaller for kernel-launch cost: grid size =
-        # theta_x.size * theta_y.size * s.size). calculate_angular_spectrum_4d
-        # always returns a host array regardless of device.
-        theta_x = _theta_grid(gamma_0)
-        theta_y = _theta_grid(gamma_0)
-        s_ang = (xp.linspace(0.0, 1.1, 96, dtype=xp.float32) * gamma_0 ** 2)
+        E_gamma_eV_mean = None
+        if energy_req is not None:
+            n_e = energy_req.bins[0]
+            if energy_req.range is not None and energy_req.range[0] is not None:
+                lo_eV, hi_eV = energy_req.range[0]
+                s_lo, s_hi = lo_eV / (s_scale_MeV * 1e6), hi_eV / (s_scale_MeV * 1e6)
+            else:
+                s_lo, s_hi = 0.0, 1.1 * gamma_0 ** 2
+            s_tot = xp.linspace(s_lo, s_hi, n_e, dtype=xp.float32)
+            dNds_tot = to_host(engine.spectrum(s_tot), device)
+            E_eV = (to_host(s_tot, device) * s_scale_MeV) * 1e6
+            dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6  # dN/ds -> dN/dE(MeV) -> dN/dE(eV)
+            photon_slices.append(PhasespaceSlice(axes={AXIS_ENERGY: E_eV}, distr=dNdE_per_eV))
+            E_gamma_eV_mean = float(np.average(E_eV, weights=dNdE_per_eV)) if dNdE_per_eV.sum() else 0.0
+
+        # Angular spectrum, over a generous fixed theta window (or the
+        # requested one) and an energy grid (kept smaller for kernel-launch
+        # cost: grid size = theta_x.size * theta_y.size * s.size). Always
+        # computed (even if the joint slice itself isn't requested) so
+        # ``angular_rescale`` stays calibrated for spectrum_in_angular_range's
+        # on-demand queries.
+        if energy_angle_req is not None:
+            n_e_ang, n_tx, n_ty = energy_angle_req.bins
+            e_range, tx_range, ty_range = energy_angle_req.range or (None, None, None)
+        else:
+            n_e_ang, n_tx, n_ty = 96, 33, 33
+            e_range = tx_range = ty_range = None
+
+        theta_x = _theta_grid(gamma_0, n_points=n_tx, theta_range=tx_range)
+        theta_y = _theta_grid(gamma_0, n_points=n_ty, theta_range=ty_range)
+        if e_range is not None:
+            lo_eV, hi_eV = e_range
+            s_lo, s_hi = lo_eV / (s_scale_MeV * 1e6), hi_eV / (s_scale_MeV * 1e6)
+        else:
+            s_lo, s_hi = 0.0, 1.1 * gamma_0 ** 2
+        s_ang = xp.linspace(s_lo, s_hi, n_e_ang, dtype=xp.float32)
+
         d2Nds_dOmega, _dt, _debug = engine.angular_spectrum(
             s_ang, xp.asarray(theta_x), xp.asarray(theta_y), laser.phi_pol,
             samples_per_point=self.samples_per_point_2, device=device)
@@ -215,9 +252,12 @@ class XigmaAdapter:
         angular_rescale = (total_yield / _full_integral) if _full_integral > 0 else 1.0
         d2NdEdOmega = d2NdEdOmega * angular_rescale
 
-        summary = dict(
-            total_yield=total_yield,
-            E_gamma_eV_mean=float(np.average(E_eV, weights=dNdE_per_eV)) if dNdE_per_eV.sum() else 0.0,
+        if energy_angle_req is not None:
+            photon_slices.append(PhasespaceSlice(
+                axes={AXIS_THETA_X: theta_x, AXIS_THETA_Y: theta_y, AXIS_ENERGY: E_ang_eV},
+                distr=d2NdEdOmega))
+
+        model_specific = dict(
             a0=laser.a0_focus,
             # FLAGGED: see the "QUICK FIX" comment above angular_rescale's
             # computation -- 1.0 would mean the kernel's own normalisation
@@ -226,18 +266,10 @@ class XigmaAdapter:
             # actually root-caused.
             angular_spectrum_rescale_applied=angular_rescale,
         )
+        if E_gamma_eV_mean is not None:
+            model_specific["E_gamma_eV_mean"] = E_gamma_eV_mean
 
-        res = Photons(
-            model_name="xigma-i",
-            n_mc=n_particles_new,
-            total_yield=total_yield,
-            spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
-            summary=summary,
-            angular_spectrum=BinnedAngularSpectrum(
-                theta_x=theta_x, theta_y=theta_y, E_eV=E_ang_eV, d2NdEdOmega=d2NdEdOmega),
-            temporal_envelope=temporal_envelope,
-            spatial_distribution=spatial_distribution,
-        )
+        res = Results(photon_slices=photon_slices, model_specific=model_specific)
 
         self.engine = engine
         self.angular_rescale = angular_rescale
@@ -282,7 +314,7 @@ class XigmaAdapter:
         n_photons_in_range = float(np.einsum("ijk,i,j,k->", d2NdEdOmega, dtx, dty, np.gradient(E_eV)))
 
         return AngularRangeSpectrumResult(
-            spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
+            spectrum=PhasespaceSlice(axes={AXIS_ENERGY: E_eV}, distr=dNdE_per_eV),
             theta_x_range=theta_x_range, theta_y_range=theta_y_range,
             n_photons_in_range=n_photons_in_range)
 
@@ -321,7 +353,7 @@ class DirectAdapter:
     def model_choices(self) -> dict[str, list[str]]:
         return {"device_preference": ["auto", "gpu", "cpu"]}
 
-    def run(self, job: Job) -> Photons:
+    def run(self, job: Job) -> Results:
         """``job.interaction.electrons`` is required: electron sampling is
         the caller's job, not this adapter's -- there's exactly one place
         electrons get drawn from a beam description
@@ -345,8 +377,14 @@ class DirectAdapter:
 
         n_particles_new = electrons.n_particles
 
+        time_req = find_slice_request(job.output.slices, AXIS_TIME)
+        space_req = find_slice_request(job.output.slices, AXIS_X, AXIS_Y)
+        energy_req = find_slice_request(job.output.slices, AXIS_ENERGY)
+        energy_angle_req = find_slice_request(job.output.slices, AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
+
         push_backend = 'cupy' if device == 'gpu' else 'numpy'
-        n_time_bins, n_spatial_bins = 128, (64, 64)
+        n_time_bins = time_req.bins[0] if time_req is not None else 128
+        n_spatial_bins = space_req.bins if space_req is not None else (64, 64)
         gamma, tx, ty, a0_shape, w, diagnostics = particles.push_and_sample(
             electrons,
             k0_las=(2.0 * np.pi / laser.wavelength_m.quantity).to("1 / centimeter").magnitude,
@@ -363,30 +401,56 @@ class DirectAdapter:
         a0 = a0_shape * a0_val ** 2   # exact per-particle retarget (no table/binning needed)
 
         total_yield = float(to_host(w, device).sum() if hasattr(w, "get") else np.sum(w))
+        photon_slices = [PhasespaceSlice(axes={}, distr=np.asarray(total_yield))]
+
+        s_scale_MeV = 4.0 * (HBAR_Q * laser.omega0).to("megaelectron_volt").magnitude
+        gamma_h = to_host(gamma, device) if hasattr(gamma, "get") else np.asarray(gamma)
+        w_h = to_host(w, device) if hasattr(w, "get") else np.asarray(w)
 
         # Total angle-integrated spectrum: angle_integrated_spectrum, no known
         # normalization issue (unlike direct_binning_spectrum's own
         # angle-integrated total) -- needs only gamma/weight.
-        s_scale_MeV = 4.0 * (HBAR_Q * laser.omega0).to("megaelectron_volt").magnitude
-        s_grid = np.linspace(0.0, 1.1, 512) * gamma_0 ** 2
-        gamma_h = to_host(gamma, device) if hasattr(gamma, "get") else np.asarray(gamma)
-        w_h = to_host(w, device) if hasattr(w, "get") else np.asarray(w)
-        dNds_tot = spectrum_from_particles.angle_integrated_spectrum(gamma_h, w_h, s_grid)
-        E_eV = s_grid * s_scale_MeV * 1e6
-        dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6
+        E_gamma_eV_mean = None
+        if energy_req is not None:
+            n_e = energy_req.bins[0]
+            if energy_req.range is not None and energy_req.range[0] is not None:
+                lo_eV, hi_eV = energy_req.range[0]
+                s_lo, s_hi = lo_eV / (s_scale_MeV * 1e6), hi_eV / (s_scale_MeV * 1e6)
+            else:
+                s_lo, s_hi = 0.0, 1.1 * gamma_0 ** 2
+            s_grid = np.linspace(s_lo, s_hi, n_e)
+            dNds_tot = spectrum_from_particles.angle_integrated_spectrum(gamma_h, w_h, s_grid)
+            E_eV = s_grid * s_scale_MeV * 1e6
+            dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6
+            photon_slices.append(PhasespaceSlice(axes={AXIS_ENERGY: E_eV}, distr=dNdE_per_eV))
+            E_gamma_eV_mean = float(np.average(E_eV, weights=dNdE_per_eV)) if dNdE_per_eV.sum() else 0.0
 
         # Angular spectrum: the genuinely "brute-force particle binning" part
         # -- direct_binning_spectrum evaluated at each (theta_x, theta_y) grid
-        # point, no table, no importance sampling.
+        # point, no table, no importance sampling. Always computed (even if
+        # the joint slice itself isn't requested) so ``angular_rescale`` stays
+        # calibrated for spectrum_in_angular_range's on-demand queries.
         tx_h = to_host(tx, device) if hasattr(tx, "get") else np.asarray(tx)
         ty_h = to_host(ty, device) if hasattr(ty, "get") else np.asarray(ty)
         a0_h = to_host(a0, device) if hasattr(a0, "get") else np.asarray(a0)
-        n_grid = self.n_theta_grid
-        theta_x_grid = _theta_grid(gamma_0, n_grid)
-        theta_y_grid = _theta_grid(gamma_0, n_grid)
-        s_edges = np.linspace(0.0, 1.1, 65) * gamma_0 ** 2
+
+        if energy_angle_req is not None:
+            n_e_ang, n_tx, n_ty = energy_angle_req.bins
+            e_range, tx_range, ty_range = energy_angle_req.range or (None, None, None)
+        else:
+            n_e_ang, n_tx, n_ty = 65, self.n_theta_grid, self.n_theta_grid
+            e_range = tx_range = ty_range = None
+
+        theta_x_grid = _theta_grid(gamma_0, n_points=n_tx, theta_range=tx_range)
+        theta_y_grid = _theta_grid(gamma_0, n_points=n_ty, theta_range=ty_range)
+        if e_range is not None:
+            lo_eV, hi_eV = e_range
+            s_lo, s_hi = lo_eV / (s_scale_MeV * 1e6), hi_eV / (s_scale_MeV * 1e6)
+        else:
+            s_lo, s_hi = 0.0, 1.1 * gamma_0 ** 2
+        s_edges = np.linspace(s_lo, s_hi, n_e_ang + 1)
         s_centers = 0.5 * (s_edges[:-1] + s_edges[1:])
-        d2NdEdOmega = np.empty((n_grid, n_grid, s_centers.size))
+        d2NdEdOmega = np.empty((n_tx, n_ty, s_centers.size))
         for i, x0 in enumerate(theta_x_grid):
             for j, y0 in enumerate(theta_y_grid):
                 hist = spectrum_from_particles.direct_binning_spectrum(
@@ -412,46 +476,40 @@ class DirectAdapter:
         angular_rescale = (total_yield / full_integral) if full_integral > 0 else 1.0
         d2NdEdOmega = d2NdEdOmega * angular_rescale
 
+        if energy_angle_req is not None:
+            photon_slices.append(PhasespaceSlice(
+                axes={AXIS_THETA_X: theta_x_grid, AXIS_THETA_Y: theta_y_grid, AXIS_ENERGY: E_ang_eV},
+                distr=d2NdEdOmega))
+
         # diagnostics arrays stay on-device (cupy) when push_backend='cupy' --
         # particles.py's _bin_temporal/_bin_spatial never convert to host, so
         # this adapter must, before these reach matplotlib (which cannot
         # implicitly convert a cupy array). to_host() is a no-op on CPU.
-        temporal_envelope = None
-        if diagnostics is not None and diagnostics.time_envelope is not None:
+        if time_req is not None and diagnostics is not None and diagnostics.time_envelope is not None:
             edges = to_host(diagnostics.t_edges, device)
             t_seconds = 0.5 * (edges[:-1] + edges[1:])
             rate = to_host(diagnostics.time_envelope, device)
-            temporal_envelope = BinnedTemporalEnvelope(t_seconds=t_seconds, rate=rate)
+            photon_slices.append(PhasespaceSlice(axes={AXIS_TIME: t_seconds}, distr=rate))
 
-        spatial_distribution = None
-        if diagnostics is not None and diagnostics.spatial_envelope is not None:
+        if space_req is not None and diagnostics is not None and diagnostics.spatial_envelope is not None:
             x_edges = to_host(diagnostics.spatial_x_edges, device)
             y_edges = to_host(diagnostics.spatial_y_edges, device)
             density = to_host(diagnostics.spatial_envelope, device)
-            spatial_distribution = BinnedSpatialDistribution(
-                x_centers=0.5 * (x_edges[:-1] + x_edges[1:]) / M_TO_CM,
-                y_centers=0.5 * (y_edges[:-1] + y_edges[1:]) / M_TO_CM,
-                density=density * (M_TO_CM ** 2))
+            x_centers = 0.5 * (x_edges[:-1] + x_edges[1:]) / M_TO_CM
+            y_centers = 0.5 * (y_edges[:-1] + y_edges[1:]) / M_TO_CM
+            photon_slices.append(PhasespaceSlice(
+                axes={AXIS_X: x_centers, AXIS_Y: y_centers}, distr=density * (M_TO_CM ** 2)))
 
-        summary = dict(
-            total_yield=total_yield,
+        model_specific = dict(
             a0=a0_val,
             # FLAGGED: see the "QUICK FIX" comment above -- != 1.0 until the
             # underlying direct_binning_spectrum normalisation is root-caused.
             angular_spectrum_rescale_applied=angular_rescale,
         )
+        if E_gamma_eV_mean is not None:
+            model_specific["E_gamma_eV_mean"] = E_gamma_eV_mean
 
-        res = Photons(
-            model_name="delta",
-            n_mc=n_particles_new,
-            total_yield=total_yield,
-            spectrum=BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV),
-            summary=summary,
-            angular_spectrum=BinnedAngularSpectrum(
-                theta_x=theta_x_grid, theta_y=theta_y_grid, E_eV=E_ang_eV, d2NdEdOmega=d2NdEdOmega),
-            temporal_envelope=temporal_envelope,
-            spatial_distribution=spatial_distribution,
-        )
+        res = Results(photon_slices=photon_slices, model_specific=model_specific)
 
         self.gamma, self.theta_x, self.theta_y, self.a0, self.weight = gamma_h, tx_h, ty_h, a0_h, w_h
         self.s_scale_MeV = s_scale_MeV
@@ -505,7 +563,7 @@ class DirectAdapter:
         dNdE_per_eV = np.einsum("ijk,i,j->k", d2NdEdOmega, dtx, dty)
         n_photons_in_range = float(np.einsum("ijk,i,j,k->", d2NdEdOmega, dtx, dty, np.gradient(E_eV)))
 
-        spectrum = BinnedSpectrum(E_eV=E_eV, dNdE_per_eV=dNdE_per_eV)
+        spectrum = PhasespaceSlice(axes={AXIS_ENERGY: E_eV}, distr=dNdE_per_eV)
         return AngularRangeSpectrumResult(
             spectrum=spectrum, theta_x_range=theta_x_range, theta_y_range=theta_y_range,
             n_photons_in_range=n_photons_in_range)

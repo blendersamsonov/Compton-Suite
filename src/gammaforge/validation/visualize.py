@@ -28,6 +28,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
+from gammaforge.models.api import total_yield  # noqa: E402
 from gammaforge.validation.scenarios import BASELINE, LOW_A0, NEAR_A0_MAX, Scenario  # noqa: E402
 from gammaforge.validation.runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402
 from gammaforge.validation.tier1_yield import _total_yield_kascade  # noqa: E402
@@ -59,7 +60,7 @@ def run_all_models(scenario: Scenario) -> dict:
 
 
 def _yield_of(key: str, res) -> float:
-    return _total_yield_kascade(res) if key == "kascade" else float(res.total_yield)
+    return _total_yield_kascade(res) if key == "kascade" else total_yield(res)
 
 
 def plot_yield_comparison(scenario: Scenario, results: dict, out_path: Path) -> None:

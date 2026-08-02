@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import numpy as np
 
 from gammaforge.io.units import HBAR, E_CHARGE
+from gammaforge.models.api import AXIS_ENERGY, find_slice  # noqa: E402
 from .metrics import resample_to, window_integrated_relative_error  # noqa: E402
 from .scenarios import BASELINE, Scenario  # noqa: E402
 from .runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402
@@ -55,22 +56,18 @@ def _weighted_histogram(E_eV: np.ndarray, weight: float, e_centers_eV: np.ndarra
 
 
 def to_dNdE_on_grid(result_or_spectrum, e_centers_eV: np.ndarray) -> np.ndarray:
-    """dN/dE at e_centers_eV, from any of: a CommonResults-shaped object
-    with a .spectrum field (xigma-i/delta/analytical, via
-    ModelAdapter.run()), the .spectrum field itself (BinnedSpectrum or
-    SampledSpectrum), or kascade's raw Results (run via kascade.
-    run_simulation directly, bypassing KascadeAdapter's CommonResults/
-    SampledSpectrum wrapping -- has ph_E_eV/weight fields directly, not a
-    nested .spectrum)."""
+    """dN/dE at e_centers_eV, from either kascade's raw Results (run via
+    kascade.run_simulation directly, bypassing KascadeAdapter -- has
+    ph_E_eV/weight fields directly, not a photon_slices list) or any
+    io.photons.Results (xigma-i/delta/analytical, via ModelAdapter.run()),
+    read via its energy PhasespaceSlice."""
     obj = result_or_spectrum
     if hasattr(obj, "ph_E_eV"):
         return _weighted_histogram(obj.ph_E_eV, obj.weight, e_centers_eV)
-    spectrum = obj.spectrum if hasattr(obj, "spectrum") else obj
-    if hasattr(spectrum, "dNdE_per_eV"):
-        return resample_to(e_centers_eV, spectrum.E_eV, spectrum.dNdE_per_eV)
-    if hasattr(spectrum, "weight"):
-        return _weighted_histogram(spectrum.E_eV, spectrum.weight, e_centers_eV)
-    raise TypeError(f"not a recognized spectrum/result shape: {type(obj)!r}")
+    spec = find_slice(obj.photon_slices, AXIS_ENERGY)
+    if spec is None:
+        raise TypeError(f"result has no energy slice: {type(obj)!r}")
+    return resample_to(e_centers_eV, spec.axes[AXIS_ENERGY], spec.distr)
 
 
 def _report(label: str, l1: float, mx: float, tol: float) -> bool:

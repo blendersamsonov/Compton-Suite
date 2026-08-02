@@ -1,8 +1,8 @@
 """Model-agnostic contract between app.py and physics-engine adapters.
 
 This module knows nothing about ``kascade`` or ``xigma_i`` -- every adapter
-constructs its result (``Photons``, including fields like
-``spectrum``/``angular_spectrum``) using the shared classes re-exported
+constructs its result (``Results``, a list of ``PhasespaceSlice`` plus
+optional macrophoton/electron bunches) using the shared classes re-exported
 below from ``gammaforge.io.photons``, which every model already depends
 on (for units). This is why they can be the *literal same classes*
 everywhere rather than each adapter defining its own structurally-identical
@@ -13,8 +13,8 @@ already.
 Three physics engines currently target this contract:
 
   * kascade (``kascade/kascade_adapter.py``) is an event-generator Monte
-    Carlo: it samples individual macro-electrons and returns unbinned
-    per-macro-photon data.
+    Carlo: it samples individual macro-electrons and macro-photons, then
+    histograms them into whatever slices ``job.output`` requests.
   * xigma-i (``xigma_i/adapter.py``'s ``XigmaAdapter``) is a semi-analytic,
     GPU/CPU tabulated-overlap calculation that returns smooth binned
     spectral-density arrays with no per-electron final state.
@@ -27,9 +27,9 @@ Three physics engines currently target this contract:
     preview -- the GUI hardcodes this (``self.analytical_adapter``), rather
     than reading it off a metadata flag.
 
-The GUI must branch on which ``Photons`` fields are present rather than
-assume kascade's exact shape -- see ``Photons``' field docs in
-``gammaforge.io.photons``.
+A model fulfills whichever requested slices it supports and simply omits
+the rest -- there is no all-or-nothing requirement, and no separate
+sampled/binned shape to branch on (see ``gammaforge.io.photons``).
 """
 
 from __future__ import annotations
@@ -40,32 +40,38 @@ from typing import Protocol
 from gammaforge.io.bunch import Bunch
 from gammaforge.io.interaction import InteractionParameters
 from gammaforge.io.photons import (
+    AXIS_ENERGY,
+    AXIS_THETA_X,
+    AXIS_THETA_Y,
+    AXIS_TIME,
+    AXIS_X,
+    AXIS_Y,
     AngularRangeSpectrumResult,
-    BinnedAngularSpectrum,
-    BinnedSpatialDistribution,
-    BinnedSpectrum,
-    BinnedTemporalEnvelope,
-    Photons,
-    PhotonMultiplicity,
-    SampledSpatialDistribution,
-    SampledSpectrum,
-    SampledTemporalEnvelope,
+    PhasespaceSlice,
+    Results,
+    find_slice,
+    make_slice,
+    total_yield,
     validate_results,
 )
 
 __all__ = [
     "Bunch",
-    "BinnedSpectrum",
-    "SampledSpectrum",
-    "BinnedAngularSpectrum",
-    "PhotonMultiplicity",
-    "BinnedTemporalEnvelope",
-    "SampledTemporalEnvelope",
-    "BinnedSpatialDistribution",
-    "SampledSpatialDistribution",
+    "AXIS_ENERGY",
+    "AXIS_TIME",
+    "AXIS_X",
+    "AXIS_Y",
+    "AXIS_THETA_X",
+    "AXIS_THETA_Y",
+    "PhasespaceSlice",
     "AngularRangeSpectrumResult",
-    "Photons",
+    "Results",
+    "find_slice",
+    "total_yield",
+    "make_slice",
     "validate_results",
+    "SliceRequest",
+    "find_slice_request",
     "OutputSpec",
     "Job",
     "ModelAdapter",
@@ -76,30 +82,46 @@ __all__ = [
 ]
 
 
+def find_slice_request(slices: tuple["SliceRequest", ...], *axis_names: str) -> "SliceRequest | None":
+    """Look up a requested slice by its exact axis-name set (order-independent).
+    Mirrors ``gammaforge.io.photons.find_slice`` but over ``OutputSpec.slices``."""
+    wanted = frozenset(axis_names)
+    for sr in slices:
+        if frozenset(sr.axes) == wanted:
+            return sr
+    return None
+
+
+@dataclass(frozen=True)
+class SliceRequest:
+    """One requested phase-space slice: which axes, at what resolution,
+    over what range (``None`` per-axis means the model picks its own
+    range). ``axes`` must be one of the groupings in
+    ``gammaforge.io.photons.ALLOWED_SLICE_AXES``."""
+
+    axes: tuple[str, ...]
+    bins: tuple[int, ...]
+    range: tuple[tuple[float, float] | None, ...] | None = None
+
+
 @dataclass(frozen=True)
 class OutputSpec:
     """Model-agnostic output resolution specification.
 
     Models receive this in their ``run()`` method (via ``Job.output``) and
-    fulfill the fields they support (e.g. kascade returns sampled data,
-    xigma_i returns binned). The GUI uses these values to control display
-    binning and plotting resolution.
+    fulfill whichever ``slices`` entries they support (e.g. xigma_i has no
+    space+angle joint slice) -- an unsupported request is simply omitted
+    from the result, not an error. The GUI uses these values to control
+    display binning and plotting resolution.
     """
 
-    # Spectrum
-    n_energy_bins: int = 256          # for a binned spectrum (xigma_i, delta, analytical)
-    n_energy_samples: int = 1024      # for an unbinned spectrum (kascade) -- GUI bins to this
-
-    # Temporal envelope
-    n_time_bins: int = 128
-
-    # Spatial distribution
-    n_spatial_bins_x: int = 64
-    n_spatial_bins_y: int = 64
-
-    # Angular distribution
-    n_angular_bins_x: int = 64
-    n_angular_bins_y: int = 64
+    slices: tuple[SliceRequest, ...] = field(default_factory=lambda: (
+        SliceRequest((AXIS_ENERGY,), (256,)),
+        SliceRequest((AXIS_TIME,), (128,)),
+        SliceRequest((AXIS_X, AXIS_Y), (64, 64)),
+        SliceRequest((AXIS_THETA_X, AXIS_THETA_Y), (64, 64)),
+        SliceRequest((AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y), (96, 33, 33)),
+    ))
 
 
 @dataclass(frozen=True)
@@ -147,7 +169,7 @@ class ModelAdapter(Protocol):
         an Entry. Example: ``{"device_preference": ["auto", "gpu", "cpu"]}``."""
         return {}
 
-    def run(self, job: Job) -> Photons:
+    def run(self, job: Job) -> Results:
         ...
 
 

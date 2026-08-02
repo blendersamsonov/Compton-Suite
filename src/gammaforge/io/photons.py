@@ -1,19 +1,15 @@
-"""Output-side observable representations: the spectrum/angular-spectrum/
-temporal-envelope/spatial-distribution dataclasses every model reports
-results through, and the GUI renders from directly.
+"""Output-side observable representations: the phase-space-slice contract
+every model reports results through, and the GUI renders from directly.
 
-Each observable comes in two shapes, matching the two kinds of physics
-engine in this suite:
-
-* ``Sampled*`` -- unbinned per-macroparticle arrays plus a single uniform
-  ``weight`` (electrons/photons per macroparticle), from an event-generator
-  Monte Carlo (kascade).
-* ``Binned*`` -- smooth pre-binned density arrays, from a semi-analytic
-  calculation (xigma_i, delta, analytical).
-
-The GUI/``validate_results`` duck-type on which shape a given result
-carries (``hasattr(spectrum, "weight")`` vs ``hasattr(spectrum,
-"dNdE_per_eV")``) rather than assume one model's exact shape.
+Every observable -- energy spectrum, temporal envelope, spatial
+distribution, angular distribution, or a joint combination of these -- is a
+single :class:`PhasespaceSlice`: a density array over a named set of axes.
+There is no separate "sampled" vs "binned" shape: a model that only has
+per-macroparticle samples (kascade) histograms them into the same density-
+array shape every other model produces directly (see :func:`make_slice`).
+A 0D slice (``axes={}``, ``distr`` a 0-d array) is the fully
+phase-space-integrated total yield -- every adapter includes exactly one of
+these in :attr:`Results.photon_slices`.
 """
 
 from __future__ import annotations
@@ -23,136 +19,189 @@ from typing import Any
 
 import numpy as np
 
+from gammaforge.io.bunch import Bunch
+
 __all__ = [
-    "BinnedSpectrum",
-    "SampledSpectrum",
-    "BinnedAngularSpectrum",
-    "PhotonMultiplicity",
-    "BinnedTemporalEnvelope",
-    "SampledTemporalEnvelope",
-    "BinnedSpatialDistribution",
-    "SampledSpatialDistribution",
+    "AXIS_ENERGY",
+    "AXIS_TIME",
+    "AXIS_X",
+    "AXIS_Y",
+    "AXIS_THETA_X",
+    "AXIS_THETA_Y",
+    "ALLOWED_SLICE_AXES",
+    "PhasespaceSlice",
+    "Results",
     "AngularRangeSpectrumResult",
-    "Photons",
+    "find_slice",
+    "total_yield",
+    "make_slice",
     "validate_results",
 ]
 
+AXIS_ENERGY = "E_eV"
+AXIS_TIME = "t_seconds"
+AXIS_X = "x"
+AXIS_Y = "y"
+AXIS_THETA_X = "theta_x"
+AXIS_THETA_Y = "theta_y"
 
-@dataclass
-class BinnedSpectrum:
-    E_eV: np.ndarray
-    dNdE_per_eV: np.ndarray
-
-
-@dataclass
-class SampledSpectrum:
-    E_eV: np.ndarray
-    weight: float
-
-
-@dataclass
-class BinnedAngularSpectrum:
-    theta_x: np.ndarray
-    theta_y: np.ndarray
-    E_eV: np.ndarray
-    d2NdEdOmega: np.ndarray  # shape (theta_x.size, theta_y.size, E_eV.size)
-
-
-@dataclass
-class PhotonMultiplicity:
-    mean_n_phot: float
-    frac_n0: float
-    frac_n1: float
-    frac_n2: float
-    frac_n3plus: float
+# The closed set of axis-groupings a PhasespaceSlice may carry. No
+# combination beyond these nine is valid -- in particular energy never
+# combines with space or time, only with angle.
+ALLOWED_SLICE_AXES: frozenset[frozenset[str]] = frozenset({
+    frozenset(),  # 0D: total yield
+    frozenset({AXIS_ENERGY}),
+    frozenset({AXIS_TIME}),
+    frozenset({AXIS_X, AXIS_Y}),
+    frozenset({AXIS_THETA_X, AXIS_THETA_Y}),
+    frozenset({AXIS_X, AXIS_Y, AXIS_TIME}),
+    frozenset({AXIS_THETA_X, AXIS_THETA_Y, AXIS_TIME}),
+    frozenset({AXIS_X, AXIS_Y, AXIS_THETA_X, AXIS_THETA_Y}),
+    frozenset({AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y}),
+})
 
 
 @dataclass
-class BinnedTemporalEnvelope:
-    t_seconds: np.ndarray
-    rate: np.ndarray
+class PhasespaceSlice:
+    """Density over <=4 axes of the 6D photon phase space (time, space,
+    angle, energy).
 
+    ``axes`` maps axis name -> bin-centers array, in the same order as
+    ``distr``'s dimensions. An empty dict means a 0D slice (``distr`` is a
+    0-d array) -- the fully phase-space-integrated total yield.
+    """
 
-@dataclass
-class SampledTemporalEnvelope:
-    t_seconds: np.ndarray
-    weight: float
-
-
-@dataclass
-class BinnedSpatialDistribution:
-    x_centers: np.ndarray
-    y_centers: np.ndarray
-    density: np.ndarray
-
-
-@dataclass
-class SampledSpatialDistribution:
-    x: np.ndarray
-    y: np.ndarray
-    weight: float
+    axes: dict[str, np.ndarray]
+    distr: np.ndarray
 
 
 @dataclass
 class AngularRangeSpectrumResult:
-    spectrum: BinnedSpectrum
+    """On-demand angle-integrated spectrum restricted to an arbitrary
+    ``(theta_x_range, theta_y_range)`` window, returned by
+    ``ModelAdapter.spectrum_in_angular_range()`` (xigma-i/delta only). This
+    is a live recompute against cached engine/table state, not part of the
+    static :class:`Results` a ``run()`` call returns.
+    """
+
+    spectrum: PhasespaceSlice
     theta_x_range: tuple[float, float]
     theta_y_range: tuple[float, float]
     n_photons_in_range: float | None = None
 
 
 @dataclass
-class Photons:
-    """What every model's ``run()`` must return (shape-compatibly).
+class Results:
+    """What every model's ``run()`` returns.
 
-    Only ``model_name``, ``n_mc``, ``total_yield``, ``spectrum``
-    and ``summary`` are guaranteed present and non-None. Everything else
-    is optional and ``None`` when a given model doesn't compute it -- a
-    caller must check before using it (see each field's doc). No ``cfg``
-    field: no model carries a standalone ``Config`` object anymore --
-    adapters own their own parameter state directly (see each adapter).
+    ``photon_slices`` always includes a 0D slice (``axes={}``) holding the
+    total photon yield; everything else is whatever slices ``job.output``
+    requested that this model is able to produce -- a model simply omits a
+    requested slice it can't compute, there is no all-or-nothing
+    requirement. ``macrophoton``/``electrons`` are the raw final-state
+    per-macroparticle bunches when a model has them (kascade only today),
+    else ``None``. ``model_specific`` is a free-form dict for anything that
+    doesn't fit the slice/bunch shapes (e.g. kascade's photon-multiplicity
+    fractions, xigma-i's mean photon energy).
     """
 
-    model_name: str
-    n_mc: int                    # macroparticle/sample count this run used
-    total_yield: float           # physical (weighted) total photon count
-    spectrum: BinnedSpectrum | SampledSpectrum
-    summary: dict                # free-form, model-specific scalar diagnostics; use
-                                  # the top-level Photons fields (total_yield,
-                                  # n_mc, ...) for anything that must be read in a
-                                  # model-agnostic way
+    photon_slices: list[PhasespaceSlice]
+    macrophoton: Bunch | None = None
+    electrons: Bunch | None = None
+    model_specific: dict = field(default_factory=dict)
 
-    angular_spectrum: BinnedAngularSpectrum | None = None
-    final_photons: Any | None = None          # e.g. kascade's raw per-photon Results, else None
-    final_electrons: Any | None = None        # e.g. a final-state gammaforge.io.bunch.Bunch, else None
-    photon_multiplicity: PhotonMultiplicity | None = None
-    temporal_envelope: BinnedTemporalEnvelope | SampledTemporalEnvelope | None = None
-    spatial_distribution: BinnedSpatialDistribution | SampledSpatialDistribution | None = None
-    warnings: list[str] = field(default_factory=list)
+
+def find_slice(slices: list[PhasespaceSlice], *axis_names: str) -> PhasespaceSlice | None:
+    """Look up a slice by its exact axis-name set (order-independent).
+
+    ``find_slice(res.photon_slices)`` (no axis names) returns the required
+    0D total-yield slice.
+    """
+    wanted = frozenset(axis_names)
+    for s in slices:
+        if frozenset(s.axes) == wanted:
+            return s
+    return None
+
+
+def total_yield(res: Results) -> float:
+    """Read the 0D slice every adapter is required to emit."""
+    s = find_slice(res.photon_slices)
+    return float(s.distr) if s is not None else 0.0
+
+
+def make_slice(
+    samples: dict[str, np.ndarray],
+    weight: float,
+    bins: dict[str, int],
+    ranges: dict[str, tuple[float, float]] | None = None,
+) -> PhasespaceSlice:
+    """Histogram per-macroparticle samples (with a uniform weight) into a
+    :class:`PhasespaceSlice`.
+
+    ``samples`` maps axis name -> per-particle array; all arrays must be
+    the same length. ``bins``/``ranges`` are keyed the same way. This is
+    the boundary helper an event-generator model (kascade) uses to turn its
+    raw per-photon arrays into the same density-array shape every other
+    model produces directly. Passing an empty ``samples``/``bins`` dict
+    produces the 0D total-yield slice.
+    """
+    ranges = ranges or {}
+    axis_names = list(samples.keys())
+
+    if not axis_names:
+        n = 0
+        if samples:
+            n = next(iter(samples.values())).shape[0]
+        return PhasespaceSlice(axes={}, distr=np.asarray(float(n) * weight))
+
+    data = np.stack([np.asarray(samples[name]) for name in axis_names], axis=-1)
+    n_bins = [bins[name] for name in axis_names]
+    hist_range = [ranges.get(name) for name in axis_names]
+    counts, edges = np.histogramdd(data, bins=n_bins, range=hist_range)
+
+    # Divide by the per-cell bin "volume" (product of each axis's bin width)
+    # so ``distr`` is a density -- e.g. photons/eV for a 1D energy slice --
+    # matching the convention every other (already-binned) model uses
+    # directly (``dNdE_per_eV`` etc), not a raw weighted histogram count.
+    bin_widths = [np.diff(edge) for edge in edges]
+    volume = bin_widths[0]
+    for w_arr in bin_widths[1:]:
+        volume = np.multiply.outer(volume, w_arr)
+    distr = counts * weight / volume
+
+    axes = {
+        name: 0.5 * (edge[:-1] + edge[1:])
+        for name, edge in zip(axis_names, edges)
+    }
+    return PhasespaceSlice(axes=axes, distr=distr)
 
 
 def validate_results(res: Any) -> list[str]:
-    """Defensive duck-type check, run right after a model's ``run()``
+    """Defensive sanity check, run right after a model's ``run()``
     returns.
 
     Returns a list of problem descriptions; empty means OK. Never raises --
     the caller decides whether a non-empty list is fatal.
-
-    Deliberately checks *shape* (attribute presence) for ``spectrum``, not
-    ``isinstance`` against a specific class: an unbinned (event-generator)
-    model and a binned (semi-analytic) model may report ``spectrum``
-    differently shaped internally, as long as both expose ``E_eV`` plus
-    either ``weight`` (unbinned) or ``dNdE_per_eV`` (binned).
     """
     problems: list[str] = []
-    required = ("model_name", "n_mc", "total_yield", "spectrum", "summary")
-    for name in required:
-        if getattr(res, name, None) is None:
-            problems.append(f"missing required field: {name!r}")
-    spectrum = getattr(res, "spectrum", None)
-    if spectrum is not None:
-        looks_sampled = hasattr(spectrum, "E_eV") and hasattr(spectrum, "weight")
-        looks_binned = hasattr(spectrum, "E_eV") and hasattr(spectrum, "dNdE_per_eV")
-        if not (looks_sampled or looks_binned):
-            problems.append(f"spectrum has unexpected type: {type(spectrum)!r}")
+    slices = getattr(res, "photon_slices", None)
+    if not slices:
+        problems.append("missing or empty required field: 'photon_slices'")
+        return problems
+
+    if find_slice(slices) is None:
+        problems.append("photon_slices is missing the required 0D total-yield slice")
+
+    for s in slices:
+        axis_set = frozenset(s.axes)
+        if axis_set not in ALLOWED_SLICE_AXES:
+            problems.append(f"slice has disallowed axis combination: {sorted(axis_set)!r}")
+            continue
+        expected_shape = tuple(np.asarray(v).shape[0] for v in s.axes.values())
+        if s.distr.shape != expected_shape:
+            problems.append(
+                f"slice {sorted(axis_set)!r} distr.shape {s.distr.shape} "
+                f"doesn't match axes shape {expected_shape}"
+            )
     return problems

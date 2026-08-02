@@ -22,6 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from gammaforge.models.api import total_yield  # noqa: E402
 from .scenarios import LOW_A0, NEAR_A0_MAX  # noqa: E402
 from .runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402
 from .tier1_yield import _rel, _total_yield_kascade  # noqa: E402
@@ -35,8 +36,8 @@ def _yield_ratios(scenario) -> dict:
     res_xigma = run_xigma(scenario)
     res_delta = run_delta(scenario)
     y_k = _total_yield_kascade(res_kascade)
-    y_x = float(res_xigma.total_yield)
-    y_xd = float(res_delta.total_yield)
+    y_x = total_yield(res_xigma)
+    y_xd = total_yield(res_delta)
     return dict(
         kascade_vs_xigma=_rel(y_k, y_x),
         kascade_vs_delta=_rel(y_k, y_xd),

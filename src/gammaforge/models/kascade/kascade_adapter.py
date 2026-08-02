@@ -7,19 +7,22 @@ kascade.py's physics.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 
 from . import kascade as _kascade
 from gammaforge.io.bunch import Bunch
+from gammaforge.io.photons import PhasespaceSlice
+from gammaforge.io.units import C_LIGHT
 from gammaforge.models.api import (
+    AXIS_ENERGY,
+    AXIS_THETA_X,
+    AXIS_THETA_Y,
+    AXIS_TIME,
+    AXIS_X,
+    AXIS_Y,
     Job,
-    Photons,
-    PhotonMultiplicity,
-    SampledSpatialDistribution,
-    SampledSpectrum,
-    SampledTemporalEnvelope,
+    Results,
+    make_slice,
 )
 
 
@@ -41,17 +44,6 @@ def _bunch_to_kascade_electrons(bunch: Bunch) -> dict:
     )
 
 
-@dataclass
-class ElectronFinalState:
-    """Kascade-specific: initial vs. final per-macro-electron Lorentz
-    factor, after the emission chain. No other model produces per-electron
-    final-state data, so this isn't a shared ``io.photons`` type."""
-
-    eps_i: np.ndarray
-    eps_f: np.ndarray
-    weight: float
-
-
 class KascadeAdapter:
     def __init__(self):
         self._last_results = None   # kascade.Results | None
@@ -71,7 +63,7 @@ class KascadeAdapter:
     def model_choices(self) -> dict[str, list[str]]:
         return {"quantum": ["off", "on"]}
 
-    def run(self, job: Job) -> Photons:
+    def run(self, job: Job) -> Results:
         extra = job.extra
         cfg = _kascade.Config(
             interaction=job.interaction,
@@ -89,22 +81,52 @@ class KascadeAdapter:
             cfg, n_mc=job.interaction.electrons.n_particles, seed=job.seed, electrons=kascade_electrons)
         self._last_results = res
         s = res.summary
-        return Photons(
-            model_name="kascade",
-            n_mc=res.n_mc,
-            total_yield=s["N_gamma_total"],
-            spectrum=SampledSpectrum(E_eV=res.ph_E_eV, weight=res.weight),
-            summary=s,
-            angular_spectrum=None,
-            final_photons=res,
-            final_electrons=ElectronFinalState(eps_i=res.eps_i, eps_f=res.eps_f, weight=res.weight),
-            photon_multiplicity=PhotonMultiplicity(
-                mean_n_phot=s["measured_mean_n_phot"],
-                frac_n0=s["frac_n0_measured"],
-                frac_n1=s["frac_n1"],
-                frac_n2=s["frac_n2"],
-                frac_n3plus=s["frac_n3plus"],
-            ),
-            temporal_envelope=SampledTemporalEnvelope(t_seconds=res.ph_t, weight=res.weight),
-            spatial_distribution=SampledSpatialDistribution(x=res.ph_x, y=res.ph_y, weight=res.weight),
+
+        axis_samples = {
+            AXIS_ENERGY: res.ph_E_eV,
+            AXIS_TIME: res.ph_t,
+            AXIS_X: res.ph_x,
+            AXIS_Y: res.ph_y,
+            AXIS_THETA_X: res.ph_thx_lab,
+            AXIS_THETA_Y: res.ph_thy_lab,
+        }
+
+        photon_slices = [PhasespaceSlice(axes={}, distr=np.asarray(s["N_gamma_total"]))]
+        for sr in job.output.slices:
+            if not all(axis in axis_samples for axis in sr.axes):
+                continue
+            samples = {axis: axis_samples[axis] for axis in sr.axes}
+            bins = dict(zip(sr.axes, sr.bins))
+            ranges = None
+            if sr.range is not None:
+                ranges = {
+                    axis: r for axis, r in zip(sr.axes, sr.range) if r is not None
+                }
+            photon_slices.append(make_slice(samples, res.weight, bins, ranges))
+
+        macrophoton = Bunch(
+            x=res.ph_x, y=res.ph_y, z=C_LIGHT * res.ph_t,
+            thx=res.ph_thx_lab, thy=res.ph_thy_lab, gamma=res.ph_E_eV,
+            weight=res.weight,
+        )
+        electrons = Bunch(
+            x=res.x_f, y=res.y_f, z=res.z_f,
+            thx=res.thx_f, thy=res.thy_f, gamma=res.eps_f,
+            weight=res.weight,
+        )
+
+        return Results(
+            photon_slices=photon_slices,
+            macrophoton=macrophoton,
+            electrons=electrons,
+            model_specific={
+                **s,
+                "photon_multiplicity": {
+                    "mean_n_phot": s["measured_mean_n_phot"],
+                    "frac_n0": s["frac_n0_measured"],
+                    "frac_n1": s["frac_n1"],
+                    "frac_n2": s["frac_n2"],
+                    "frac_n3plus": s["frac_n3plus"],
+                },
+            },
         )

@@ -1,366 +1,366 @@
 {
   "pyproject.toml": {
-    "mtime": 1785654393.8992999,
+    "mtime": 1785692983.2021804,
     "ast_hash": "1e8da7d296859ffd02dfe4dfb62af774",
     "semantic_hash": ""
   },
   "tests/test_analytical.py": {
-    "mtime": 1785654393.903163,
+    "mtime": 1785692983.2175002,
     "ast_hash": "deeba3807ffa18f5b4d5669101abe412",
     "semantic_hash": ""
   },
   ".opencode/opencode.json": {
-    "mtime": 1785654088.1188705,
+    "mtime": 1785692943.9554808,
     "ast_hash": "e5f74d14a81702b55bdf53b33ec991d7",
     "semantic_hash": "e5f74d14a81702b55bdf53b33ec991d7"
   },
   ".opencode/plugins/graphify.js": {
-    "mtime": 1785654088.1195679,
+    "mtime": 1785692943.9558516,
     "ast_hash": "3ea725724bc8ebe483c9f13d6aa1124f",
     "semantic_hash": "3ea725724bc8ebe483c9f13d6aa1124f"
   },
   "AGENTS.md": {
-    "mtime": 1785654409.3906322,
+    "mtime": 1785692983.1841962,
     "ast_hash": "a365caf57fbc3f26eec7d1a06ff1af71",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785654409.3906322,
+    "mtime": 1785692983.1841962,
     "ast_hash": "a365caf57fbc3f26eec7d1a06ff1af71",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
-    "mtime": 1785654393.901204,
-    "ast_hash": "5eb6976d695556f16b5e5b56f098fe8b",
+    "mtime": 1785693722.9201021,
+    "ast_hash": "40297854d79383b5d2b0217ca46e564e",
     "semantic_hash": ""
   },
   "scripts/physics_params_demo.py": {
-    "mtime": 1785654393.9021122,
+    "mtime": 1785692983.2027416,
     "ast_hash": "1b0ca880a527d486e46e6bc4417bf722",
     "semantic_hash": ""
   },
   "scripts/run_gui.py": {
-    "mtime": 1785654393.9026852,
+    "mtime": 1785692983.2030013,
     "ast_hash": "2c6b411e38a181125808692d660ed8f7",
     "semantic_hash": ""
   },
   "tests/io_tests/test_bunch.py": {
-    "mtime": 1785654393.9058125,
+    "mtime": 1785692983.215609,
     "ast_hash": "7aa8d91ddf1fc6fa372d024c8503ba06",
     "semantic_hash": ""
   },
   "tests/io_tests/test_constants.py": {
-    "mtime": 1785654393.9063275,
+    "mtime": 1785692983.2158897,
     "ast_hash": "dca4496372aefe4266d36f62fc3fd72a",
     "semantic_hash": ""
   },
   "tests/io_tests/test_conversions.py": {
-    "mtime": 1785654393.9068155,
+    "mtime": 1785692983.2161486,
     "ast_hash": "f3dbb7f815d68311bfe7b91286af3530",
     "semantic_hash": ""
   },
   "tests/io_tests/test_io_formats.py": {
-    "mtime": 1785654393.9072926,
+    "mtime": 1785692983.2164097,
     "ast_hash": "d0ee9b64d8f57fc5e6227b8722a8f372",
     "semantic_hash": ""
   },
   "tests/io_tests/test_laser.py": {
-    "mtime": 1785654393.9077935,
+    "mtime": 1785692983.2166688,
     "ast_hash": "278e1ef5754b865ac37b25f14802dcbc",
     "semantic_hash": ""
   },
   "tests/io_tests/test_propagation.py": {
-    "mtime": 1785654393.908972,
+    "mtime": 1785692983.2172215,
     "ast_hash": "50fbd4f42439a685eb1cb80ec589106a",
     "semantic_hash": ""
   },
   "docs/gui/AGENTS.md": {
-    "mtime": 1785654393.9111452,
+    "mtime": 1785692983.1846335,
     "ast_hash": "a1563482bac469fb3aec263065e0f899",
     "semantic_hash": ""
   },
   "docs/io/AGENTS.md": {
-    "mtime": 1785654393.9123485,
+    "mtime": 1785692983.1849768,
     "ast_hash": "a86ceed199fb377c1f51710db8d9a227",
     "semantic_hash": ""
   },
   "docs/io/specs/electron_beam_io_v0.1_full.md": {
-    "mtime": 1785654393.9331372,
+    "mtime": 1785692943.9630325,
     "ast_hash": "b84afacb9335f85298b87305ed878b61",
     "semantic_hash": "b84afacb9335f85298b87305ed878b61"
   },
   "docs/io/specs/electron_beam_io_v0.1_short.md": {
-    "mtime": 1785654393.933695,
+    "mtime": 1785692943.9633036,
     "ast_hash": "f6edcaa70186c798953fc48c7103990f",
     "semantic_hash": "f6edcaa70186c798953fc48c7103990f"
   },
   "docs/io/specs/gaussian_paraxial_laser_io_v0.1.md": {
-    "mtime": 1785654393.9342947,
+    "mtime": 1785692943.963557,
     "ast_hash": "619ab903e0bf06c7f0b86face864e56a",
     "semantic_hash": "619ab903e0bf06c7f0b86face864e56a"
   },
   "docs/io/specs/gaussian_paraxial_laser_io_v0.1_short.md": {
-    "mtime": 1785654393.934821,
+    "mtime": 1785692943.963777,
     "ast_hash": "4e3c194c1a5ca50e1df5ecf3f5305907",
     "semantic_hash": "4e3c194c1a5ca50e1df5ecf3f5305907"
   },
   "docs/models/xigma.md": {
-    "mtime": 1785654393.9137306,
+    "mtime": 1785692983.1855304,
     "ast_hash": "4e82fdbfb1c4710859a96333e6e5088e",
     "semantic_hash": ""
   },
   "docs/models/xigma_passport.md": {
-    "mtime": 1785654393.9146454,
+    "mtime": 1785692983.1860118,
     "ast_hash": "1e5c488d6b399f810ad75d3dabbb1e6d",
     "semantic_hash": ""
   },
   "tests/io_tests/test_laser_envelope.py": {
-    "mtime": 1785654393.908398,
+    "mtime": 1785692983.2169552,
     "ast_hash": "f9450c0c28a9c4f85c4877555d3c44b0",
     "semantic_hash": ""
   },
   "docs/refactor/core-simulation-api.md": {
-    "mtime": 1785654393.916142,
+    "mtime": 1785692983.1862054,
     "ast_hash": "69e81c0a86c663039fb12a19142649d9",
     "semantic_hash": ""
   },
   "docs/refactor/parameter-framework-and-collision-params.md": {
-    "mtime": 1785654393.9175012,
+    "mtime": 1785692983.1864607,
     "ast_hash": "b13742a8dfef9fb1213c91dda732d3c4",
     "semantic_hash": ""
   },
   "docs/refactor/better-gaussian-bunches.md": {
-    "mtime": 1785654393.9155552,
+    "mtime": 1785692943.9651434,
     "ast_hash": "7a4790729011ccdb27a36bfdbe73643d",
     "semantic_hash": "7a4790729011ccdb27a36bfdbe73643d"
   },
   "tests/test_bunch_improvements.py": {
-    "mtime": 1785654393.9040658,
+    "mtime": 1785692983.2177508,
     "ast_hash": "3e02871adb3013a619efc953c08bc005",
     "semantic_hash": ""
   },
   ".tmp/context/gui-calculations-section.md": {
-    "mtime": 1785654393.9103193,
+    "mtime": 1785692983.1835358,
     "ast_hash": "73fecd3334ebab3ad4c00d0a17bc5313",
     "semantic_hash": ""
   },
   ".tmp/tasks/gui-calculations/README.md": {
-    "mtime": 1785654393.9182036,
+    "mtime": 1785692983.1839242,
     "ast_hash": "52356d5985c93f9ea567cc989f800d18",
     "semantic_hash": ""
   },
   "docs/gui/tasks.md": {
-    "mtime": 1785654393.911796,
+    "mtime": 1785692943.9619563,
     "ast_hash": "8e1dd1eddbcab06e0236ff58f0ccbac9",
     "semantic_hash": "8e1dd1eddbcab06e0236ff58f0ccbac9"
   },
   "docs/models/tasks.md": {
-    "mtime": 1785654393.912795,
+    "mtime": 1785692943.964022,
     "ast_hash": "0532015193513b6c03ab04d0ec70de97",
     "semantic_hash": "0532015193513b6c03ab04d0ec70de97"
   },
   "src/gammaforge/__init__.py": {
-    "mtime": 1785654393.9047663,
+    "mtime": 1785692983.2035477,
     "ast_hash": "9e6ce27cfb65b7387608b319b71e945d",
     "semantic_hash": ""
   },
   "src/gammaforge/gui/__init__.py": {
-    "mtime": 1785654393.9188647,
+    "mtime": 1785692983.20379,
     "ast_hash": "d0c9cd69be8beef83b1dac10e4ef2ee9",
     "semantic_hash": ""
   },
   "src/gammaforge/gui/app.py": {
-    "mtime": 1785654393.9198697,
-    "ast_hash": "9318404d5eac404146bb3dc0c26844cc",
+    "mtime": 1785693763.0350747,
+    "ast_hash": "645f203670cbdc74d1e1ff34f0ca79aa",
     "semantic_hash": ""
   },
   "src/gammaforge/io/__init__.py": {
-    "mtime": 1785654393.9205525,
-    "ast_hash": "9cb75e2d339b6c757efcc1884086c41b",
+    "mtime": 1785693756.8344982,
+    "ast_hash": "4c23f4547a375874f5452d6ccc7e0545",
     "semantic_hash": ""
   },
   "src/gammaforge/io/bunch.py": {
-    "mtime": 1785654393.9214022,
+    "mtime": 1785692983.2049963,
     "ast_hash": "82ba15a1b93da9cb94f4fdc8962ccad5",
     "semantic_hash": ""
   },
   "src/gammaforge/io/interaction.py": {
-    "mtime": 1785654393.9220512,
+    "mtime": 1785692983.205226,
     "ast_hash": "c20443df86b082328f09400ad5b6ac45",
     "semantic_hash": ""
   },
   "src/gammaforge/io/io_formats/__init__.py": {
-    "mtime": 1785654393.9352736,
+    "mtime": 1785692983.2054691,
     "ast_hash": "cdc7da5bae9c9d754d188a0cfb5b978e",
     "semantic_hash": ""
   },
   "src/gammaforge/io/io_formats/sdds.py": {
-    "mtime": 1785654393.9357302,
+    "mtime": 1785692983.2056634,
     "ast_hash": "04dd075c71822b4376af17c7f7797e38",
     "semantic_hash": ""
   },
   "src/gammaforge/io/io_formats/yaml_spec.py": {
-    "mtime": 1785654393.9361892,
+    "mtime": 1785692983.2058923,
     "ast_hash": "b4eeb8eece6fd0407b726e4f85b4a5ca",
     "semantic_hash": ""
   },
   "src/gammaforge/io/laser.py": {
-    "mtime": 1785654393.9227858,
+    "mtime": 1785692983.206246,
     "ast_hash": "c9631bc0a45719f3b760f02c0203ee38",
     "semantic_hash": ""
   },
   "src/gammaforge/io/photons.py": {
-    "mtime": 1785654393.9234517,
-    "ast_hash": "f93f096e7037e787c810bb5ae2161c7c",
+    "mtime": 1785693471.7515926,
+    "ast_hash": "ba77ff357d77e420586ed61d2fcf1608",
     "semantic_hash": ""
   },
   "src/gammaforge/io/units.py": {
-    "mtime": 1785654393.9241798,
+    "mtime": 1785692983.2069654,
     "ast_hash": "f34b3a8c440d6bd5398c7271d01fe72a",
     "semantic_hash": ""
   },
   "src/gammaforge/misc.py": {
-    "mtime": 1785654393.9053626,
+    "mtime": 1785692983.207264,
     "ast_hash": "8804510019c8e61b5236e9dbe0059d81",
     "semantic_hash": ""
   },
   "src/gammaforge/models/__init__.py": {
-    "mtime": 1785654393.9247203,
+    "mtime": 1785692983.2075377,
     "ast_hash": "9e8ba4da1b13463e9f3c666deca0fed9",
     "semantic_hash": ""
   },
   "src/gammaforge/models/analytical.py": {
-    "mtime": 1785654393.9252543,
-    "ast_hash": "38470337db779c27f04387f1535cc05a",
+    "mtime": 1785693353.0836353,
+    "ast_hash": "b0b24058bd156a687e7b0847e6237e22",
     "semantic_hash": ""
   },
   "src/gammaforge/models/api.py": {
-    "mtime": 1785654393.9258022,
-    "ast_hash": "55cab545fb45c1131e9e25baea4b99f3",
+    "mtime": 1785693203.9512446,
+    "ast_hash": "00627210844440699b59cd1c50e5e75d",
     "semantic_hash": ""
   },
   "src/gammaforge/models/kascade/__init__.py": {
-    "mtime": 1785654393.9370832,
+    "mtime": 1785692983.20903,
     "ast_hash": "c6459bf1f451992a14319c58d0b8c0b1",
     "semantic_hash": ""
   },
   "src/gammaforge/models/kascade/kascade.py": {
-    "mtime": 1785654393.9378037,
+    "mtime": 1785692983.2094276,
     "ast_hash": "b18763ef15d7dd3589b75f29d704838b",
     "semantic_hash": ""
   },
   "src/gammaforge/models/kascade/kascade_adapter.py": {
-    "mtime": 1785654393.9383185,
-    "ast_hash": "d4a351abb14bf869f98d918f06118431",
+    "mtime": 1785693116.6523838,
+    "ast_hash": "353912bc224dc1976035fb5b70082574",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/adapter.py": {
-    "mtime": 1785654393.9392102,
-    "ast_hash": "22422799631cd0f957d8c7fc2db21083",
+    "mtime": 1785693581.306327,
+    "ast_hash": "4de3788d92e466e1aab4296e864ec8dc",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/config.py": {
-    "mtime": 1785654393.9401028,
+    "mtime": 1785692983.210625,
     "ast_hash": "10077fcefb2780473e43bcef7e6466fd",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/deposition.py": {
-    "mtime": 1785654393.9410367,
+    "mtime": 1785692983.2108839,
     "ast_hash": "57f91a7f137a70b83c41df77c6494efa",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/particles.py": {
-    "mtime": 1785654393.9417808,
+    "mtime": 1785692983.2112951,
     "ast_hash": "25bb1136df286d74d136832fc6c45786",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/reference.py": {
-    "mtime": 1785654393.94237,
+    "mtime": 1785692983.211616,
     "ast_hash": "3696a5c5b76a793c4fdd478bebbee327",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/spectrum4d.py": {
-    "mtime": 1785654393.943155,
+    "mtime": 1785692983.2118516,
     "ast_hash": "61c44f2e81a0be3179cf59c1dc4ccc40",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/spectrum4d_cpu.py": {
-    "mtime": 1785654393.943862,
+    "mtime": 1785692983.2121859,
     "ast_hash": "a5630e600b3da09a91292af0c46f0280",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/spectrum_from_particles.py": {
-    "mtime": 1785654393.9444218,
+    "mtime": 1785692983.2124543,
     "ast_hash": "fe8774a52fe25a8c9d45cde4129aead7",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/tabulated_engine.py": {
-    "mtime": 1785654393.944994,
+    "mtime": 1785692983.2126775,
     "ast_hash": "12ec929fc664da4ebd31943dcf5cf27e",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/cache.py": {
-    "mtime": 1785654393.926369,
+    "mtime": 1785692983.2130592,
     "ast_hash": "8abf8ee0da384ec35dcb1ac3cde29aa8",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/metrics.py": {
-    "mtime": 1785654393.9268901,
+    "mtime": 1785692983.2132761,
     "ast_hash": "a45fd3b04db37267ac7d101a08448781",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/parameter_bank.py": {
-    "mtime": 1785654393.9273221,
+    "mtime": 1785692983.2134328,
     "ast_hash": "e45ce05948277c54075cdb217afdea2b",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/run_cross_validation.py": {
-    "mtime": 1785654393.9277377,
+    "mtime": 1785692983.2136226,
     "ast_hash": "7902f0a277487fd150dc93b2c06e9523",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/runners.py": {
-    "mtime": 1785654393.9282289,
+    "mtime": 1785692983.2138486,
     "ast_hash": "373e53f37633adcbb6d7cb238c66baf5",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/scenarios.py": {
-    "mtime": 1785654393.9287665,
+    "mtime": 1785692983.214069,
     "ast_hash": "33055bdb3937c4f2008297395bbf1aea",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/tier0_wiring.py": {
-    "mtime": 1785654393.9293792,
+    "mtime": 1785692983.2142637,
     "ast_hash": "581b7c05cd0805c1ba4fc06d320f4058",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/tier1_yield.py": {
-    "mtime": 1785654393.93009,
-    "ast_hash": "af2a31c2db168a50f4ce4c7167b32e57",
+    "mtime": 1785693645.297169,
+    "ast_hash": "1beeee1b981fedb5a10683f92f9645c0",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/tier2_spectrum.py": {
-    "mtime": 1785654393.9306645,
-    "ast_hash": "120e736756f4cc3d776a36eafe9a1586",
+    "mtime": 1785693663.098152,
+    "ast_hash": "efb11db3067e6bae8d25173710f32b31",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/tier3_angular_shape.py": {
-    "mtime": 1785654393.9311974,
-    "ast_hash": "74769b2090b7ae1a57db92de4ef13537",
+    "mtime": 1785693672.2431436,
+    "ast_hash": "fba40dc72fd9ccfaac671536d3e3860a",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/tier4_regime_boundary.py": {
-    "mtime": 1785654393.9318237,
-    "ast_hash": "4414afc8cdcbbc6e024af64882ad1cb6",
+    "mtime": 1785693686.9793372,
+    "ast_hash": "e2a8279672208e10437bf0ed754c978a",
     "semantic_hash": ""
   },
   "src/gammaforge/validation/visualize.py": {
-    "mtime": 1785654393.9323788,
-    "ast_hash": "b77d64d8e8c88dfa085156f5756a3280",
+    "mtime": 1785693694.252578,
+    "ast_hash": "c4e26aa8c5c09054dc3a62c11c932190",
     "semantic_hash": ""
   },
   "src/gammaforge/models/kascade/AGENTS.md": {
-    "mtime": 1785654393.9366593,
+    "mtime": 1785692983.2086112,
     "ast_hash": "da156a9f7cbb74efa12d04fa2b1d582d",
     "semantic_hash": ""
   }

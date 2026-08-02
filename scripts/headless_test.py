@@ -31,7 +31,20 @@ from gammaforge.io.bunch import GaussianElectronBeam, sample_gaussian_bunch
 from gammaforge.io.laser import GaussianParaxialLaser
 from gammaforge.io.interaction import InteractionParameters
 from gammaforge.io.units import NoConvention, PhysicalMeaning, PhysicalQuantity, TimeConvention, WidthConvention
-from gammaforge.models.api import Job, OutputSpec, discover_models, validate_results
+from gammaforge.models.api import (
+    AXIS_ENERGY,
+    AXIS_THETA_X,
+    AXIS_THETA_Y,
+    AXIS_TIME,
+    AXIS_X,
+    AXIS_Y,
+    Job,
+    OutputSpec,
+    discover_models,
+    find_slice,
+    total_yield,
+    validate_results,
+)
 
 # Same rough operating point as the GUI's Electrons/Laser panel defaults.
 _BEAM = GaussianElectronBeam(
@@ -85,29 +98,31 @@ def test_model(name: str, adapter) -> bool:
 
     problems = validate_results(res)
     ok &= check("validate_results reports no problems", not problems, "; ".join(problems))
-    ok &= check("total_yield is a positive finite number",
-                res.total_yield is not None and np.isfinite(res.total_yield) and res.total_yield >= 0)
+    y = total_yield(res)
+    ok &= check("total_yield is a positive finite number", np.isfinite(y) and y >= 0)
 
-    if res.temporal_envelope is not None:
-        te = res.temporal_envelope
-        ok &= check("temporal_envelope.t_seconds non-empty", te.t_seconds.size > 0)
+    te = find_slice(res.photon_slices, AXIS_TIME)
+    if te is not None:
+        ok &= check("temporal_envelope.t_seconds non-empty", te.axes[AXIS_TIME].size > 0)
 
-    if res.spatial_distribution is not None:
-        sd = res.spatial_distribution
-        if hasattr(sd, "density"):
-            dx = sd.x_centers[1] - sd.x_centers[0]
-            dy = sd.y_centers[1] - sd.y_centers[0]
-            integrated = float(sd.density.sum()) * dx * dy
-            ratio = integrated / res.total_yield if res.total_yield else float("nan")
-            ok &= check("spatial_distribution integrates to ~total_yield",
-                        0.5 < ratio < 2.0, f"ratio={ratio:.4g}")
+    sd = find_slice(res.photon_slices, AXIS_X, AXIS_Y)
+    if sd is not None:
+        dx = sd.axes[AXIS_X][1] - sd.axes[AXIS_X][0]
+        dy = sd.axes[AXIS_Y][1] - sd.axes[AXIS_Y][0]
+        integrated = float(sd.distr.sum()) * dx * dy
+        ratio = integrated / y if y else float("nan")
+        ok &= check("spatial_distribution integrates to ~total_yield",
+                    0.5 < ratio < 2.0, f"ratio={ratio:.4g}")
 
-    if res.angular_spectrum is not None:
-        ang = res.angular_spectrum
-        dtx, dty = np.gradient(ang.theta_x), np.gradient(ang.theta_y)
-        dE = np.gradient(ang.E_eV)
-        full_integral = float(np.einsum("ijk,i,j,k->", ang.d2NdEdOmega, dtx, dty, dE))
-        ratio = full_integral / res.total_yield if res.total_yield else float("nan")
+    ang = find_slice(res.photon_slices, AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
+    if ang is not None:
+        names = list(ang.axes.keys())
+        order = [names.index(n) for n in (AXIS_THETA_X, AXIS_THETA_Y, AXIS_ENERGY)]
+        arr = np.moveaxis(ang.distr, order, [0, 1, 2])
+        dtx, dty = np.gradient(ang.axes[AXIS_THETA_X]), np.gradient(ang.axes[AXIS_THETA_Y])
+        dE = np.gradient(ang.axes[AXIS_ENERGY])
+        full_integral = float(np.einsum("ijk,i,j,k->", arr, dtx, dty, dE))
+        ratio = full_integral / y if y else float("nan")
         ok &= check("angular_spectrum integrates to ~total_yield",
                     0.5 < ratio < 2.0, f"ratio={ratio:.4g}")
 
@@ -149,7 +164,7 @@ def test_preview_alongside(models: dict) -> bool:
             p_res = preview_adapter.run(job)
             problems = validate_results(p_res)
             this_ok = check(f"preview runs alongside '{name}'",
-                            not problems and p_res.total_yield is not None and p_res.total_yield >= 0,
+                            not problems and total_yield(p_res) >= 0,
                             "; ".join(problems))
         except Exception as e:
             print(f"  [FAIL] preview alongside '{name}' raised: {e}")

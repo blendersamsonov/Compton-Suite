@@ -69,7 +69,21 @@ from gammaforge.io.units import (
     ureg,
     w0_to_sigma_intensity,
 )
-from gammaforge.models.api import Job, ModelAdapter, Photons, discover_models, validate_results
+from gammaforge.models.api import (
+    AXIS_ENERGY,
+    AXIS_THETA_X,
+    AXIS_THETA_Y,
+    AXIS_TIME,
+    AXIS_X,
+    AXIS_Y,
+    Job,
+    ModelAdapter,
+    Results,
+    discover_models,
+    find_slice,
+    total_yield,
+    validate_results,
+)
 
 # panel colours
 BLUE = "#d6e4f5"
@@ -150,8 +164,8 @@ class ComptonGUIApp(tk.Tk):
         self.geometry("1280x960+20+10")
 
         self.fields: dict[str, tk.StringVar] = {}
-        self.res: Photons | None = None
-        self.preview_res: Photons | None = None    # always-on analytical model's Photons | None
+        self.res: Results | None = None
+        self.preview_res: Results | None = None    # always-on analytical model's Results | None
         self.interaction_used: InteractionParameters | None = None   # (laser, electrons) used for self.res
         self.rep_rate_hz = 1.0
         self.q: queue.Queue = queue.Queue()
@@ -656,15 +670,21 @@ class ComptonGUIApp(tk.Tk):
 
     def _get_output_spec(self):
         """Build an OutputSpec from the GUI fields."""
-        from gammaforge.models.api import OutputSpec
-        return OutputSpec(
-            n_energy_bins=max(1, int(float(self.fields["n_energy_bins"].get()))),
-            n_time_bins=max(1, int(float(self.fields["n_time_bins"].get()))),
-            n_spatial_bins_x=max(1, int(float(self.fields["n_spatial_bins_x"].get()))),
-            n_spatial_bins_y=max(1, int(float(self.fields["n_spatial_bins_y"].get()))),
-            n_angular_bins_x=max(1, int(float(self.fields["n_angular_bins_x"].get()))),
-            n_angular_bins_y=max(1, int(float(self.fields["n_angular_bins_y"].get()))),
-        )
+        from gammaforge.models.api import OutputSpec, SliceRequest
+
+        n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
+        n_time_bins = max(1, int(float(self.fields["n_time_bins"].get())))
+        n_spatial_bins_x = max(1, int(float(self.fields["n_spatial_bins_x"].get())))
+        n_spatial_bins_y = max(1, int(float(self.fields["n_spatial_bins_y"].get())))
+        n_angular_bins_x = max(1, int(float(self.fields["n_angular_bins_x"].get())))
+        n_angular_bins_y = max(1, int(float(self.fields["n_angular_bins_y"].get())))
+        return OutputSpec(slices=(
+            SliceRequest((AXIS_ENERGY,), (n_energy_bins,)),
+            SliceRequest((AXIS_TIME,), (n_time_bins,)),
+            SliceRequest((AXIS_X, AXIS_Y), (n_spatial_bins_x, n_spatial_bins_y)),
+            SliceRequest((AXIS_THETA_X, AXIS_THETA_Y), (n_angular_bins_x, n_angular_bins_y)),
+            SliceRequest((AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y), (96, 33, 33)),
+        ))
 
     # ---- analytical preview panel (always-on, independent of the
     # selected model) --------------------------------------------------
@@ -698,8 +718,8 @@ class ComptonGUIApp(tk.Tk):
             return
         try:
             self.preview_lbls["status"].config(text="ok")
-            self.preview_lbls["total_yield"].config(text=f"{self.preview_res.total_yield:.4e}")
-            width = self.preview_res.summary.get("estimated_spectrum_width_fwhm")
+            self.preview_lbls["total_yield"].config(text=f"{total_yield(self.preview_res):.4e}")
+            width = self.preview_res.model_specific.get("estimated_spectrum_width_fwhm")
             self.preview_lbls["width"].config(text=f"{width:.4g}" if width is not None else "--")
         except Exception:
             self.preview_lbls["status"].config(text="render error")
@@ -1078,12 +1098,12 @@ class ComptonGUIApp(tk.Tk):
         self.stat_lbls["total_flux"].config(text=f"{total_flux:.3e} ph/s")
         self.stat_lbls["coll_flux"].config(text=f"{coll_flux:.3e} ph/s")
 
-        if res.photon_multiplicity is not None:
-            pm = res.photon_multiplicity
-            self.stat_lbls["nph_ne"].config(text=f"{pm.mean_n_phot:.4e}")
-            self.stat_lbls["ne0"].config(text=f"{pm.frac_n0*100:.3f} %")
-            self.stat_lbls["ne1"].config(text=f"{pm.frac_n1*100:.3f} %")
-            self.stat_lbls["ne2"].config(text=f"{pm.frac_n2*100:.3f} %")
+        pm = res.model_specific.get("photon_multiplicity")
+        if pm is not None:
+            self.stat_lbls["nph_ne"].config(text=f"{pm['mean_n_phot']:.4e}")
+            self.stat_lbls["ne0"].config(text=f"{pm['frac_n0']*100:.3f} %")
+            self.stat_lbls["ne1"].config(text=f"{pm['frac_n1']*100:.3f} %")
+            self.stat_lbls["ne2"].config(text=f"{pm['frac_n2']*100:.3f} %")
         else:
             for key in ("nph_ne", "ne0", "ne1", "ne2"):
                 self.stat_lbls[key].config(text="N/A")
@@ -1093,19 +1113,19 @@ class ComptonGUIApp(tk.Tk):
             interaction.laser.wavelength_m.to_unit("meter").magnitude)
         self.stat_lbls["recoil_q"].config(text=f"{recoil_q:.6f}")
 
-        self._render_plots(res, cmask)
+        self._render_plots(res, cmask, interaction)
 
     def _photon_fluxes(self, res, tx, ty):
         """Return (total_flux, collimated_flux, cmask_or_None) [ph/s].
 
-        cmask is only meaningful (and only returned) for SampledSpectrum
-        results, where _render_plots uses it to mask the raw photon array
-        directly (exact, no grid involved).
+        cmask is only meaningful (and only returned) when ``res.macrophoton``
+        is present (kascade), where _render_plots uses it to mask the raw
+        photon array directly (exact, no grid involved).
 
-        For BinnedSpectrum results, collimated flux comes from an on-demand
+        Otherwise, collimated flux comes from an on-demand
         active_adapter.spectrum_in_angular_range() query -- a fresh grid
         sized for the ACTUAL requested window -- rather than re-integrating
-        the cached, wide-range res.angular_spectrum grid (used only by the
+        the cached, wide-range energy+angle joint slice (used only by the
         Angular Distribution tab's visualization). That used to double as
         the "collimated flux" source here too, but its grid is sized for a
         4*pi overview, not a tight collimation window: e.g. delta's
@@ -1119,21 +1139,18 @@ class ComptonGUIApp(tk.Tk):
         window, not mask/reuse a cache) -- this just routes through it here
         too, still no MC re-run (reuses the cached per-particle arrays).
         """
-        if hasattr(res.spectrum, "weight"):
-            spec = res.spectrum
-            n_tot = spec.E_eV.size
-            total_flux = n_tot * spec.weight * self.rep_rate_hz
-            photon_samples = res.final_photons
-            thx = getattr(photon_samples, "ph_thx_lab", None)
-            thy = getattr(photon_samples, "ph_thy_lab", None)
-            if tx is not None and ty is not None and n_tot and thx is not None:
-                cmask = (np.abs(thx) <= tx) & (np.abs(thy) <= ty)
+        if res.macrophoton is not None:
+            mp = res.macrophoton
+            n_tot = mp.x.size
+            total_flux = n_tot * mp.weight * self.rep_rate_hz
+            if tx is not None and ty is not None and n_tot:
+                cmask = (np.abs(mp.thx) <= tx) & (np.abs(mp.thy) <= ty)
             else:
                 cmask = np.zeros(n_tot, dtype=bool)
-            coll_flux = int(cmask.sum()) * spec.weight * self.rep_rate_hz
+            coll_flux = int(cmask.sum()) * mp.weight * self.rep_rate_hz
             return total_flux, coll_flux, cmask
 
-        total_flux = res.total_yield * self.rep_rate_hz
+        total_flux = total_yield(res) * self.rep_rate_hz
         if tx is None or ty is None:
             return total_flux, 0.0, None
         rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
@@ -1141,14 +1158,11 @@ class ComptonGUIApp(tk.Tk):
         return total_flux, coll_flux, None
 
     # ---- plotting -------------------------------------------------------
-    def _render_plots(self, res, cmask):
-        if hasattr(res.spectrum, "weight"):
-            self._render_spectrum_sampled(res, cmask)
-        else:
-            self._render_spectrum_binned(res)
+    def _render_plots(self, res, cmask, interaction):
+        self._render_spectrum(res, cmask)
 
-        if res.final_electrons is not None:
-            self._render_electron_state(res.final_electrons)
+        if res.electrons is not None:
+            self._render_electron_state(interaction.electrons, res.electrons)
         else:
             self.ax_e.clear()
             self.ax_e.text(0.5, 0.5,
@@ -1164,61 +1178,59 @@ class ComptonGUIApp(tk.Tk):
         self._render_spatial_distribution(res)
         self._render_angular_distribution(res)
 
-    def _render_spectrum_sampled(self, res, cmask):
-        spec = res.spectrum
+    def _render_spectrum(self, res, cmask):
         self.ax_spec.clear()
-        E_keV = spec.E_eV / 1e3
-        Ec = E_keV[cmask] if cmask is not None and cmask.size else E_keV[:0]
-        if E_keV.size:
-            emax = E_keV.max() * 1.02
-            self.ax_spec.hist(E_keV, bins=120, range=(0, emax),
-                              weights=np.full(E_keV.size, spec.weight),
-                              color="0.8", label="all (4*pi)")
-        if Ec.size:
-            self.ax_spec.hist(Ec, bins=120, range=(0, E_keV.max() * 1.02),
-                              weights=np.full(Ec.size, spec.weight),
-                              histtype="step", color="crimson", lw=1.5,
-                              label="collimated")
+        if res.macrophoton is not None:
+            mp = res.macrophoton
+            E_keV = mp.gamma / 1e3  # kascade stores photon E_eV directly in Bunch.gamma
+            Ec = E_keV[cmask] if cmask is not None and cmask.size else E_keV[:0]
+            if E_keV.size:
+                emax = E_keV.max() * 1.02
+                self.ax_spec.hist(E_keV, bins=120, range=(0, emax),
+                                  weights=np.full(E_keV.size, mp.weight),
+                                  color="0.8", label="all (4*pi)")
+            if Ec.size:
+                self.ax_spec.hist(Ec, bins=120, range=(0, E_keV.max() * 1.02),
+                                  weights=np.full(Ec.size, mp.weight),
+                                  histtype="step", color="crimson", lw=1.5,
+                                  label="collimated")
+            self.ax_spec.set_ylabel("photons / bin")
+            self.ax_spec.set_title("Collimated photon spectrum")
+        else:
+            spec = find_slice(res.photon_slices, AXIS_ENERGY)
+            if spec is not None:
+                E_keV = spec.axes[AXIS_ENERGY] / 1e3
+                dNdE_per_keV = spec.distr * 1e3
+                self.ax_spec.plot(E_keV, dNdE_per_keV, color="0.4", label="all (4*pi)")
+
+            tx, ty = self._collimation_rad()
+            if tx is not None and ty is not None:
+                # On-demand query at a grid sized for THIS window, not the
+                # wide-range energy+angle joint slice -- see _photon_fluxes'
+                # docstring for why re-integrating that cache here used to
+                # produce a "collimated" curve that could spike far above the
+                # true 4*pi spectrum near the Compton edge.
+                rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
+                coll_spec = rng_result.spectrum
+                E_coll = coll_spec.axes.get(AXIS_ENERGY)
+                if E_coll is not None and E_coll.size:
+                    self.ax_spec.plot(E_coll / 1e3, coll_spec.distr * 1e3,
+                                      color="crimson", label="collimated")
+            self.ax_spec.set_ylabel(r"dN/dE [photons / keV]")
+            self.ax_spec.set_title("Photon spectrum (semi-analytic, binned)")
+
         self.ax_spec.set_xlabel(r"photon energy $\hbar\omega_\gamma$ [keV]")
-        self.ax_spec.set_ylabel("photons / bin")
-        self.ax_spec.set_title("Collimated photon spectrum")
         self.ax_spec.legend(fontsize=8)
 
-    def _render_spectrum_binned(self, res):
-        spec = res.spectrum
-        self.ax_spec.clear()
-        E_keV = spec.E_eV / 1e3
-        dNdE_per_keV = spec.dNdE_per_eV * 1e3
-        self.ax_spec.plot(E_keV, dNdE_per_keV, color="0.4", label="all (4*pi)")
-
-        tx, ty = self._collimation_rad()
-        if tx is not None and ty is not None:
-            # On-demand query at a grid sized for THIS window, not the
-            # wide-range angular_spectrum cache -- see _photon_fluxes'
-            # docstring for why re-integrating that cache here used to
-            # produce a "collimated" curve that could spike far above the
-            # true 4*pi spectrum near the Compton edge.
-            rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
-            coll_spec = rng_result.spectrum
-            if hasattr(coll_spec, "dNdE_per_eV") and coll_spec.E_eV.size:
-                self.ax_spec.plot(coll_spec.E_eV / 1e3, coll_spec.dNdE_per_eV * 1e3,
-                                  color="crimson", label="collimated")
-
-        self.ax_spec.set_xlabel(r"photon energy $\hbar\omega_\gamma$ [keV]")
-        self.ax_spec.set_ylabel(r"dN/dE [photons / keV]")
-        self.ax_spec.set_title("Photon spectrum (semi-analytic, binned)")
-        self.ax_spec.legend(fontsize=8)
-
-    def _render_electron_state(self, electron_state):
+    def _render_electron_state(self, initial, final):
         self.ax_e.clear()
-        E_i = electron_state.eps_i * MEC2_EV / 1e6
-        E_f = electron_state.eps_f * MEC2_EV / 1e6
-        w = np.full(E_i.size, electron_state.weight)
+        E_i = initial.gamma * MEC2_EV / 1e6
+        E_f = final.gamma * MEC2_EV / 1e6
         rng = (min(E_f.min(), E_i.min()), E_i.max())
-        self.ax_e.hist(E_i, bins=120, range=rng, weights=w, histtype="step",
-                       color="gray", lw=1.3, label="initial")
-        self.ax_e.hist(E_f, bins=120, range=rng, weights=w, histtype="step",
-                       color="crimson", lw=1.3, label="final (total)")
+        self.ax_e.hist(E_i, bins=120, range=rng, weights=np.full(E_i.size, initial.weight),
+                       histtype="step", color="gray", lw=1.3, label="initial")
+        self.ax_e.hist(E_f, bins=120, range=rng, weights=np.full(E_f.size, final.weight),
+                       histtype="step", color="crimson", lw=1.3, label="final (total)")
         self.ax_e.set_xlabel("electron energy [MeV]")
         self.ax_e.set_ylabel("electrons / bin")
         self.ax_e.set_title("Electron energy: initial vs. final")
@@ -1234,52 +1246,30 @@ class ComptonGUIApp(tk.Tk):
         canvas.draw()
 
     def _render_temporal_envelope(self, res):
-        te = res.temporal_envelope
+        te = find_slice(res.photon_slices, AXIS_TIME)
         if te is None:
             self._render_unavailable(
                 self.ax_t, self.canvas_t, self.fig_t, "Temporal envelope",
                 "N/A for this model\n(no temporal data)")
             return
         self.ax_t.clear()
-        # Duck-typed on shape, not isinstance: adapters for models that
-        # shouldn't depend on this GUI project (e.g. xigma_i.gui_adapter)
-        # define their own structurally-identical local dataclasses rather
-        # than importing SampledTemporalEnvelope/BinnedTemporalEnvelope.
-        if hasattr(te, "weight"):
-            t_ps = te.t_seconds * 1e12
-            if t_ps.size:
-                self.ax_t.hist(t_ps, bins=120,
-                               weights=np.full(t_ps.size, te.weight),
-                               color="0.4")
-            self.ax_t.set_ylabel("photons / bin")
-        else:
-            self.ax_t.plot(te.t_seconds * 1e12, te.rate, color="0.4")
-            self.ax_t.set_ylabel("emission rate [a.u.]")
+        self.ax_t.plot(te.axes[AXIS_TIME] * 1e12, te.distr, color="0.4")
+        self.ax_t.set_ylabel("photons / s")
         self.ax_t.set_xlabel("emission time [ps]")
         self.ax_t.set_title("Photon temporal envelope")
         self.fig_t.tight_layout()
         self.canvas_t.draw()
 
     def _render_spatial_distribution(self, res):
-        sd = res.spatial_distribution
+        sd = find_slice(res.photon_slices, AXIS_X, AXIS_Y)
         if sd is None:
             self._render_unavailable(
                 self.ax_s, self.canvas_s, self.fig_s, "Spatial distribution",
                 "N/A for this model\n(no spatial-deposition kernel)")
             return
         self.ax_s.clear()
-        # Duck-typed on shape, not isinstance -- see _render_temporal_envelope.
-        if hasattr(sd, "weight"):
-            x_um = sd.x * 1e6
-            y_um = sd.y * 1e6
-            if x_um.size:
-                h, xedges, yedges = np.histogram2d(
-                    x_um, y_um, bins=80,
-                    weights=np.full(x_um.size, sd.weight))
-                self.ax_s.pcolormesh(xedges, yedges, h.T, shading="auto")
-        else:
-            self.ax_s.pcolormesh(sd.x_centers * 1e6, sd.y_centers * 1e6,
-                                 sd.density.T, shading="auto")
+        self.ax_s.pcolormesh(sd.axes[AXIS_X] * 1e6, sd.axes[AXIS_Y] * 1e6,
+                             sd.distr.T, shading="auto")
         self.ax_s.set_xlabel("x [um]")
         self.ax_s.set_ylabel("y [um]")
         self.ax_s.set_title("Photon transverse (spatial) distribution at emission")
@@ -1288,35 +1278,29 @@ class ComptonGUIApp(tk.Tk):
 
     def _render_angular_distribution(self, res):
         self.ax_a.clear()
-        if hasattr(res.spectrum, "weight"):
-            photon_samples = res.final_photons
-            thx = getattr(photon_samples, "ph_thx_lab", None)
-            thy = getattr(photon_samples, "ph_thy_lab", None)
-            weight = getattr(photon_samples, "weight", 1.0)
-            if thx is None or thy is None or thx.size == 0:
-                self._render_unavailable(
-                    self.ax_a, self.canvas_a, self.fig_a,
-                    "Angular distribution", "N/A (no photons)")
-                return
-            thx_mrad = thx * 1e3
-            thy_mrad = thy * 1e3
-            h, xedges, yedges = np.histogram2d(
-                thx_mrad, thy_mrad, bins=80,
-                weights=np.full(thx_mrad.size, weight))
-            self.ax_a.pcolormesh(xedges, yedges, h.T, shading="auto")
+        ang2d = find_slice(res.photon_slices, AXIS_THETA_X, AXIS_THETA_Y)
+        if ang2d is not None:
+            self.ax_a.pcolormesh(ang2d.axes[AXIS_THETA_X] * 1e3, ang2d.axes[AXIS_THETA_Y] * 1e3,
+                                 ang2d.distr.T, shading="auto")
         else:
-            ang = res.angular_spectrum
-            if ang is None:
+            ang3d = find_slice(res.photon_slices, AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
+            if ang3d is None:
                 self._render_unavailable(
                     self.ax_a, self.canvas_a, self.fig_a,
                     "Angular distribution", "N/A (no angular data)")
                 return
-            # angle-only density: integrate the cached d2N/dE dOmega grid
+            # angle-only density: integrate the joint energy+angle slice
             # over the energy axis (a pure aggregation of already-present
-            # data, no new adapter/engine call).
-            dE = np.gradient(ang.E_eV)
-            d2N_dOmega = np.einsum("ijk,k->ij", ang.d2NdEdOmega, dE)
-            self.ax_a.pcolormesh(ang.theta_x * 1e3, ang.theta_y * 1e3,
+            # data, no new adapter/engine call). ``axes``' iteration order
+            # matches ``distr``'s dimension order, but different adapters
+            # may order that dict differently -- reorder explicitly to
+            # (theta_x, theta_y, energy) rather than assume a fixed layout.
+            names = list(ang3d.axes.keys())
+            order = [names.index(AXIS_THETA_X), names.index(AXIS_THETA_Y), names.index(AXIS_ENERGY)]
+            arr = np.moveaxis(ang3d.distr, order, [0, 1, 2])
+            dE = np.gradient(ang3d.axes[AXIS_ENERGY])
+            d2N_dOmega = np.einsum("ijk,k->ij", arr, dE)
+            self.ax_a.pcolormesh(ang3d.axes[AXIS_THETA_X] * 1e3, ang3d.axes[AXIS_THETA_Y] * 1e3,
                                  d2N_dOmega.T, shading="auto")
         self.ax_a.set_xlabel(r"$\theta_x$ [mrad]")
         self.ax_a.set_ylabel(r"$\theta_y$ [mrad]")
