@@ -1,4 +1,4 @@
-"""Cross-checks for laser_envelope.py's gaussian_pulse_envelope against the
+"""Cross-checks for GaussianParaxialLaser.pulse_envelope against the
 two independent formulas it replaced (kascade.laser_density's arbitrary-
 crossing-angle SI form, xigma_i.particles' k0_las-normalised CGS/
 flying-focus form) -- each hand-transcribed here verbatim from what was
@@ -18,7 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 
 import numpy as np
 
-from compton_suite.io.laser import gaussian_pulse_envelope  # noqa: E402
+from compton_suite.io.laser import GaussianParaxialLaser  # noqa: E402
+
+gaussian_pulse_envelope = GaussianParaxialLaser.pulse_envelope
 
 rng = np.random.default_rng(0)
 _N = 500

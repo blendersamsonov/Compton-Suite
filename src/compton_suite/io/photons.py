@@ -105,14 +105,15 @@ class AngularRangeSpectrumResult:
 class Photons:
     """What every model's ``run()`` must return (shape-compatibly).
 
-    Only ``model_name``, ``cfg``, ``n_mc``, ``total_yield``, ``spectrum``
+    Only ``model_name``, ``n_mc``, ``total_yield``, ``spectrum``
     and ``summary`` are guaranteed present and non-None. Everything else
     is optional and ``None`` when a given model doesn't compute it -- a
-    caller must check before using it (see each field's doc).
+    caller must check before using it (see each field's doc). No ``cfg``
+    field: no model carries a standalone ``Config`` object anymore --
+    adapters own their own parameter state directly (see each adapter).
     """
 
     model_name: str
-    cfg: Any                     # the model's own Config -- opaque here, model-specific
     n_mc: int                    # macroparticle/sample count this run used
     total_yield: float           # physical (weighted) total photon count
     spectrum: BinnedSpectrum | SampledSpectrum
@@ -144,7 +145,7 @@ def validate_results(res: Any) -> list[str]:
     either ``weight`` (unbinned) or ``dNdE_per_eV`` (binned).
     """
     problems: list[str] = []
-    required = ("model_name", "cfg", "n_mc", "total_yield", "spectrum", "summary")
+    required = ("model_name", "n_mc", "total_yield", "spectrum", "summary")
     for name in required:
         if getattr(res, name, None) is None:
             problems.append(f"missing required field: {name!r}")

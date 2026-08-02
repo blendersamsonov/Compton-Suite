@@ -27,7 +27,7 @@ pass.
 | `src/compton_suite/models/api.py` | `compton_suite.models.api` | The `ModelAdapter` protocol, `Job`/`OutputSpec`/`ModelCapabilities` dataclasses, the model registry (`register`/`registered_models`/`discover_models`). Every model plugs in here — see "Model registration" below. |
 | `src/compton_suite/models/kascade/` | `compton_suite.models.kascade` | CPU Monte Carlo physics engine (sequential multi-photon event generator), SI units, always available. |
 | `src/compton_suite/models/xigma_i/` | `compton_suite.models.xigma_i` | GPU (CuPy, numba CPU fallback) tabulated-overlap-table physics engine, CGS units, `k0_las`-normalised. `adapter.py` exposes **two** adapters: `XigmaAdapter` (registered as `"xigma-i"`, the full Stage 0/1/2 tabulated pipeline) and `DirectAdapter` (registered as `"delta"`, a brute-force per-macroparticle resonance-binning mode reusing this package's own Stage 0 directly — **not a separate model package**, just a different Stage-2 evaluation of the same engine). Greyed out (`UnavailableAdapter`) in the GUI if neither cupy/CUDA nor numba is usable. |
-| `src/compton_suite/models/analytical.py` | `compton_suite.models.analytical` | Fast, closed-form yield/spectrum/width estimates, in a single flat module (`estimate_yield`, `estimate_spectrum_width`, `angle_integrated_spectrum`, `AnalyticalConfig`, `Adapter`). Always-on GUI preview alongside whichever other model is selected (`ModelCapabilities.is_fast_preview=True`). |
+| `src/compton_suite/models/analytical.py` | `compton_suite.models.analytical` | Fast, closed-form yield/spectrum/width estimates, in a single flat module (`estimate_yield`, `estimate_spectrum_width`, `angle_integrated_spectrum`, `Adapter`). No `Config` class — `Adapter`'s one numeric knob (`theta_col_rad`) lives directly on the adapter instance. Always-on GUI preview alongside whichever other model is selected (`ModelCapabilities.is_fast_preview=True`). |
 | `src/compton_suite/misc.py` | — | `detect_device()` — the one shared cupy/numba backend-detection helper every model that needs GPU/CPU dispatch imports. |
 | `src/compton_suite/` | `compton_suite` | Unified package: `discover_models` re-export (via `models.api`) and the `run_gui`/console-script entry point. |
 | `src/compton_suite/validation/` | `compton_suite.validation` | Cross-model validation suite — shared `Scenario`s (`scenarios.py`), per-model runners (`runners.py`, `Job`-based), tiered comparisons (`tier0_wiring.py`..`tier4_regime_boundary.py`, `run_cross_validation.py`), plotting (`visualize.py`), a commit-hash-keyed result cache (`cache.py`). |
@@ -91,8 +91,26 @@ falling back to `UnavailableAdapter` for both `"xigma-i"` and `"delta"` if
 neither cupy/CUDA nor numba is usable — one missing optional dependency
 never breaks `import compton_suite.models`.
 
-**No model's `Config` class carries derived-value properties** (`eps0`,
-`N_e`, `lambda_L`, etc.) that just rename/duplicate what's already on
+**Only kascade has a standalone `Config` class.** xigma-i (`XigmaAdapter`),
+delta (`DirectAdapter`), and analytical (`Adapter`) don't have a `Config`
+dataclass at all — each adapter instance holds its own model-specific
+numeric knobs directly as plain `self` attributes (`self.n_steps_0`,
+`self.theta_col_rad`, etc.), updated from `job.extra` at the top of
+`run()`. `XigmaAdapter` additionally holds its `TabulatedEngine`/
+`CollisionParams` as `self.engine`/`self.params` after a run, so
+`spectrum_in_angular_range()` can recompute an on-demand angular-range
+query without rerunning the whole simulation; `DirectAdapter` (no
+persistent table) instead keeps the raw per-particle arrays it needs for
+the same purpose. kascade's own `Config` is real physics-engine state (used
+throughout `kascade.py`'s ~1400 lines), not a redundant adapter-side
+duplicate, so it stays — but `KascadeAdapter` itself still reads
+`job.extra` straight into that `Config` on every call, with no adapter-level
+caching (there's no functional need: no persistent engine/table to justify
+it, and the GUI's own widgets already remember typed values across model
+switches).
+
+**No `Config`/adapter carries derived-value properties** (`eps0`, `N_e`,
+`lambda_L`, etc.) that just rename/duplicate what's already on
 `interaction.beam`/`interaction.laser` — those aren't "model state", they're
 available directly from the input parameters. Read
 `cfg.interaction.beam.gamma0` (etc.) at the point of use, or via a small
@@ -101,10 +119,11 @@ module-level helper function if the derivation is genuinely model-specific
 convention and a round-beam collapse, neither of which belongs on the
 shared `GaussianParaxialLaser`). Physically meaningful quantities that
 *are* generic (not model-specific) belong on the shared `io/` class itself
-— e.g. `GaussianParaxialLaser.omega0`/`.a0_focus`/`.n_photons`. xigma_i's
-own CGS `CollisionParams.a0`/`.N_l` (`models/xigma_i/collision.py`) are a
-straight pass-through of `laser.a0_focus`/`laser.n_photons`, not an
-independently re-derived CGS formula — see "Open items" below for why this
+— e.g. `GaussianParaxialLaser.omega0`/`.a0_focus`/`.n_photons`/`.beta_ff`/
+`.phi_pol`/`.ellipticity`. xigma_i's own CGS `CollisionParams.a0`/`.N_l`/
+`.beta_ff`/`.ellipticity` (`models/xigma_i/collision.py`) are a straight
+pass-through of the shared laser's own fields, not independently re-derived
+or caller-supplied — see "Open items" below for why the a0/N_l case
 mattered.
 
 ### Electron sampling
@@ -116,31 +135,46 @@ canonical `Bunch` via `io.bunch.sample_gaussian_bunch` (which delegates to
 model has its own internal bunch sampler.
 
 `Bunch` holds flat arrays directly (`x, y, z, thx, thy, gamma, weight,
-meta`) — no nested `.particles` sub-object. `GaussianElectronBeam` is the
-analytic input description (charge, energy, sizes, emittances, duration,
-plus optional `chirp_h`/`dispersion_x`/`dispersion_y`). `BeamFittedParams`
-(the output of `fit_beam_full`) is a **separate** dataclass carrying
-fit-derived Twiss/chirp/dispersion/fit-quality diagnostics — it is not the
-same class as `GaussianElectronBeam`, even though an earlier draft of this
-code merged them.
+meta`) — no nested `.particles` sub-object — **plus** `gaussian_fit:
+GaussianElectronBeam | None`, the analytic description of that same
+population. `GaussianElectronBeam` is a single type doing double duty: the
+analytic *input* description (charge, energy, sizes, emittances, duration,
+`alpha_x`/`alpha_y` Twiss tilt, plus optional `chirp_h`/`dispersion_x`/
+`dispersion_y`) **and** the output of a structured fit (`fit_quality` is
+`None` for a pure input, populated when `fit_gaussian` produced it) — there
+is no separate `BeamFittedParams` type; that three-way split
+(`Bunch`/`GaussianElectronBeam`/`BeamFittedParams`) was tried and
+explicitly rejected — real consumers (analytical's yield/width estimates,
+xigma's table-boundary sizing) need beam-level parameters attached to
+whatever electrons are actually in play, not just at the moment of initial
+sampling.
 
 The sampling uses **canonical variables** (x, y, z, thx, thy, gamma) with
 mass-shell enforcement: `pz = sqrt((gamma**2-1)/(1+thx**2+thy**2))`, `px =
 thx*pz`, `py = thy*pz` is the *only* way `pz` is ever derived (never
 independently sampled), so `gamma**2 = 1 + px**2 + py**2 + pz**2` holds
 automatically by construction — there's no separate "mass-shell
-enforcement" step to get wrong.
+enforcement" step to get wrong. `sample_gaussian_canonical`/
+`sample_gaussian_bunch` attach the exact input `beam` as `gaussian_fit`
+(a freshly-drawn sample matches it exactly, no fit needed).
 
-After sampling, beams can be propagated using `drift(bunch, L)` which
-applies ballistic propagation (x → x + thx·L) and naturally produces Twiss
-tilt (α ≠ 0) from waist sampling.
+After sampling, beams can be propagated using `drift(bunch, L)` (ballistic,
+`x → x + thx·L`, naturally producing Twiss tilt from waist sampling) or
+`propagate(bunch, dt)`/`stream(bunch, t_grid)` (light-travel-time,
+built on `drift`'s same per-particle-`L` push internally — no duplicated
+ballistic-position math between them). Both analytically update the
+attached `gaussian_fit`'s `alpha_x`/`alpha_y` in lockstep with the
+macroparticles (closed-form Twiss-drift relation, `alpha_new = alpha_old -
+L/beta*` — no refit needed; waist-referenced sizes are already
+drift-invariant). A bunch with no known analytic description (loaded from
+a `.ele` file) carries `gaussian_fit=None` until explicitly fit.
 
-For fitting macroparticles back to a beam description, use
-`fit_beam_full(bunch)` which returns a `BeamFittedParams` dataclass
-containing transverse Twiss parameters, longitudinal dispersion, chirp
-(dγ/dz slope), and fit quality metrics (Mahalanobis distance, KS
-statistics, log-likelihood). `fit_gaussian(bunch)` instead returns a
-`GaussianElectronBeam` (the analytic input-shaped description).
+For fitting macroparticles back to a beam description from scratch, use
+`fit_gaussian(bunch)` — a full covariance-based Twiss/chirp/dispersion fit
+(handles nonzero `alpha_x`/`alpha_y`, unlike the old waist-only trick),
+returning a `GaussianElectronBeam` with `fit_quality` populated
+(Mahalanobis distance, KS statistics, log-likelihood via
+`evaluate_fit_quality`).
 
 ### Results contract
 
@@ -152,21 +186,18 @@ a uniform `weight`, from kascade) or `Binned*` (smooth pre-binned density
 arrays, from xigma_i/delta/analytical). Check shape with
 `hasattr(spectrum, "weight")` vs `hasattr(spectrum, "dNdE_per_eV")` —
 **never `isinstance()`** against a GUI/engine boundary (see "Cross-repo
-gotchas").
+gotchas"). `Photons` has no `cfg` field — no model carries a standalone
+`Config` object to stash there anymore (see "Model registration" above);
+an adapter needing its own state for later on-demand recompute holds it as
+`self.<attr>` instead (e.g. `XigmaAdapter.engine`/`.params`).
 
 ### Key `io/` functions
 
 | Function | Module | Purpose |
 |----------|--------|---------|
-| `beam_from_shared_fields` | `bunch.py` | Build `GaussianElectronBeam` from flat SI fields |
-| `laser_from_shared_fields` | `laser.py` | Build `GaussianParaxialLaser` from flat SI fields |
-| `sample_gaussian_bunch` / `sample_gaussian_canonical` | `bunch.py` | Draw macroparticles from a `GaussianElectronBeam` |
-| `fit_gaussian` | `bunch.py` | Fit `GaussianElectronBeam` from raw macroparticles |
-| `fit_beam_full` | `bunch.py` | Fit `BeamFittedParams` (Twiss, chirp, dispersion, fit quality) |
-| `drift` | `bunch.py` | Ballistic propagation over distance L (Twiss tilt) |
-| `propagate` / `stream` | `bunch.py` | Light-travel-time propagation over a duration / a time grid |
-| `a0_from_fields` | `laser.py` | Peak a0 from raw SI laser fields (single source of truth) |
-| `focal_radii_m` | `laser.py` | RMS/FWHM/1-e² focal radii |
+| `sample_gaussian_bunch` / `sample_gaussian_canonical` | `bunch.py` | Draw macroparticles from a `GaussianElectronBeam` (attaches it as `Bunch.gaussian_fit`) |
+| `fit_gaussian` | `bunch.py` | Fit a `GaussianElectronBeam` (Twiss, chirp, dispersion, fit quality) from raw macroparticles |
+| `drift` / `propagate` / `stream` | `bunch.py` | Ballistic (distance) / light-travel-time (duration, time grid) propagation — both analytically update `gaussian_fit`'s Twiss tilt |
 | `gaussian_pulse_envelope` | `laser.py` | (x, y, z, t) Gaussian-pulse photon-density evaluator, shared by kascade and xigma_i |
 | `sigma_from_emittance` | `bunch.py` | Transverse rms beam size from emittance/beta/gamma |
 | `recoil_parameter` | `interaction.py` | Quantum recoil parameter q = 4γℏω/m_ec² |
@@ -212,15 +243,20 @@ stdout.)
   (constants, pint registry, and the convention enums all live in this one
   file now — there's no separate `constants.py`/`enums.py`/`quantities.py`).
 - **No model-local particle sampling, no model-local result contract.**
-  Electron-beam and laser parameters come from `io.bunch`/`io.laser`; a
-  model's own `Config` carries `interaction: InteractionParameters` plus
-  model-specific numerics (grid sizes, step counts) — geometry/crossing-
-  angle/quantum-toggle fields that not every model supports are
-  model-owned, not part of the shared bundle. Every model's `run()`
-  returns `io.photons.Photons` directly.
-- **No derived-value properties on a model's Config** duplicating what's
-  already on `interaction.beam`/`interaction.laser` — see "Model
-  registration" above.
+  Electron-beam and laser parameters come from `io.bunch`/`io.laser`;
+  model-specific numerics (grid sizes, step counts) and any
+  geometry/crossing-angle/quantum-toggle fields that not every model
+  supports are model-owned (as plain attributes on the adapter, or —
+  kascade only — on its own real `Config`), never part of the shared
+  bundle. Every model's `run()` returns `io.photons.Photons` directly.
+- **No derived-value properties, and (except kascade) no `Config` class at
+  all**, duplicating what's already on `interaction.beam`/
+  `interaction.laser` — see "Model registration" above.
+- **No `*_from_shared_fields` factory functions.** `GaussianElectronBeam`/
+  `GaussianParaxialLaser` fields are already `PhysicalQuantity`-wrapped —
+  a caller (the GUI) builds them directly, wrapping its own raw floats at
+  the call site; don't reintroduce an io-level indirection function whose
+  only job is "take flat floats, build the dataclass" or the reverse.
 
 ## Commands
 
@@ -251,7 +287,41 @@ python3 src/compton_suite/validation/run_cross_validation.py
 
 All items below are done. Kept as a record of what was accomplished.
 
-### Rewiring after the hand-reorganization (this session)
+### Correcting the wiring pass's architecture regressions (this session)
+The previous session's wiring-repair pass (below) fixed imports but, along
+the way, silently re-decided several design questions instead of just
+repairing them — it reconstructed shapes from whatever old tests/docs
+happened to be lying around. This session corrected all of it: merged
+`GaussianElectronBeam`+`BeamFittedParams` into one type (`Bunch` gains
+`gaussian_fit: GaussianElectronBeam | None`, populated at sampling time,
+analytically updated through `drift`/`propagate` — no refit needed;
+`fit_gaussian`+`fit_beam_full` merged into one function); deleted every
+`*_from_shared_fields`/`a0_from_fields`/`focal_radii_m` factory function
+(the GUI builds `GaussianElectronBeam`/`GaussianParaxialLaser` directly
+now); deleted xigma-i/delta/analytical's `Config`/`DirectConfig`/
+`AnalyticalConfig` dataclasses entirely — each adapter now holds its own
+numeric knobs and recompute-cache state (`XigmaAdapter.engine`/`.params`,
+`DirectAdapter`'s raw per-particle arrays) as plain `self` attributes,
+explicitly *not* done for `KascadeAdapter` (no functional need, corrected
+after an initial overreach); moved `beta_ff`/`phi_pol`/`ellipticity` onto
+the shared `GaussianParaxialLaser` (a regression against an earlier
+session's own commit, `be16cff`) and deleted the now-dead
+`quantum`/`crossing_angle`/`Theta_x`/`Theta_y` fields xigma-i/delta never
+actually wired to anything; removed `Photons.cfg` (nothing left to stash
+there). Also fixed two bugs surfaced along the way, unrelated to the main
+correction: `xigma_i/deposition.py`'s `build_table_streaming` called
+`sample_gaussian_bunch` with stale `chirp=`/`angle_energy_corr=` kwargs
+that don't exist on the current signature, and `validation/
+tier2_spectrum.py`'s `compton_edge_eV` divided a bare float by a
+`PhysicalQuantity` (fixed to use `GaussianParaxialLaser.omega0`). Verified
+via `pytest tests/` (76 passed), `scripts/headless_test.py` (all 4 models
++ preview, ALL PASS), `validation/run_cross_validation.py` (all gated
+tiers pass, Tiers 3-4 canaries report sane numbers), and an Xvfb-driven
+GUI smoke test (kascade + xigma-i run end-to-end through the real
+`app.py` helpers, including the new `ellipticity` field and xigma-i's
+on-demand `spectrum_in_angular_range` recompute).
+
+### Rewiring after the hand-reorganization (earlier this session)
 The repo was hand-reorganized (file layout redesigned: `io/units.py`
 absorbing `enums.py`/`quantities.py`/`canonical.py`/`converters.py`/
 `constants.py`; `io/photons.py` absorbing `results.py`; the GUI's

@@ -58,8 +58,10 @@ def test_sdds_round_trip_preserves_bunch_statistics():
     # weight is documented as non-authoritative for a loaded .ele file --
     # fit_gaussian should still recover the beam's SHAPE parameters fine.
     fit = fit_gaussian(loaded)
-    assert abs(fit._sx_m / _EXAMPLE_BEAM._sx_m - 1.0) < 0.05
-    assert abs(fit._ex_m / _EXAMPLE_BEAM._ex_m - 1.0) < 0.08
+    assert abs(fit.sigma_x_m.to_unit("meter").magnitude
+               / _EXAMPLE_BEAM.sigma_x_m.to_unit("meter").magnitude - 1.0) < 0.05
+    assert abs(fit.emit_geom_x_m.to_unit("meter").magnitude
+               / _EXAMPLE_BEAM.emit_geom_x_m.to_unit("meter").magnitude - 1.0) < 0.08
 
 
 def test_spec_example_electron_beam_yaml_round_trips():
@@ -86,15 +88,16 @@ electron_beam:
         Path(path).write_text(example_yaml)
         beam = load_electron_beam(path)
 
-    assert abs(beam._q_C - 100.0e-12) < 1e-20
-    assert abs(beam._KE_eV - 200.0e6) < 1e-3
-    assert abs(beam._sx_m - 10.0e-6) < 1e-15
+    assert abs(beam.bunch_charge_C.to_unit("coulomb").magnitude - 100.0e-12) < 1e-20
+    assert abs(beam.kinetic_energy_eV.to_unit("electron_volt").magnitude - 200.0e6) < 1e-3
+    assert abs(beam.sigma_x_m.to_unit("meter").magnitude - 10.0e-6) < 1e-15
 
     with tempfile.TemporaryDirectory() as tmp:
         path = str(Path(tmp) / "beam_out.yaml")
         save_electron_beam(beam, path)
         reloaded = load_electron_beam(path)
-    assert abs(reloaded._q_C / beam._q_C - 1.0) < 1e-9
+    assert abs(reloaded.bunch_charge_C.to_unit("coulomb").magnitude
+               / beam.bunch_charge_C.to_unit("coulomb").magnitude - 1.0) < 1e-9
 
 
 def test_spec_example_laser_yaml_round_trips():
@@ -115,8 +118,8 @@ laser:
         Path(path).write_text(example_yaml)
         pulse = load_laser(path)
 
-    assert abs(pulse._E_J - 0.05) < 1e-12
-    assert abs(pulse._wl_m - 0.8e-6) < 1e-15
+    assert abs(pulse.pulse_energy_J.to_unit("joule").magnitude - 0.05) < 1e-12
+    assert abs(pulse.wavelength_m.to_unit("meter").magnitude - 0.8e-6) < 1e-15
 
     with tempfile.TemporaryDirectory() as tmp:
         path = str(Path(tmp) / "laser_out.yaml")

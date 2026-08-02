@@ -39,16 +39,23 @@ src/compton_suite/io/
   validation.py       # fail-fast error types + validate_quantity/
                        # validate_against_spec
   adapter.py           # adapt_to_model, params_to_floats
-  bunch.py             # MacroBunch (raw macroparticle arrays), Gaussian
-                        # ElectronBeam (gaussian_6d_waist v0.1 analytic
-                        # contract), sample_gaussian_bunch/
+  bunch.py             # Bunch (raw macroparticle arrays, plus the
+                        # GaussianElectronBeam it was sampled from/fit to,
+                        # as Bunch.gaussian_fit), GaussianElectronBeam
+                        # (gaussian_6d_waist v0.1 analytic contract -- also
+                        # what a structured fit returns, no separate
+                        # fit-output type), sample_gaussian_bunch/
                         # sample_gaussian_canonical (canonical sampling
-                        # with mass-shell enforcement), fit_gaussian/
-                        # fit_beam_full (structured Gaussian fitting with
-                        # Twiss, chirp, dispersion), drift (vacuum
-                        # propagation), evaluate_fit_quality (Mahalanobis,
-                        # KS, log-likelihood metrics),
-                        # beam_from_shared_fields
+                        # with mass-shell enforcement), fit_gaussian
+                        # (structured Gaussian fitting with Twiss, chirp,
+                        # dispersion, fit quality), drift/propagate/stream
+                        # (vacuum propagation, analytically updating an
+                        # attached gaussian_fit), evaluate_fit_quality
+                        # (Mahalanobis, KS, log-likelihood metrics). No
+                        # `*_from_shared_fields` factories -- callers build
+                        # GaussianElectronBeam/GaussianParaxialLaser
+                        # directly (PhysicalQuantity already does the
+                        # conversion work).
   laser.py              # GaussianParaxialLaser (gaussian_paraxial v0.1
                          # analytic contract)
   photons.py             # Sampled*/Binned* spectrum, angular-spectrum,

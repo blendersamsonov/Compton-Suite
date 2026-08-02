@@ -2,25 +2,27 @@
 (particles.py, deposition.py, spectrum4d.py/spectrum4d_cpu.py, reference.py,
 tabulated_engine.py, adapter.py).
 
-The CGS "collision parameters" bundle this pipeline builds one of per run
-(``CollisionParams``/``build_params``) lives in this package's own
-``collision.py`` -- ``detect_device`` too (``CollisionParams.xp``/
-``.asnumpy`` need it); ``_detect_device`` below is a thin re-export so this
+There is no shared CGS "collision parameters" bundle in this package --
+each call site converts exactly what it needs from the shared
+``GaussianElectronBeam``/``GaussianParaxialLaser`` directly (see
+``particles.push_and_sample``'s docstring). ``detect_device`` lives in
+``compton_suite.misc`` (the one shared cupy/numba backend-detection helper
+every model imports); ``_detect_device`` below is a thin re-export so this
 package's own internal callers (spectrum4d.py) don't need to import
-``collision``/``misc`` directly.
+``compton_suite.misc`` directly.
 
 ``me``/``c``/``el`` below come from ``compton_suite.io.units`` rather than
 local literals -- the single shared source of truth also used by
-``compton_suite.gui``/``kascade``/this package's own ``collision.py``. Only
-``sigma_T`` (Thomson cross section, used by ``particles.py``) still needs
-deriving locally in CGS from the classical electron radius ``rel``.
+``compton_suite.gui``/``kascade``. Only ``sigma_T`` (Thomson cross section,
+used by ``particles.py``) still needs deriving locally in CGS from the
+classical electron radius ``rel``.
 """
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from compton_suite.io.units import C_CM_S, EL_STATC, ME_G
-from .collision import detect_device as _detect_device  # noqa: F401 (re-exported for spectrum4d.py)
+from compton_suite.misc import detect_device as _detect_device  # noqa: F401 (re-exported for spectrum4d.py)
 
 me = ME_G                      # electron mass, g
 c = C_CM_S                     # speed of light, cm/s

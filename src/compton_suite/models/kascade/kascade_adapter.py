@@ -15,7 +15,6 @@ from . import kascade as _kascade
 from compton_suite.io.bunch import Bunch
 from compton_suite.models.api import (
     Job,
-    ModelCapabilities,
     Photons,
     PhotonMultiplicity,
     SampledSpatialDistribution,
@@ -57,9 +56,6 @@ class KascadeAdapter:
     def __init__(self):
         self._last_results = None   # kascade.Results | None
 
-    def capabilities(self) -> ModelCapabilities:
-        return ModelCapabilities(display_name="Kascade", uses_shared_sample_count=True)
-
     def model_params(self) -> list[tuple[str, float | str, str]]:
         return [
             ("Crossing angle (rad)", 0.0, "crossing_angle"),
@@ -88,14 +84,13 @@ class KascadeAdapter:
             Theta_x=float(extra.get("Theta_x", 0.0)),
             Theta_y=float(extra.get("Theta_y", 0.0)),
         )
-        kascade_electrons = _bunch_to_kascade_electrons(job.electrons)
+        kascade_electrons = _bunch_to_kascade_electrons(job.interaction.electrons)
         res = _kascade.run_simulation(
-            cfg, n_mc=job.electrons.n_particles, seed=job.seed, electrons=kascade_electrons)
+            cfg, n_mc=job.interaction.electrons.n_particles, seed=job.seed, electrons=kascade_electrons)
         self._last_results = res
         s = res.summary
         return Photons(
             model_name="kascade",
-            cfg=cfg,
             n_mc=res.n_mc,
             total_yield=s["N_gamma_total"],
             spectrum=SampledSpectrum(E_eV=res.ph_E_eV, weight=res.weight),

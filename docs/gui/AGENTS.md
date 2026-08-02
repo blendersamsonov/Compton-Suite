@@ -71,10 +71,12 @@ analogue via `ModelAdapter.extra_params() -> list[(label, default, key)]`
 (same shape `add_field_grid` already consumes). `app.py`'s grey
 "MODEL PARAMETERS" panel (`_build_model_params_panel`/`_rebuild_model_params_panel`)
 rebuilds itself from this whenever the active model changes, feeding the
-resulting values into the same flat `fields` dict passed to
-`params_to_config`. `kascade` currently declares none (`[]`); `xigma-i`
-declares `beta_ff`/`phi_pol` (its own extras with no `kascade` analogue).
-Return `[]` if a model has nothing extra to add.
+resulting values into the same flat `fields` dict. `beta_ff`/`phi_pol`/
+`ellipticity` are NOT here anymore -- they moved onto the shared
+`GaussianParaxialLaser` (laser-pulse properties, not model-specific
+extras) and live as native Laser-panel widgets instead, flowing into
+`GaussianParaxialLaser(...)` directly via `_build_interaction()`. Return
+`[]` if a model has nothing extra to add.
 
 ## Parameter semantics & units (`physics_params/`), and `compton_suite.io`
 

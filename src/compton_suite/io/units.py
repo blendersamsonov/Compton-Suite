@@ -76,6 +76,19 @@ ALPHA = _const("fine_structure_constant")
 R_E_M = _const("classical_electron_radius")
 SIGMA_T_M2 = _const("thomson_cross_section")
 
+# Quantity companions of the bare floats above -- for formulas that combine
+# one of these constants with a PhysicalQuantity field's own `.quantity`
+# (a bare pint Quantity) directly, so the arithmetic is genuine pint
+# dimensional analysis start to finish rather than a bare-float rescale of
+# whatever unit the field happens to be stored in. The bare floats above are
+# untouched and stay the only constants kascade.py/xigma_i's CGS code use.
+C_LIGHT_Q = Quantity(C_LIGHT, "meter / second")
+E_CHARGE_Q = Quantity(E_CHARGE, "coulomb")
+HBAR_Q = Quantity(HBAR, "joule * second")
+ME_Q = Quantity(ME, "kilogram")
+MEC2_EV_Q = Quantity(MEC2_EV, "electron_volt")
+EPS0_Q = Quantity(EPS0, "farad / meter")
+
 # CGS views (erg, gram, cm, statcoulomb) of the constants above -- xigma_i
 # is CGS-Gaussian throughout and needs these directly. EL_STATC uses the
 # exact textbook conversion (1 C = c[cm/s] / 10 statC) since pint's registry

@@ -3,13 +3,12 @@ spectrum4d.py/spectrum_from_particles.py), covering everything adapter.py
 needs: total yield, angle-integrated spectrum, angular spectrum,
 angular-range spectrum, temporal envelope, spatial distribution.
 
-`TabulatedEngine` wraps an already-built `collision.CollisionParams`
-instance (see `collision.build_params`) purely for its plain-data
-properties (k0_las, Wph, N_l, a0, beta_ff, ellipticity, sigma_ex/sigma_ey,
-...) -- particles.push_and_sample already takes a `CollisionParams`
-instance as its parameter source, so this is reuse, not a new dependency.
-`params` itself runs no computation; all of it happens in this class's
-`.run()`/property methods.
+`TabulatedEngine` holds the shared, unit-agnostic `GaussianElectronBeam`/
+`GaussianParaxialLaser` for one collision directly (mirroring kascade's own
+`Config.interaction`) -- no separate CGS parameter-bundle type. `.run()`
+converts exactly what `particles.push_and_sample` needs, as plain CGS/
+k0_las-normalised floats, right at that call site; nothing is pre-converted
+or cached in a shared struct.
 
 temporal_envelope/spatial_distribution: particles.push_and_sample's
 n_time_bins/n_spatial_bins bin the exact same per-timestep `contribution`
@@ -29,22 +28,27 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from compton_suite.io.bunch import GaussianElectronBeam
+from compton_suite.io.laser import GaussianParaxialLaser
+from compton_suite.io.units import LIGHT_TIME_CONTEXT
+
 from . import deposition, particles, spectrum4d, spectrum_from_particles
 
 # The a0 range the weakly-nonlinear approximation this whole codebase is
 # built on (a0 <~ 1) is meant to be valid over -- a fixed *model*
-# parameter, not derived from any particular collision's actual params.a0.
+# parameter, not derived from any particular collision's actual a0.
 # See deposition.retarget_a0.
 DEFAULT_A0_MAX = 0.5
 
 
 @dataclass
 class TabulatedEngine:
-    """Drives Stage 0/1/2 of the new path for one `params` (CollisionParams)
-    config. `table`/`gamma`/`weight`/`backend`/`diagnostics` are None until
-    `.run()` is called."""
+    """Drives Stage 0/1/2 of the new path for one (beam, laser) collision.
+    `table`/`gamma`/`weight`/`backend`/`diagnostics` are None until `.run()`
+    is called."""
 
-    params: object
+    beam: GaussianElectronBeam
+    laser: GaussianParaxialLaser
     table: object = field(default=None, repr=False)
     gamma: np.ndarray = field(default=None, repr=False)
     weight: np.ndarray = field(default=None, repr=False)
@@ -56,7 +60,7 @@ class TabulatedEngine:
             n_time_bins=None, n_spatial_bins=None, bunch):
         """Stage 0 (particles.push_and_sample) + Stage 1
         (deposition.build_table, a0_kind='shape') + retarget to this
-        engine's params.a0 (deposition.retarget_a0) -- one physical,
+        collision's actual a0 (deposition.retarget_a0) -- one physical,
         spectrum-ready table.
 
         backend: 'numpy' or 'cupy', passed to push_and_sample and
@@ -81,8 +85,18 @@ class TabulatedEngine:
         not one per model (mirrors kascade's run_simulation: electrons is
         mandatory, no internal sampling fallback).
         """
+        beam, laser = self.beam, self.laser
         result = particles.push_and_sample(
-            self.params, bunch, n_steps=n_steps, backend=backend,
+            bunch,
+            k0_las=(2.0 * np.pi / laser.wavelength_m.quantity).to("1 / centimeter").magnitude,
+            beta_ff=laser.beta_ff,
+            sigma_lr0=laser.waist_rms_x_m.to_unit("centimeter").magnitude,
+            sigma_lz=laser.duration_rms_s.to_unit("centimeter", context=LIGHT_TIME_CONTEXT).magnitude,
+            omega_las=laser.omega0.to("1 / second").magnitude,
+            N_l=laser.n_photons, ellipticity=laser.ellipticity, N_e=beam.N_e,
+            sigma_ex=beam.sigma_x_m.to_unit("centimeter").magnitude,
+            sigma_ey=beam.sigma_y_m.to_unit("centimeter").magnitude,
+            n_steps=n_steps, backend=backend,
             n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins)
         if n_time_bins is not None or n_spatial_bins is not None:
             gamma, tx, ty, a0_shape, w, diagnostics = result
@@ -93,7 +107,7 @@ class TabulatedEngine:
         table = deposition.build_table(
             gamma, tx, ty, a0_shape, w, n_bins=n_bins, scheme=scheme,
             a0_kind='shape')
-        table = deposition.retarget_a0(table, self.params.a0, a0_max=a0_max)
+        table = deposition.retarget_a0(table, laser.a0_focus, a0_max=a0_max)
 
         self.table = table
         self.gamma = gamma

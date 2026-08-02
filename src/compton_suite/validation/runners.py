@@ -4,22 +4,32 @@ object, so every tier that needs more than just total_yield (spectrum
 shape, angular data, ...) can reuse the same run instead of re-running an
 expensive GPU/MC computation per tier.
 
-Electron sampling is done here, once per model call, via
-``compton_suite.io.bunch.sample_gaussian_bunch`` -- mirroring the same
+Electron sampling happens once per model call, via
+``scenarios.build_interaction`` (which delegates to
+``compton_suite.io.bunch.sample_gaussian_bunch``) -- mirroring the same
 "macrobunching" convention ``compton_suite.gui.app.py``'s ``on_start()``
 uses: every model's ``run()``/``run_simulation()`` *requires* an
-``electrons`` bunch (no model has its own internal sampler), so this suite
-is not just "allowed" to sample here, it's the only remaining place that
-can. Each scenario's ``.beam`` (a ``GaussianElectronBeam``) is the single
-source of truth for what gets drawn; every function below draws
-``n_mc`` particles (default ``DEFAULT_N_MC``), seeded with ``seed``
-(default ``DEFAULT_SEED``) -- deterministic given (beam, n_mc, seed), so
-all four models draw bit-identical bunches from each other when called
-with the same (n_mc, seed) pair (the default here).
+``electrons`` bunch (no model has its own internal sampler). Each
+scenario's ``.beam`` (a ``GaussianElectronBeam``) is the single source of
+truth for what gets drawn; every function below draws ``n_mc`` particles
+(default ``DEFAULT_N_MC``), seeded with ``seed`` (default
+``DEFAULT_SEED``) -- deterministic given (beam, n_mc, seed), so all four
+models draw bit-identical bunches from each other when called with the
+same (n_mc, seed) pair (the default here).
 
 Results are cached per (model, scenario, repo commit) via
 ``cache.get_or_compute`` -- a clean-tree re-run with the same scenario
 skips recomputation entirely. Dirty trees always recompute.
+
+``run_xigma``/``run_delta`` return a plain, picklable ``Photons`` result --
+enough for anything that only needs ``total_yield``/spectrum data. A caller
+that needs an on-demand angular-range recompute (``XigmaAdapter``/
+``DirectAdapter``'s own ``spectrum_in_angular_range()``, e.g. Tier 3's
+angular-shape canary) needs the *live* adapter instance itself (it holds
+the ``TabulatedEngine``/raw per-particle arrays that recompute reuses) --
+the disk cache only stores/returns the picklable ``Photons`` result, not a
+live adapter, so ``run_xigma_live``/``run_delta_live`` below always compute
+fresh (never cached) and return ``(Photons, adapter)`` instead.
 """
 
 from __future__ import annotations
@@ -28,7 +38,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from compton_suite.io.bunch import sample_gaussian_bunch
 from compton_suite.models.api import Job, OutputSpec
 
 from . import cache
@@ -37,13 +46,12 @@ from .scenarios import (
     DEFAULT_N_MC,
     DEFAULT_SEED,
     Scenario,
-    build_analytical_config,
-    build_delta_config,
+    build_interaction,
     build_kascade_config,
-    build_xigma_config,
 )
 
-__all__ = ["run_kascade", "run_xigma", "run_delta", "run_analytical"]
+__all__ = ["run_kascade", "run_xigma", "run_delta", "run_analytical",
+           "run_xigma_live", "run_delta_live"]
 
 
 @dataclass(frozen=True)
@@ -77,11 +85,10 @@ def run_kascade(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: i
     from compton_suite.models.kascade import kascade
 
     def _compute():
-        cfg = build_kascade_config(scenario)
-        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc,
-                                      rng=np.random.default_rng(seed))
+        interaction = build_interaction(scenario, n_mc=n_mc, seed=seed)
+        cfg = build_kascade_config(scenario, interaction)
         return kascade.run_simulation(cfg, n_mc=n_mc, seed=seed,
-                                      electrons=_kascade_electrons(bunch))
+                                      electrons=_kascade_electrons(interaction.electrons))
 
     key = _RunKey(scenario=scenario, n_mc=n_mc, seed=seed)
     result, _ = cache.get_or_compute("kascade", key, _compute)
@@ -89,15 +96,13 @@ def run_kascade(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: i
 
 
 def run_xigma(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
-    from compton_suite.models.xigma_i.adapter import run_simulation
+    from compton_suite.models.xigma_i.adapter import XigmaAdapter
 
     def _compute():
-        cfg = build_xigma_config(scenario)
-        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc,
-                                      rng=np.random.default_rng(seed))
-        job = Job(interaction=cfg.interaction, electrons=bunch, output=OutputSpec(), seed=seed,
-                  extra={"beta_ff": cfg.beta_ff, "phi_pol": cfg.phi_pol, "a0_max": cfg.a0_max})
-        return run_simulation(job)
+        interaction = build_interaction(scenario, n_mc=n_mc, seed=seed)
+        job = Job(interaction=interaction, output=OutputSpec(), seed=seed,
+                  extra={"a0_max": scenario.a0_max})
+        return XigmaAdapter().run(job)
 
     key = _RunKey(scenario=scenario, n_mc=n_mc, seed=seed)
     result, _ = cache.get_or_compute("xigma", key, _compute)
@@ -105,30 +110,48 @@ def run_xigma(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int
 
 
 def run_delta(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
-    from compton_suite.models.xigma_i.adapter import run_simulation_direct
+    from compton_suite.models.xigma_i.adapter import DirectAdapter
 
     def _compute():
-        cfg = build_delta_config(scenario)
-        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc,
-                                      rng=np.random.default_rng(seed))
-        job = Job(interaction=cfg.interaction, electrons=bunch, output=OutputSpec(), seed=seed,
-                  extra={"beta_ff": cfg.beta_ff, "phi_pol": cfg.phi_pol})
-        return run_simulation_direct(job)
+        interaction = build_interaction(scenario, n_mc=n_mc, seed=seed)
+        job = Job(interaction=interaction, output=OutputSpec(), seed=seed, extra={})
+        return DirectAdapter().run(job)
 
     key = _RunKey(scenario=scenario, n_mc=n_mc, seed=seed)
     result, _ = cache.get_or_compute("delta", key, _compute)
     return result
 
 
+def run_xigma_live(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
+    """Like run_xigma, but always computes fresh and returns
+    ``(Photons, XigmaAdapter)`` -- see module docstring."""
+    from compton_suite.models.xigma_i.adapter import XigmaAdapter
+
+    interaction = build_interaction(scenario, n_mc=n_mc, seed=seed)
+    job = Job(interaction=interaction, output=OutputSpec(), seed=seed,
+              extra={"a0_max": scenario.a0_max})
+    adapter = XigmaAdapter()
+    return adapter.run(job), adapter
+
+
+def run_delta_live(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
+    """Like run_delta, but always computes fresh and returns
+    ``(Photons, DirectAdapter)`` -- see module docstring."""
+    from compton_suite.models.xigma_i.adapter import DirectAdapter
+
+    interaction = build_interaction(scenario, n_mc=n_mc, seed=seed)
+    job = Job(interaction=interaction, output=OutputSpec(), seed=seed, extra={})
+    adapter = DirectAdapter()
+    return adapter.run(job), adapter
+
+
 def run_analytical(scenario: Scenario = BASELINE, n_mc: int = DEFAULT_N_MC, seed: int = DEFAULT_SEED):
     from compton_suite.models.analytical import Adapter
 
     def _compute():
-        cfg = build_analytical_config(scenario)
-        bunch = sample_gaussian_bunch(scenario.beam, n_particles=n_mc,
-                                      rng=np.random.default_rng(seed))
-        job = Job(interaction=cfg.interaction, electrons=bunch, output=OutputSpec(), seed=seed,
-                  extra={"theta_col_rad": cfg.theta_col_rad})
+        interaction = build_interaction(scenario, n_mc=n_mc, seed=seed)
+        job = Job(interaction=interaction, output=OutputSpec(), seed=seed,
+                  extra={"theta_col_rad": scenario.theta_col_rad})
         return Adapter().run(job)
 
     key = _RunKey(scenario=scenario, n_mc=n_mc, seed=seed)

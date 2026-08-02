@@ -24,7 +24,8 @@ Three physics engines currently target this contract:
     separate model package.
   * analytical (``models/analytical.py``) is a fast closed-form estimate,
     always run alongside whichever other model is selected as a real-time
-    preview (see ``ModelCapabilities.is_fast_preview``).
+    preview -- the GUI hardcodes this (``self.analytical_adapter``), rather
+    than reading it off a metadata flag.
 
 The GUI must branch on which ``Photons`` fields are present rather than
 assume kascade's exact shape -- see ``Photons``' field docs in
@@ -67,9 +68,7 @@ __all__ = [
     "validate_results",
     "OutputSpec",
     "Job",
-    "ModelCapabilities",
     "ModelAdapter",
-    "UnavailableAdapter",
     "MODEL_REGISTRY",
     "register",
     "registered_models",
@@ -109,14 +108,13 @@ class Job:
     ``ModelAdapter.run()`` -- "GUI just calls model's adapter run with the
     config compiled from ui".
 
-    ``electrons`` is required: electron sampling is the IO layer's
-    (caller's) job, not any individual model's -- no adapter has its own
-    internal sampler; there's exactly one place electrons get drawn from a
-    beam description (``compton_suite.io.bunch.sample_gaussian_bunch``,
-    typically via ``compton_suite.io.bunch.beam_from_shared_fields`` from
-    whichever model's ``Config`` the caller already has -- see ``app.py``'s
-    ``on_start()`` for the GUI's own draw-once-pass-to-every-model
-    pattern).
+    ``interaction.electrons`` is the already-sampled ``Bunch`` -- electron
+    sampling is the IO layer's (caller's) job, not any individual model's --
+    no adapter has its own internal sampler; there's exactly one place
+    electrons get drawn from a beam description
+    (``compton_suite.io.bunch.sample_gaussian_bunch``), before an
+    ``InteractionParameters`` can even be built (see ``app.py``'s
+    ``on_start()`` for the GUI's own draw-once-pass-to-every-model pattern).
 
     ``extra`` carries the model-specific numeric/choice fields from that
     model's own ``model_params()``/``model_choices()`` (e.g. xigma_i's
@@ -128,34 +126,12 @@ class Job:
     """
 
     interaction: InteractionParameters
-    electrons: Bunch
     output: OutputSpec = field(default_factory=OutputSpec)
     seed: int = 0
     extra: dict = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
-class ModelCapabilities:
-    """What the GUI needs to know about a model to render it, independent
-    of running it: a human-facing name, whether it's the always-on fast
-    preview (shown alongside whichever other model is selected, not as a
-    selectable model itself), and whether it shares the GUI's global
-    MC-sample-count field or wants its own (xigma_i/delta/analytical each
-    pick their own particle count independent of kascade's)."""
-
-    display_name: str
-    is_fast_preview: bool = False
-    trust_level: str = "production"    # "production" | "experimental" | "unavailable"
-    uses_shared_sample_count: bool = True
-
-
 class ModelAdapter(Protocol):
-    def capabilities(self) -> ModelCapabilities:
-        """Static, cheap-to-call metadata for the GUI's model-selection
-        panel -- no computation, no dependency on whether this model's own
-        runtime requirements (e.g. xigma_i's cupy/CUDA) are available."""
-        ...
-
     def model_params(self) -> list[tuple[str, float | str, str]]:
         """Model-specific parameters as (label, default, key) triples.
 
@@ -173,29 +149,6 @@ class ModelAdapter(Protocol):
 
     def run(self, job: Job) -> Photons:
         ...
-
-
-class UnavailableAdapter:
-    """Stand-in ``ModelAdapter`` for a model whose runtime dependencies
-    (e.g. cupy/CUDA for xigma_i) aren't available on this machine. The GUI
-    can still list it (greyed out); calling ``run()`` raises with the
-    reason instead of silently doing nothing."""
-
-    def __init__(self, name: str, reason: str):
-        self._name = name
-        self._reason = reason
-
-    def capabilities(self) -> ModelCapabilities:
-        return ModelCapabilities(display_name=f"{self._name} (unavailable)", trust_level="unavailable")
-
-    def model_params(self) -> list[tuple[str, float | str, str]]:
-        return []
-
-    def model_choices(self) -> dict[str, list[str]]:
-        return {}
-
-    def run(self, job: Job) -> Photons:
-        raise RuntimeError(f"{self._name} is unavailable: {self._reason}")
 
 
 # ---------------------------------------------------------------------------
@@ -216,7 +169,8 @@ def discover_models() -> dict:
     """Populate the model registry with direct imports. kascade and
     analytical have no optional runtime dependencies; xigma_i (and
     ``"delta"``, its brute-force sibling mode) need cupy+CUDA or numba --
-    fall back to :class:`UnavailableAdapter` if neither is usable."""
+    simply not registered if neither is usable, so one missing optional
+    dependency never breaks ``import compton_suite.models``."""
     from .kascade import kascade_adapter
 
     register("kascade", kascade_adapter.KascadeAdapter())
@@ -226,8 +180,7 @@ def discover_models() -> dict:
         register("xigma-i", xigma_adapter.XigmaAdapter())
         register("delta", xigma_adapter.DirectAdapter())
     except Exception as exc:  # pragma: no cover - depends on local GPU/env
-        register("xigma-i", UnavailableAdapter("xigma-i", str(exc)))
-        register("delta", UnavailableAdapter("delta", str(exc)))
+        print(f"xigma-i/delta unavailable: {exc}")
 
     from .analytical import Adapter as AnalyticalAdapter
     register("analytical", AnalyticalAdapter())

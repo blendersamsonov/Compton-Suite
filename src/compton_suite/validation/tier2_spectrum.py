@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 
-from compton_suite.io.units import HBAR, E_CHARGE, C_LIGHT
+from compton_suite.io.units import HBAR, E_CHARGE
 from .metrics import resample_to, window_integrated_relative_error  # noqa: E402
 from .scenarios import BASELINE, Scenario  # noqa: E402
 from .runners import run_analytical, run_kascade, run_xigma, run_delta  # noqa: E402
@@ -41,8 +41,7 @@ def compton_edge_eV(scenario: Scenario) -> float:
     same formula every adapter already uses internally (e.g.
     xigma_i.gui_adapter's s_scale_MeV) -- computed here directly from the
     scenario so Tier 2 doesn't depend on any one model's internals."""
-    omega0 = 2.0 * np.pi * C_LIGHT / scenario.pulse.wavelength_m
-    Wph_eV = HBAR * omega0 / E_CHARGE
+    Wph_eV = HBAR * scenario.pulse.omega0.to("1 / second").magnitude / E_CHARGE
     return 4.0 * scenario.beam.gamma0 ** 2 * Wph_eV
 
 

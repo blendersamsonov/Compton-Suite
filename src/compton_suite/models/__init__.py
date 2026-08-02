@@ -12,9 +12,9 @@ Available models:
 
 Deliberately does NOT eagerly import the model subpackages here: xigma_i
 needs cupy+CUDA or numba, which may not be installed -- ``models.api.
-discover_models()`` imports each one lazily so it can fall back to
-``UnavailableAdapter`` for whichever isn't usable, instead of one missing
-optional dependency breaking `import compton_suite.models` entirely.
+discover_models()`` imports each one lazily and simply skips registering
+"xigma-i"/"delta" if neither is usable, instead of one missing optional
+dependency breaking `import compton_suite.models` entirely.
 """
 
 from __future__ import annotations

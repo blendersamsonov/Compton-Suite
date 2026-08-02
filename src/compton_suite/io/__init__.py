@@ -23,16 +23,19 @@ per-model.
    needs directly via ``convert_width``/``convert_time``/
    ``convert_amplitude`` at its own boundary.
 2. **Electron-bunch representation** -- ``bunch.py``: ``Bunch`` (raw
-   macroparticle arrays), ``GaussianElectronBeam`` (the
-   ``gaussian_6d_waist`` v0.1 analytic contract), ``BeamFittedParams``
-   (structured-fit output), plus ``sample_gaussian_bunch``/
-   ``fit_gaussian``/``fit_beam_full``/``drift`` to move between them.
+   macroparticle arrays, plus the ``GaussianElectronBeam`` it was sampled
+   from/fit to, as ``Bunch.gaussian_fit``), ``GaussianElectronBeam`` (the
+   ``gaussian_6d_waist`` v0.1 analytic contract -- also the type a
+   structured fit returns, no separate fit-output type), plus
+   ``sample_gaussian_bunch``/``fit_gaussian``/``drift`` to move between
+   them.
 3. **Laser-pulse representation** -- ``laser.py``: ``GaussianParaxialLaser``,
-   the ``gaussian_paraxial`` v0.1 analytic contract, plus
-   ``gaussian_pulse_envelope`` (the full (x, y, z, t) evaluator).
+   the ``gaussian_paraxial`` v0.1 analytic contract, plus its
+   ``pulse_envelope`` staticmethod (the full (x, y, z, t) evaluator).
 4. **The shared interaction bundle** -- ``interaction.py``:
-   ``InteractionParameters(beam, laser)``, the (beam, pulse) pair every
-   model's own ``Config`` builds from.
+   ``InteractionParameters(laser, electrons)``, the (laser, sampled Bunch)
+   pair every model's own ``Config``/``Job`` builds from -- beam-level
+   scalars come from ``electrons.gaussian_fit``.
 5. **Photon/observable representations** -- ``photons.py``: the
    spectrum/angular-spectrum/temporal-envelope/spatial-distribution
    dataclasses every model reports results through, and the results

@@ -96,17 +96,23 @@ def plot_spectrum_comparison(scenario: Scenario, results: dict, out_path: Path) 
     plt.close(fig)
 
 
-def plot_angular_shape_comparison(scenario: Scenario, results: dict, out_path: Path) -> None:
+def plot_angular_shape_comparison(scenario: Scenario, out_path: Path) -> None:
     """xigma-i vs delta's collimated fraction of total_yield, as a
     function of collimation half-angle -- the Tier 3 canary, plotted across
     a dense window sweep instead of tier3_angular_shape.py's fixed
-    WINDOWS_MRAD spot-checks."""
-    from compton_suite.models.xigma_i.adapter import spectrum_in_angular_range as xigma_sar
-    from compton_suite.models.xigma_i.adapter import spectrum_in_angular_range_direct as delta_sar
+    WINDOWS_MRAD spot-checks.
+
+    ``results`` (cached, plain Photons) isn't usable for the angular
+    recompute this needs -- computes its own fresh xigma-i/delta run via
+    run_xigma_live/run_delta_live instead (see runners.py's docstring)."""
+    from compton_suite.validation.runners import run_xigma_live, run_delta_live
+
+    res_xigma, xigma_adapter = run_xigma_live(scenario)
+    res_delta, delta_adapter = run_delta_live(scenario)
 
     windows_mrad = np.geomspace(0.02, 2.0, 14)
-    frac_x = [collimated_fraction(xigma_sar, results["xigma_i"], w * 1e-3) for w in windows_mrad]
-    frac_xd = [collimated_fraction(delta_sar, results["delta"], w * 1e-3) for w in windows_mrad]
+    frac_x = [collimated_fraction(xigma_adapter, res_xigma, w * 1e-3) for w in windows_mrad]
+    frac_xd = [collimated_fraction(delta_adapter, res_delta, w * 1e-3) for w in windows_mrad]
 
     fig, ax = plt.subplots(figsize=(6, 4.5))
     ax.plot(windows_mrad, frac_x, "o-", label="xigma-i", color=MODEL_COLORS["xigma_i"])
@@ -159,7 +165,7 @@ def generate_all(scenario_name: str) -> None:
 
         plot_yield_comparison(scenario, results, PLOTS_DIR / f"{name}_yield.png")
         plot_spectrum_comparison(scenario, results, PLOTS_DIR / f"{name}_spectrum.png")
-        plot_angular_shape_comparison(scenario, results, PLOTS_DIR / f"{name}_angular_shape.png")
+        plot_angular_shape_comparison(scenario, PLOTS_DIR / f"{name}_angular_shape.png")
         print(f"  wrote {name}_yield.png, {name}_spectrum.png, {name}_angular_shape.png")
 
     print("Running Tier 4 regime-boundary comparison (low_a0 vs near_a0_max)...")

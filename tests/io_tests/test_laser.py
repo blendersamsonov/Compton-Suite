@@ -11,9 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from compton_suite.io.laser import GaussianParaxialLaser, laser_from_shared_fields, validate  # noqa: E402
+from compton_suite.io.laser import GaussianParaxialLaser, validate  # noqa: E402
 from compton_suite.io.units import (  # noqa: E402
-    C_LIGHT,
     NoConvention,
     PhysicalMeaning,
     PhysicalQuantity,
@@ -33,9 +32,9 @@ _EXAMPLE_PULSE = GaussianParaxialLaser(
 
 def test_derived_quantities_are_sane():
     assert validate(_EXAMPLE_PULSE) == []
-    assert _EXAMPLE_PULSE.rayleigh_x_m > 0
-    assert _EXAMPLE_PULSE.peak_intensity_focus_W_m2 > 0
-    assert _EXAMPLE_PULSE.peak_power_W > 0
+    assert _EXAMPLE_PULSE.rayleigh_x.to("meter").magnitude > 0
+    assert _EXAMPLE_PULSE.peak_intensity_focus.to("watt / meter ** 2").magnitude > 0
+    assert _EXAMPLE_PULSE.peak_power.to("watt").magnitude > 0
     assert _EXAMPLE_PULSE.a0_focus > 0
 
 
@@ -48,8 +47,8 @@ def test_a0_matches_practical_approximation():
     # Cross-check the exact SI formula against this approximation (should
     # agree to a few tenths of a percent -- the 0.855 coefficient is itself
     # rounded).
-    lambda_um = _EXAMPLE_PULSE._wl_m * 1e6
-    I0_W_cm2 = _EXAMPLE_PULSE.peak_intensity_focus_W_m2 * 1e-4
+    lambda_um = _EXAMPLE_PULSE.wavelength_m.to_unit("micrometer").magnitude
+    I0_W_cm2 = _EXAMPLE_PULSE.peak_intensity_focus.to("watt / centimeter ** 2").magnitude
     approx = 0.855 * lambda_um * (I0_W_cm2 / 1e18) ** 0.5
     assert abs(_EXAMPLE_PULSE.a0_focus / approx - 1.0) < 5e-3
 
@@ -69,7 +68,8 @@ def test_defocused_interaction_intensity_is_lower():
         duration_rms_s=PhysicalQuantity(12.74e-15, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
         focus_z_m=PhysicalQuantity(500e-6, "meter", PhysicalMeaning.DISPLACEMENT, NoConvention.PLAIN),  # well past a few-micron Rayleigh range
     )
-    assert defocused.peak_intensity_at(0.0) < defocused.peak_intensity_focus_W_m2
+    assert defocused.peak_intensity_at(0.0).to("watt / meter ** 2").magnitude \
+        < defocused.peak_intensity_focus.to("watt / meter ** 2").magnitude
     assert defocused.a0_interaction < defocused.a0_focus
     warnings = validate(defocused)
     assert any("far from the interaction point" in w for w in warnings)
@@ -90,20 +90,13 @@ def test_validate_rejects_nonpositive_fields():
         pass
 
 
-def test_laser_from_shared_fields_round_trips():
-    rebuilt = laser_from_shared_fields(
-        lambda_L=_EXAMPLE_PULSE._wl_m,
-        sigma0_l=_EXAMPLE_PULSE._wx_m,
-        sigma_par_L=_EXAMPLE_PULSE._dur_s * C_LIGHT,
-        pulse_energy_J=_EXAMPLE_PULSE._E_J,
-        focus_z_m=_EXAMPLE_PULSE._fz_m,
-    )
-    assert abs(rebuilt._wl_m - _EXAMPLE_PULSE._wl_m) < 1e-12 * _EXAMPLE_PULSE._wl_m
-    assert abs(rebuilt._wx_m - _EXAMPLE_PULSE._wx_m) < 1e-12 * _EXAMPLE_PULSE._wx_m
-    assert abs(rebuilt._wy_m - _EXAMPLE_PULSE._wy_m) < 1e-12 * _EXAMPLE_PULSE._wy_m
-    assert abs(rebuilt._dur_s - _EXAMPLE_PULSE._dur_s) < 1e-12 * _EXAMPLE_PULSE._dur_s
-    assert abs(rebuilt._E_J - _EXAMPLE_PULSE._E_J) < 1e-12 * _EXAMPLE_PULSE._E_J
-    assert abs(rebuilt.a0_focus - _EXAMPLE_PULSE.a0_focus) < 1e-9 * _EXAMPLE_PULSE.a0_focus
+def test_beta_ff_phi_pol_ellipticity_default_to_zero():
+    # beta_ff/phi_pol/ellipticity are laser-pulse properties now (not a
+    # model-specific extra) -- confirm they default to 0 (static focus,
+    # linear polarization) when unset.
+    assert _EXAMPLE_PULSE.beta_ff == 0.0
+    assert _EXAMPLE_PULSE.phi_pol == 0.0
+    assert _EXAMPLE_PULSE.ellipticity == 0.0
 
 
 def test_validate_warns_on_astigmatism():

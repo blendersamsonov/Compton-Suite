@@ -67,7 +67,7 @@ from compton_suite.io import units as _io_units
 from compton_suite.io.bunch import Bunch as _Bunch
 from compton_suite.io.interaction import InteractionParameters as _InteractionParameters
 from compton_suite.io.io_formats.sdds import save_elegant_ele as _save_elegant_ele
-from compton_suite.io.laser import gaussian_pulse_envelope as _gaussian_pulse_envelope
+from compton_suite.io.laser import GaussianParaxialLaser as _GaussianParaxialLaser
 
 # ---------------------------------------------------------------------------
 # Physical constants (SI) -- from compton_suite.io.units (shared, pint-
@@ -84,6 +84,7 @@ EPS0 = _io_units.EPS0                     # vacuum permittivity       [F/m]
 SIGMA_T = _io_units.SIGMA_T_M2            # Thomson cross section     [m^2]
 MEC2_EV = _io_units.MEC2_EV               # electron rest energy      [eV]
 MEC2_J = MEC2_EV * E_CHARGE               # electron rest energy      [J]
+LIGHT_TIME_CONTEXT = _io_units.LIGHT_TIME_CONTEXT
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -92,17 +93,18 @@ MEC2_J = MEC2_EV * E_CHARGE               # electron rest energy      [J]
 class Config:
     """Physical parameters for the bunch, the laser and the interaction.
 
-    ``interaction`` holds the shared (beam, laser) bundle
+    ``interaction`` holds the shared (laser, electrons) bundle
     (:mod:`compton_suite.io.interaction`) -- the single source of truth for
-    every physical quantity (gamma0, N_e, wavelength, ...). ``Config``
-    itself carries no derived-value properties duplicating what's already
-    on ``interaction.beam``/``interaction.laser``: the physics functions
-    below (``laser_density``, ``build_lambda_grid``, ...) read
-    ``cfg.interaction.beam``/``cfg.interaction.laser`` directly, or via the
-    small kascade-specific helper functions right below this class
-    (``_eps_L``, ``_sigma0_l``, ``_R_sf`` -- genuinely kascade-specific
-    conventions/approximations, not generic input-parameter values, so
-    they don't belong on the shared ``GaussianParaxialLaser`` itself).
+    every physical quantity (gamma0, N_e, wavelength, ...), the latter via
+    ``interaction.electrons.gaussian_fit``. ``Config`` itself carries no
+    derived-value properties duplicating what's already there: the physics
+    functions below (``laser_density``, ``build_lambda_grid``, ...) read
+    ``cfg.interaction.electrons.gaussian_fit``/``cfg.interaction.laser``
+    directly, or via the small kascade-specific helper functions right
+    below this class (``_eps_L``, ``_sigma0_l``, ``_R_sf`` -- genuinely
+    kascade-specific conventions/approximations, not generic input-parameter
+    values, so they don't belong on the shared ``GaussianParaxialLaser``
+    itself).
 
     Collision geometry (foci displacement, crossing angle) and the
     classical/quantum toggle are kascade-owned fields, not part of the
@@ -144,21 +146,24 @@ def _eps_L(laser) -> float:
     """Laser photon energy, in units of m_e c^2 -- a kascade-specific
     relativistic-units convention, not a property of the shared
     (unit-system-agnostic) ``GaussianParaxialLaser`` itself."""
-    return HBAR * laser.omega0 / MEC2_J
+    return HBAR * laser.omega0.to("1 / second").magnitude / MEC2_J
 
 
 def _sigma0_l(laser) -> float:
     """Laser transverse RMS (photon-density) width -- round-beam collapse
     of the laser's (possibly elliptical) x/y waists, same geometric-mean
     convention ``models.analytical.estimate_yield`` uses, since
-    ``laser_density``'s underlying ``gaussian_pulse_envelope`` only takes
-    one round-beam width."""
-    return (laser._wx_m * laser._wy_m) ** 0.5
+    ``laser_density``'s underlying ``GaussianParaxialLaser.pulse_envelope``
+    only takes one round-beam width."""
+    wx_m = laser.waist_rms_x_m.to_unit("meter").magnitude
+    wy_m = laser.waist_rms_y_m.to_unit("meter").magnitude
+    return (wx_m * wy_m) ** 0.5
 
 
 def _R_sf(laser) -> float:
     """Rayleigh range for the round-beam-collapsed ``_sigma0_l``."""
-    return 4.0 * np.pi * _sigma0_l(laser) ** 2 / laser._wl_m
+    wl_m = laser.wavelength_m.to_unit("meter").magnitude
+    return 4.0 * np.pi * _sigma0_l(laser) ** 2 / wl_m
 
 
 # ---------------------------------------------------------------------------
@@ -254,16 +259,17 @@ def laser_density(x, y, z, t, cfg: Config):
     and delta = 0.  The waist is at the focus point ``delta`` and the pulse
     centre passes the focus at ``t = 0``.
 
-    Thin SI wrapper over compton_suite.io.laser_envelope.gaussian_pulse_envelope
-    (the shared, unit-convention-agnostic evaluator this formula was
-    extracted into -- see that function's docstring) -- ``t`` (seconds) is
-    converted to ``C_LIGHT * t`` (a length) at this boundary, since the
-    shared function takes light-travel-time as a length, not a bare ``t``.
+    Thin SI wrapper over ``GaussianParaxialLaser.pulse_envelope`` (the
+    shared, unit-convention-agnostic evaluator this formula was extracted
+    into -- see that method's docstring) -- ``t`` (seconds) is converted to
+    ``C_LIGHT * t`` (a length) at this boundary, since the shared method
+    takes light-travel-time as a length, not a bare ``t``.
     """
     laser = cfg.interaction.laser
-    return _gaussian_pulse_envelope(
+    return _GaussianParaxialLaser.pulse_envelope(
         x, y, z, C_LIGHT * t,
-        sigma0=_sigma0_l(laser), rayleigh_range=_R_sf(laser), sigma_ct=laser._dur_s * C_LIGHT,
+        sigma0=_sigma0_l(laser), rayleigh_range=_R_sf(laser),
+        sigma_ct=laser.duration_rms_s.to_unit("meter", context=LIGHT_TIME_CONTEXT).magnitude,
         axis=laser_axis(cfg), focus=(cfg.delta_x, cfg.delta_y, cfg.delta_z),
         xp=np,
     )
@@ -273,7 +279,7 @@ def laser_a0sq(x, y, z, t, cfg: Config):
     """Normalised laser vector-potential squared a_0^2(r,t) (as in dfe4)."""
     laser = cfg.interaction.laser
     k_a0 = (2.0 * E_CHARGE ** 2 * HBAR * C_LIGHT ** 2 * laser.n_photons
-            / (EPS0 * MEC2_J ** 2 * laser.omega0))
+            / (EPS0 * MEC2_J ** 2 * laser.omega0.to("1 / second").magnitude))
     return k_a0 * laser_density(x, y, z, t, cfg)
 
 
@@ -345,8 +351,9 @@ def build_lambda_grid(x_w, thx, y_w, thy, z0, cfg: Config):
     tstar = A / (C_LIGHT * one_minus_m)
 
     # common relative-time grid; longitudinal envelope width in t
-    beam, laser = cfg.interaction.beam, cfg.interaction.laser
-    sigma_t = (laser._dur_s * C_LIGHT) / (C_LIGHT * (1.0 - nz))   # 1 - nz = 1 + cos phi
+    beam, laser = cfg.interaction.electrons.gaussian_fit, cfg.interaction.laser
+    dur_s = laser.duration_rms_s.to_unit("second").magnitude
+    sigma_t = (dur_s * C_LIGHT) / (C_LIGHT * (1.0 - nz))   # 1 - nz = 1 + cos phi
     tau = np.linspace(-cfg.n_sigma_time * sigma_t,
                       cfg.n_sigma_time * sigma_t, cfg.n_time)
     dt = tau[1] - tau[0]
@@ -579,8 +586,8 @@ def run_simulation(cfg: Config, n_mc: int = 20_000, seed: int = 0,
         model.
     """
     rng = np.random.default_rng(seed)
-    N_e = cfg.interaction.beam.N_e
-    gamma0 = cfg.interaction.beam.gamma0
+    N_e = cfg.interaction.electrons.gaussian_fit.N_e
+    gamma0 = cfg.interaction.electrons.gaussian_fit.gamma0
     eps_L = _eps_L(cfg.interaction.laser)
     weight = N_e / n_mc
 

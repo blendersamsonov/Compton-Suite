@@ -52,10 +52,14 @@ _LASER = GaussianParaxialLaser(
     waist_rms_y_m=PhysicalQuantity(5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
     duration_rms_s=PhysicalQuantity(3e-12, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
 )
-_INTERACTION = InteractionParameters(beam=_BEAM, laser=_LASER)
-
 N_MC = 5000
 SEED = 1
+
+# All models this suite knows about, so a not-registered one (e.g. xigma-i/
+# delta with no cupy/GPU and no numba) is reported as skipped rather than
+# silently missing from the output.
+EXPECTED_MODELS = ["kascade", "xigma-i", "delta", "analytical"]
+PREVIEW_NAME = "analytical"
 
 
 def check(label: str, cond: bool, detail: str = "") -> bool:
@@ -65,16 +69,12 @@ def check(label: str, cond: bool, detail: str = "") -> bool:
 
 
 def test_model(name: str, adapter) -> bool:
-    caps = adapter.capabilities()
-    print(f"\n=== {name} ({caps.display_name}) ===")
-    if caps.trust_level == "unavailable":
-        print(f"  SKIPPED (unavailable)")
-        return True  # not a failure -- e.g. no GPU/numba on this machine
-
+    print(f"\n=== {name} ===")
     ok = True
     extra = {key: default for _label, default, key in adapter.model_params()}
     electrons = sample_gaussian_bunch(_BEAM, n_particles=N_MC, rng=np.random.default_rng(SEED))
-    job = Job(interaction=_INTERACTION, electrons=electrons, output=OutputSpec(), seed=SEED, extra=extra)
+    interaction = InteractionParameters(laser=_LASER, electrons=electrons)
+    job = Job(interaction=interaction, output=OutputSpec(), seed=SEED, extra=extra)
 
     try:
         res = adapter.run(job)
@@ -126,24 +126,25 @@ def test_model(name: str, adapter) -> bool:
 
 
 def test_preview_alongside(models: dict) -> bool:
-    """Mirrors app.py's on_start(): the always-on analytical preview
-    (ModelCapabilities.is_fast_preview) runs alongside whichever other
-    model is selected, reusing the SAME sampled electron bunch."""
-    preview_name, preview_adapter = next(
-        ((n, a) for n, a in models.items() if a.capabilities().is_fast_preview),
-        (None, None))
-    print(f"\n=== always-on preview ({preview_name}) ===")
+    """Mirrors app.py's on_start(): the always-on analytical preview runs
+    alongside whichever other model is selected, reusing the SAME sampled
+    electron bunch. The GUI hardcodes which model is the preview
+    (``self.analytical_adapter``); this test hardcodes the same name
+    (``PREVIEW_NAME``) rather than reading a metadata flag."""
+    preview_adapter = models.get(PREVIEW_NAME)
+    print(f"\n=== always-on preview ({PREVIEW_NAME}) ===")
     if preview_adapter is None:
-        print("  SKIPPED (no fast-preview model registered)")
+        print("  SKIPPED (preview model not registered)")
         return True
 
     ok = True
     electrons = sample_gaussian_bunch(_BEAM, n_particles=N_MC, rng=np.random.default_rng(SEED))
+    interaction = InteractionParameters(laser=_LASER, electrons=electrons)
     for name, adapter in models.items():
-        if name == preview_name or adapter.capabilities().trust_level == "unavailable":
+        if name == PREVIEW_NAME:
             continue
         extra = {key: default for _label, default, key in preview_adapter.model_params()}
-        job = Job(interaction=_INTERACTION, electrons=electrons, output=OutputSpec(), seed=SEED, extra=extra)
+        job = Job(interaction=interaction, output=OutputSpec(), seed=SEED, extra=extra)
         try:
             p_res = preview_adapter.run(job)
             problems = validate_results(p_res)
@@ -163,8 +164,11 @@ def main() -> int:
     models = discover_models()
     print(f"Discovered models: {list(models.keys())}")
     all_ok = True
-    for name, adapter in models.items():
-        all_ok &= test_model(name, adapter)
+    for name in EXPECTED_MODELS:
+        if name not in models:
+            print(f"\n=== {name} ===\n  SKIPPED (not available)")
+            continue
+        all_ok &= test_model(name, models[name])
     all_ok &= test_preview_alongside(models)
     print("\n" + ("=" * 40))
     print("RESULT:", "ALL PASS" if all_ok else "SOME FAILURES")

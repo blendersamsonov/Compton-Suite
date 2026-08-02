@@ -41,15 +41,18 @@ def test_derived_quantities_are_sane():
     assert _EXAMPLE_BEAM.gamma0 > 1.0
     assert 0.0 < _EXAMPLE_BEAM.beta0 < 1.0
     assert _EXAMPLE_BEAM.N_e > 0
-    assert _EXAMPLE_BEAM.beta_star_x_m > 0
-    assert abs(_EXAMPLE_BEAM.beta_star_x_m - _EXAMPLE_BEAM._sx_m**2 / _EXAMPLE_BEAM._ex_m) < 1e-30
+    beta_star_x_m = _EXAMPLE_BEAM.beta_star_x.to("meter").magnitude
+    sx_m = _EXAMPLE_BEAM.sigma_x_m.to_unit("meter").magnitude
+    ex_m = _EXAMPLE_BEAM.emit_geom_x_m.to_unit("meter").magnitude
+    assert beta_star_x_m > 0
+    assert abs(beta_star_x_m - sx_m**2 / ex_m) < 1e-30
 
 
 def test_sample_gaussian_bunch_matches_beam_moments():
     rng = np.random.default_rng(0)
     bunch = sample_gaussian_bunch(_EXAMPLE_BEAM, 200_000, rng=rng)
     assert bunch.n_particles == 200_000
-    assert abs(np.std(bunch.x) / _EXAMPLE_BEAM._sx_m - 1.0) < 0.02
+    assert abs(np.std(bunch.x) / _EXAMPLE_BEAM.sigma_x_m.to_unit("meter").magnitude - 1.0) < 0.02
     assert abs(np.std(bunch.thx) / _EXAMPLE_BEAM.divergence_x_rad - 1.0) < 0.02
     assert abs(np.mean(bunch.gamma) - _EXAMPLE_BEAM.gamma0) / _EXAMPLE_BEAM.gamma0 < 1e-3
     assert abs(np.std(bunch.gamma) / _EXAMPLE_BEAM.sigma_gamma - 1.0) < 0.02
@@ -62,9 +65,12 @@ def test_fit_gaussian_round_trips_at_the_waist():
     bunch = sample_gaussian_bunch(_EXAMPLE_BEAM, 500_000, rng=rng)
     fit = fit_gaussian(bunch)
 
-    assert abs(fit._sx_m / _EXAMPLE_BEAM._sx_m - 1.0) < 0.02
-    assert abs(fit._ex_m / _EXAMPLE_BEAM._ex_m - 1.0) < 0.03
-    assert abs(fit._KE_eV / _EXAMPLE_BEAM._KE_eV - 1.0) < 1e-3
+    assert abs(fit.sigma_x_m.to_unit("meter").magnitude
+               / _EXAMPLE_BEAM.sigma_x_m.to_unit("meter").magnitude - 1.0) < 0.02
+    assert abs(fit.emit_geom_x_m.to_unit("meter").magnitude
+               / _EXAMPLE_BEAM.emit_geom_x_m.to_unit("meter").magnitude - 1.0) < 0.03
+    assert abs(fit.kinetic_energy_eV.to_unit("electron_volt").magnitude
+               / _EXAMPLE_BEAM.kinetic_energy_eV.to_unit("electron_volt").magnitude - 1.0) < 1e-3
     assert abs(fit.rel_energy_spread_rms / _EXAMPLE_BEAM.rel_energy_spread_rms - 1.0) < 0.05
 
 
@@ -91,8 +97,10 @@ def test_fit_gaussian_recovers_waist_after_drift():
     assert np.std(drifted.x) > np.std(bunch_at_waist.x) * 1.5
 
     fit = fit_gaussian(drifted)
-    assert abs(fit._sx_m / _EXAMPLE_BEAM._sx_m - 1.0) < 0.03
-    assert abs(fit._ex_m / _EXAMPLE_BEAM._ex_m - 1.0) < 0.03
+    assert abs(fit.sigma_x_m.to_unit("meter").magnitude
+               / _EXAMPLE_BEAM.sigma_x_m.to_unit("meter").magnitude - 1.0) < 0.03
+    assert abs(fit.emit_geom_x_m.to_unit("meter").magnitude
+               / _EXAMPLE_BEAM.emit_geom_x_m.to_unit("meter").magnitude - 1.0) < 0.03
 
 
 def test_sample_gaussian_bunch_chirp_correlates_energy_with_z():
