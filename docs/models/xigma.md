@@ -57,11 +57,9 @@ out of the table" below. `a0_max` is a fixed *model* parameter (the a0
 range the weakly-nonlinear approximation is meant to be valid over), not
 derived per-collision from `compton.a0` -- current default guidance is
 `a0_max=0.5`. `deposition.build_table_streaming` and `tabulated_engine.py`
-both use this convention consistently; this package's model-local
-`validation/` subdirectory (which used to contain scripts treating
-`push_and_sample`'s 4th output column as physical `ahat` directly, predating
-the `a0_shape`/`retarget_a0` split) has since been deleted entirely, so
-there is no remaining code path in this repo with that mismatch.
+both use this convention consistently; there is no remaining code path in
+this repo that treats `push_and_sample`'s 4th output column as physical `ahat`
+directly (only `a0_shape` is correct).
 
 **Not done**: systematic resolution/convergence scans (tooling exists, see
 "Convergence testing" below -- no results recorded yet); chasing the
@@ -109,19 +107,7 @@ integral[a0_local(t)^2] dt` (Paper/xigma.tex eq. "ahattraj"), where
 *instantaneous* local field amplitude computed internally at each
 timestep, and `TrXi/2 = (1 + params.ellipticity**2) / 2` (eq. "Xi";
 `ellipticity=0` linear, `+-1` circular -- `CollisionParams.ellipticity`,
-set via `compton_suite.io.collision.build_params`). This is a genuine, previously-made mistake, not a
-hypothetical one: an earlier version of this code deposited `a0_local(t)`
-itself into `H` once per timestep, i.e. treated `a0` the same way as
-`gamma`/`theta_x`/`theta_y` -- one distribution smeared over each
-particle's whole trajectory. That's only valid in the synchrotron/wiggler
-regime, where the photon formation length is about one laser cycle and
-the trajectory can be split into independently-radiating segments. This
-codebase is in the opposite, weakly-nonlinear regime (`a0 <~ 1`; see the
-paper's regime-validity discussion), where the formation length spans the
-*whole* trajectory: an electron radiates one line, shaped by the single
-effective intensity value it experienced over its entire passage, not a
-sequence of per-instant emissions. **Do not reintroduce per-timestep a0
-deposition.**
+set via `compton_suite.io.collision.build_params`). **The formation length spans the entire trajectory, not individual timesteps.** In the weakly-nonlinear regime (`a0 <~ 1`), each electron radiates one line shaped by a single effective intensity value (the trajectory average). This is fundamentally different from the synchrotron/wiggler regime (where formation length ~one laser cycle and the trajectory can be split into independent segments). **Do not deposit `a0_local(t)` per timestep into the kernel.**
 
 **a0 factorises out of the table -- `a0_shape` and `deposition.retarget_a0`.**
 `ahat(zeta)` above splits *exactly* as `ahat(zeta) = compton.a0**2 *
@@ -285,8 +271,7 @@ Physical constants (`me`, `c`, `el`, `rel`, `sigma_T`, `PHI`) -- `me`/`c`/
 `el` come from `compton_suite.io.constants` (see "Parameter semantics & units"
 below), not local literals; `rel`/`sigma_T` are still derived locally from
 those via this module's own CGS formula (`sigma_T`, the Thomson cross
-section, is the only thing left that still needs a local CGS derivation --
-everything else that used to live here moved out, see below), and `PHI`
+section, is the only locally-derived quantity), and `PHI`
 (golden ratio, unrelated to physics) stays local. The GPU kernel sizing
 constants `spectrum_kernel_4d` needs (`X_THREADS`, `MAX_RINGS`,
 `MAX_ARCS`, `PHI_EDGES`, `CDF_PHI_RESOLUTION`, ...; see "Sizing constants"
@@ -314,15 +299,10 @@ cupy if `cp.cuda.runtime.getDeviceCount() > 0`, else CPU (requires
 `numba`), else raises -- there is no third backend. `.xp` (`cp` or `np`)
 and `.asnumpy(x)` (`.get()` on GPU, no-op on CPU) are a thin convenience
 for host orchestration code (`adapter.py`'s adapters) that builds arrays on the
-chosen device and needs to bring results back to host afterwards. The
-`estimate_yield`/`estimate_spectrum_width` cheap-analytic-estimate methods
-that used to live on `CollisionParams` were removed entirely (dead code --
-never used by the real computation, and `models/analytical/analytical.py`
-already has its own independent, SI-based reimplementation of the same
-estimates for the GUI's always-on preview).
+chosen device and needs to bring results back to host afterwards.
 
 `particles.push_and_sample` takes a `compton_suite.io.collision.CollisionParams`
-instance as its parameter source, same as before the move.
+instance as its parameter source.
 
 ### GUI-facing engine -- `tabulated_engine.py`
 
@@ -457,14 +437,7 @@ devices default to float64, see Conventions).
 
 ## Traps
 
-- **`cupyx.scatter_add`'s dtype restriction.** It's backed by `cupy.add.at`,
-  which only supports `int32, float16, float32, float64, uint32, uint64` --
-  notably not `int64`. `deposition.py`'s occupancy counting used to
-  accumulate in `int64` and hit `TypeError: cupy.add.at only supports
-  int32, float16, float32, float64, uint32, uint64` on some cupy/driver
-  combinations but not others (nothing to do with problem size or GPU
-  model) -- fixed by switching occupancy to `int32` (plenty for realistic
-  per-cell counts). Any new GPU scatter-add target must stay off `int64`.
+- **`cupyx.scatter_add`'s dtype restriction.** It only supports `int32, float16, float32, float64, uint32, uint64` — not `int64`. Occupancy counting must use `int32` (sufficient for realistic per-cell counts). Any new GPU scatter-add target must avoid `int64`.
 - **`Table.a0_kind` mismatch.** A `'shape'` table (built from
   `push_and_sample`'s `a0_shape`) is not spectrum-ready -- its 4th axis
   isn't a physical `ahat`, so feeding it straight to `spectrum_kernel_4d`/
@@ -472,18 +445,8 @@ devices default to float64, see Conventions).
   the wrong `a0` values. Both assert `a0_kind='ahat'` and raise instead of
   computing garbage; always route a `'shape'` table through
   `deposition.retarget_a0(table, a0)` first.
-- **Depositing `a0` per timestep instead of trajectory-averaged.** A real
-  mistake made and fixed on this codebase, not hypothetical -- see
-  "Stage 0"'s "a0 is a trajectory average" section. If you're about to
-  make `push_and_sample` emit more than one row per particle, or bin
-  `a0_local(t)` directly into `H`, stop and re-read that section first.
-- **The `1/(1+a0)` Jacobian factor.** `spectrum_kernel_4d`'s resonance
-  condition and evaluation prefactor both depend on `a0` (eq. "Gamma",
-  "Fmatrix" in the accompanying paper) -- `g` and `prefac` must be
-  recomputed *inside* the per-a0-bin quadrature loop, not shared across
-  bins. An earlier version of this kernel (and `reference.spectrum_from_table`)
-  got this wrong, using a single a0-independent `g` and missing the
-  `1/(1+a0)` factor entirely -- a real, previously-made mistake.
+- **`a0` must be trajectory-averaged, not per-timestep.** Do not make `push_and_sample` emit more than one row per particle or bin `a0_local(t)` directly into `H`. See "Stage 0"'s "a0 is a trajectory average" section for the physics.
+- **The `1/(1+a0)` Jacobian factor.** `spectrum_kernel_4d`'s resonance condition `g` and evaluation prefactor `prefac` both depend on `a0` (eq. "Gamma", "Fmatrix"). These must be recomputed *inside* the per-a0-bin loop, not shared across bins. A single a0-independent `g` produces wrong results.
 - **Shared-memory aliasing.** Adding a shared array without accounting for
   `TMP_FLOAT_ARRAY`/`rings`/`phi_cur` overlap corrupts the arc geometry in
   ways that produce plausible-looking output.

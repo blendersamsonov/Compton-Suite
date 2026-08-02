@@ -4,9 +4,7 @@ Unified physical constants, unit registry, electron-bunch/laser-pulse representa
 
 ## Why this exists
 
-Each of the six component repositories (before this merge) maintained its own copy of physical constants—with a real ~1.6e-8 relative numeric disagreement between xigma-i's older-CODATA copy and the others. When separate copies of parameter-semantics frameworks coexisted, a `PhysicalQuantity` built with one copy's enums failed validation against another's `ModelSpec`.
-
-`compton_suite.io` consolidates this into a single, audited, shared layer that every consumer imports directly—eliminating silent unit/constant divergence.
+**Multiple copies of physical constants cause silent divergence.** Every physics engine and the GUI must import constants and parameter-semantics frameworks from the same single source. If each module maintained its own copies, a `PhysicalQuantity` built with one copy's enums would fail validation against another's spec. `compton_suite.io` is the single, audited source; every consumer depends on it directly.
 
 ## Organization
 

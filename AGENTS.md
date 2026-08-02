@@ -279,103 +279,22 @@ python3 src/compton_suite/validation/run_cross_validation.py
   core-simulation-api status) — predate the `Job`-based `ModelAdapter`
   rewrite; read as history, not current architecture.
 
-## Roadmap: completed items
+## Design decisions (not to be revisited without good reason)
 
-All items below are done. Kept as a record of what was accomplished.
-
-### Correcting the wiring pass's architecture regressions (this session)
-The previous session's wiring-repair pass (below) fixed imports but, along
-the way, silently re-decided several design questions instead of just
-repairing them — it reconstructed shapes from whatever old tests/docs
-happened to be lying around. This session corrected all of it: merged
-`GaussianElectronBeam`+`BeamFittedParams` into one type (`Bunch` gains
-`gaussian_fit: GaussianElectronBeam | None`, populated at sampling time,
-analytically updated through `drift`/`propagate` — no refit needed;
-`fit_gaussian`+`fit_beam_full` merged into one function); deleted every
-`*_from_shared_fields`/`a0_from_fields`/`focal_radii_m` factory function
-(the GUI builds `GaussianElectronBeam`/`GaussianParaxialLaser` directly
-now); deleted xigma-i/delta/analytical's `Config`/`DirectConfig`/
-`AnalyticalConfig` dataclasses entirely — each adapter now holds its own
-numeric knobs and recompute-cache state (`XigmaAdapter.engine`/`.params`,
-`DirectAdapter`'s raw per-particle arrays) as plain `self` attributes,
-explicitly *not* done for `KascadeAdapter` (no functional need, corrected
-after an initial overreach); moved `beta_ff`/`phi_pol`/`ellipticity` onto
-the shared `GaussianParaxialLaser` (a regression against an earlier
-session's own commit, `be16cff`) and deleted the now-dead
-`quantum`/`crossing_angle`/`Theta_x`/`Theta_y` fields xigma-i/delta never
-actually wired to anything; removed `Photons.cfg` (nothing left to stash
-there). Also fixed two bugs surfaced along the way, unrelated to the main
-correction: `xigma_i/deposition.py`'s `build_table_streaming` called
-`sample_gaussian_bunch` with stale `chirp=`/`angle_energy_corr=` kwargs
-that don't exist on the current signature, and `validation/
-tier2_spectrum.py`'s `compton_edge_eV` divided a bare float by a
-`PhysicalQuantity` (fixed to use `GaussianParaxialLaser.omega0`). Verified
-via `pytest tests/` (76 passed), `scripts/headless_test.py` (all 4 models
-+ preview, ALL PASS), `validation/run_cross_validation.py` (all gated
-tiers pass, Tiers 3-4 canaries report sane numbers), and an Xvfb-driven
-GUI smoke test (kascade + xigma-i run end-to-end through the real
-`app.py` helpers, including the new `ellipticity` field and xigma-i's
-on-demand `spectrum_in_angular_range` recompute).
-
-### Rewiring after the hand-reorganization (earlier this session)
-The repo was hand-reorganized (file layout redesigned: `io/units.py`
-absorbing `enums.py`/`quantities.py`/`canonical.py`/`converters.py`/
-`constants.py`; `io/photons.py` absorbing `results.py`; the GUI's
-`model_api.py`/`models.py` becoming `models/api.py`; `models/analytical/`
-and `models/xigma_i/gui_adapter.py` becoming flat `models/analytical.py`
-and `models/xigma_i/adapter.py`; `models/delta/` folded into
-`models/xigma_i/adapter.py`'s `DirectAdapter`) but the wiring underneath
-was left broken (every import boundary, missing enum members, mismatched
-class names between a file's own body and every caller, adapter `run()`
-bodies referencing never-unpacked variables). This session rewired every
-layer end-to-end against the new file layout: `io/` (restored
-`WidthConvention`/`AmplitudeConvention`, `MEC2_EV`, the CGS constant
-views, fixed the pint `light_time` context — a real pint-0.25 API
-mismatch, not just a typo), `models/api.py` (`Job` as a real dataclass,
-`UnavailableAdapter`), all four model adapters (kascade, xigma-i, delta,
-analytical — including recovering `io/collision.py`→
-`models/xigma_i/collision.py`, `spectrum_from_particles.py`, and
-`tabulated_engine.py`'s class body from git history, since they were only
-*unstaged* deletions, not gone), the GUI (`app.py`'s `on_start()` rebuilt
-around `Job`), and the validation suite. Verified via `pytest tests/`
-(75 passed) and `scripts/headless_test.py` (all 4 models + preview, ALL
-PASS) — all four models now agree on total yield to a few percent for the
-same scenario.
-
-### Earlier roadmap (pre-dates this session's reorg)
-Dead-code sweep, moving `CollisionParams`/`build_params` into a shared
-location, GUI trust levels, per-model sample count, unifying the
-`ModelAdapter` interface, manual CPU/GPU selection, and GUI-as-thin-consumer
-were all completed in an earlier pass, then partially undone by the file
-reorganization above and re-completed this session under the new layout.
+- **`Bunch` unifies samples + analytic fit**: `GaussianElectronBeam` is both the input specification and the output of `fit_gaussian()`. No separate `BeamFittedParams` type. `Bunch.gaussian_fit` is analytically updated through `drift`/`propagate` (no refit needed).
+- **No `*_from_shared_fields` factory functions**: the GUI builds `GaussianElectronBeam`/`GaussianParaxialLaser` directly; callers do the dataclass construction at the boundary.
+- **Adapters hold model-specific state as `self` attributes**: numeric knobs (`n_particles_01`, `n_steps_0`, etc.) and recompute caches (`engine`, `params`) live as plain instance attributes, not in a `Config` dataclass. Exception: `KascadeAdapter` has its own `Config` class (a real physics-engine state object, not an adapter-side wrapper).
+- **Laser properties on shared `GaussianParaxialLaser`**: `beta_ff`, `phi_pol`, `ellipticity` are model-agnostic and belong on the laser, not duplicated in model-specific config.
+- **No `quantum`, `crossing_angle`, `Theta_x`, `Theta_y` fields**: these were declared but never wired. Crossing-angle support is planned; until then, `job.interaction.crossing_angle` must be zero.
+- **No `Photons.cfg` field**: results carry no back-reference to the configuration that produced them.
 
 ## Open items (physics investigation, not refactoring)
 
-- **~2π angular-spectrum residual** (xigma_i/delta's raw kernel
-  normalization): still open at the *kernel* level (`spectrum4d.py`'s
-  `calculate_angular_spectrum_4d`/`spectrum_from_particles.
-  direct_binning_spectrum`'s own absolute normalization is still
-  unexplained), but the **user-facing inconsistency is fixed** this
-  session: `models/xigma_i/adapter.py`'s `run_simulation` was computing an
-  `angular_rescale` factor but never applying it to the returned
-  `angular_spectrum` (using a vestigial `/2/pi` instead, left over from
-  before that mechanism existed) — `angular_spectrum` now integrates to
-  `total_yield` exactly, for both xigma-i and delta, matching
-  `spectrum_in_angular_range`'s on-demand queries. Root-causing the
-  kernel's own normalization is still open.
-- **a0 formula discrepancy: RESOLVED**, not just documented. xigma_i's
-  `CollisionParams.a0`/`.N_l` (`models/xigma_i/collision.py`) previously
-  had their own independent CGS derivation that disagreed with
-  `GaussianParaxialLaser.a0_focus`/`.n_photons` by a real, ~49%/1.95x
-  factor. They're now a direct pass-through of the shared SI values (a0/N_l
-  are model-agnostic — available from the input laser, not something each
-  model should re-derive) — `validation/tier0_wiring.py`'s
-  `check_a0_N_l_passthrough` verifies this stays exact.
-- **CUDA OOM with large electron bunches in xigma_i/delta**: GPU
-  memory exhaustion when running large n_mc values (e.g. 200k+).
-  `particles.push_and_sample` processes all electrons at once with no
-  batching/streaming. Need to investigate chunked GPU processing or
-  automatic CPU fallback for large bunches.
+- **~2π angular-spectrum residual** (xigma_i/delta's raw kernel normalization): `spectrum4d.py`'s `calculate_angular_spectrum_4d` and `spectrum_from_particles.direct_binning_spectrum` have an unexplained absolute normalization factor at the kernel level. User-facing: `angular_spectrum` now integrates to `total_yield` exactly for both xigma-i and delta, matching `spectrum_in_angular_range` queries. The kernel-level discrepancy remains open.
+
+- **a0/N_l pass-through**: `CollisionParams.a0`/`.N_l` are now a direct pass-through of `GaussianParaxialLaser.a0_focus`/`.n_photons` (a0/N_l are model-agnostic, available from the input laser). Verified by `validation/tier0_wiring.py`'s `check_a0_N_l_passthrough`.
+
+- **CUDA OOM with large electron bunches in xigma_i/delta**: GPU memory exhaustion when running large n_mc values (e.g. 200k+). `particles.push_and_sample` processes all electrons at once with no batching. Workaround: chunked GPU processing or automatic CPU fallback needed.
 
 ---
 

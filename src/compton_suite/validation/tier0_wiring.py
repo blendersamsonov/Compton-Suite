@@ -1,19 +1,12 @@
 """Tier 0: wiring/units sanity.
 
-kascade is the only model left with a real, standalone ``Config`` object
-(its own physics engine's parameter type) -- xigma_i/delta/analytical read
-``job.interaction`` directly with nothing to re-derive, so the
-"Config drifted from the Scenario's own InteractionParameters" failure mode
-this tier used to guard against for all four models structurally can't
-happen anymore for those three (there's no Config to hold a divergent
-copy).
+Only kascade has a standalone ``Config`` object. xigma_i/delta/analytical
+read ``job.interaction`` directly with no re-derivation, so there is no
+separate Config copy that could drift from the Scenario's InteractionParameters.
 
-This tier used to also check that xigma_i's CGS ``CollisionParams.a0``/
-``.N_l`` stayed an exact pass-through of ``GaussianParaxialLaser.a0_focus``/
-``.n_photons`` -- that check no longer applies: ``CollisionParams`` is
-gone, and every xigma_i call site now reads ``laser.a0_focus``/
-``.n_photons`` directly (see ``particles.push_and_sample``'s docstring), so
-there is no separate CGS copy left that could silently drift out of sync.
+xigma_i reads laser properties (a0_focus, n_photons) directly from
+``job.interaction.laser`` (see ``particles.push_and_sample``'s docstring),
+so there is no separate CGS copy that could silently diverge.
 """
 
 from __future__ import annotations

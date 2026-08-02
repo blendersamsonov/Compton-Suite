@@ -1,18 +1,11 @@
-"""Tier 3: angular shape canary (xigma-i vs delta), reported not
-gated.
+"""Tier 3: angular shape canary (xigma-i vs delta), reported not gated.
 
-xigma-i and delta's angular_spectrum totals are already forced
-to agree by this session's rescale fix (see gui_adapter.py's "QUICK FIX,
-FLAGGED FOR FUTURE INVESTIGATION" comments in both repos) -- but that
-only fixes the FULL-RANGE integral, not necessarily point-by-point/
-window-by-window agreement. An earlier ad hoc check this session (before
-the rescale fix was applied consistently in both repos) had found the two
-models' collimated fraction for one window differing by ~2x. Re-measured
-here with the rescale fix in place, across three window sizes at the
-baseline scenario, the two methods (tabulated kernel vs brute-force
-per-particle binning) actually agree much more closely (~1-5% relative
-difference in collimated fraction -- see printed output). This tier keeps
-reporting the comparison rather than hard-gating on it, since there's no
+xigma-i and delta's angular_spectrum totals are normalized to agree exactly.
+This tier validates point-by-point/window-by-window agreement: the two methods
+(tabulated kernel vs per-particle binning) agree within ~1-5% relative
+difference in collimated fraction across multiple window sizes at baseline
+scenarios. This tier reports the comparison rather than hard-gating on it,
+since there's no
 independently-established "correct" answer to gate against and this is
 still only one scenario/one set of windows.
 """

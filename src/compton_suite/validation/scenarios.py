@@ -1,21 +1,15 @@
 """Shared physical scenarios for the cross-model validation suite.
 
-Only kascade still has a real, standalone ``Config`` object (its own
-physics engine's parameter type -- see ``build_kascade_config``); xigma_i,
-delta, and analytical no longer have a ``Config`` class at all -- their
-adapters own their own parameter state directly (see each adapter's
-``AGENTS.md``/docstring). Every model except kascade is run here via a
-plain ``Job`` built from ``build_interaction(scenario, ...)`` plus this
-scenario's own numeric-knob fields in ``Job.extra`` -- exactly the same
-shape ``gui/app.py``'s ``on_start()`` builds, so this suite is not a
-parallel calling convention. ``beta_ff``/``phi_pol`` are laser-pulse
-properties now (``scenario.pulse.beta_ff``/``.phi_pol``), not separate
-``Scenario`` fields -- there is exactly one place they live.
+Only kascade has a standalone ``Config`` object (see ``build_kascade_config``);
+xigma_i, delta, and analytical store their own parameter state as adapter
+attributes. All models are run via ``Job`` built from ``build_interaction(scenario, ...)``
+plus numeric knobs in ``Job.extra`` — the same shape as ``gui/app.py``'s
+``on_start()``.
 
-``build_interaction`` replaces the old zero-arg ``Scenario.interaction_parameters``
-property: ``InteractionParameters`` now holds the full sampled ``Bunch``
-(not just the analytic beam), so building one needs ``n_mc``/``seed`` --
-it can no longer be a property with no arguments.
+``beta_ff``, ``phi_pol`` are ``scenario.pulse`` fields (laser properties).
+
+``build_interaction(scenario, n_mc, seed)`` takes ``n_mc`` and ``seed`` because
+``InteractionParameters`` holds a full sampled ``Bunch``, not just the analytic beam.
 """
 
 from __future__ import annotations

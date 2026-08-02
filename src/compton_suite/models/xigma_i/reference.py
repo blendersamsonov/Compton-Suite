@@ -1,13 +1,9 @@
 """Cross-validation-only tooling: a brute-force, non-GPU-kernel way to turn
-a Stage 1 `H` table into a spectrum, used to validate
-`spectrum4d.spectrum_kernel_4d` without trusting it.
+a Stage 1 `H` table into a spectrum for validating `spectrum4d.spectrum_kernel_4d`.
 
 **Not production code, and not imported by any production adapter.**
-`angle_integrated_spectrum`/`direct_binning_spectrum` used to live in this
-module too; they were extracted to `spectrum_from_particles.py` because
-they turned out to be load-bearing for real model output (`xigma-i`'s
-`TabulatedEngine.spectrum(s)`, `delta`'s total_yield/spectrum/
-angular_spectrum) rather than pure validation, and this module is expected
+The actual production spectrum methods (`angle_integrated_spectrum`, `direct_binning_spectrum`)
+live in `spectrum_from_particles.py` instead. This module is expected
 to eventually leave this repo entirely (folded into a separate,
 standalone cross-validation project) -- kept here for now for ad hoc Stage
 2 cross-checks, not wired into anything that runs during a normal
