@@ -136,6 +136,28 @@ def test_cupy_oom_retry_halves_chunk_and_succeeds():
     assert g.shape[0] == n
 
 
+@skip_no_gpu
+def test_cupy_oom_retry_covers_diagnostics_binning_too():
+    """Regression test for a review finding: the OOM-retry halving must
+    protect the _bin_temporal/_bin_spatial calls, not just
+    _integrate_trajectory_core -- both XigmaAdapter and DirectAdapter
+    always request diagnostics (n_time_bins/n_spatial_bins default to
+    non-None in adapter.py), so an OOM during binning is the codepath
+    real runs actually exercise, not an edge case. Without this coverage,
+    a chunk sized fine for the integration step but too large once the
+    binners' own temporaries stack on top would crash uncaught instead of
+    halving and retrying."""
+    n = 800_000
+    bunch = _bunch(n)
+    kwargs = _kwargs_for(BASELINE.pulse, BASELINE.beam)
+
+    g, tx, ty, a0, w, diagnostics = particles.push_and_sample(
+        bunch, backend='cupy', chunk=n - 1, n_time_bins=20, n_spatial_bins=15, **kwargs)
+    assert g.shape[0] == n
+    assert diagnostics.time_envelope is not None
+    assert diagnostics.spatial_envelope is not None
+
+
 def test_estimate_chunk_size_numpy_returns_n_particles_unchanged():
     assert particles.estimate_chunk_size(123_456, 64, 'numpy') == 123_456
     assert particles.estimate_chunk_size(123_456, 64, 'numba') == 123_456

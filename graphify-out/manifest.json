@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/particles.py": {
-    "mtime": 1785759184.260719,
-    "ast_hash": "f83256da96d62587bb8a2c539ac080cb",
+    "mtime": 1785765072.662031,
+    "ast_hash": "9caf7e67e958d6d892cc26a5f90daa77",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/reference.py": {
@@ -365,8 +365,8 @@
     "semantic_hash": ""
   },
   "tests/test_xigma_chunking.py": {
-    "mtime": 1785759538.7994359,
-    "ast_hash": "a9e76dfba1963149ede5675868967c85",
+    "mtime": 1785765112.7529898,
+    "ast_hash": "b838ff2e396a4dd7a8efcb09b48b113f",
     "semantic_hash": ""
   }
 }

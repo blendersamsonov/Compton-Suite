@@ -453,8 +453,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scripts_headless_test",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "headless_test.py"
     },
     {
@@ -464,8 +464,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "scripts_headless_test_check",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "check()"
     },
     {
@@ -475,8 +475,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "scripts_headless_test_test_model",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "test_model()"
     },
     {
@@ -486,8 +486,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "scripts_headless_test_test_chunk_override",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "test_chunk_override()"
     },
     {
@@ -497,8 +497,8 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "scripts_headless_test_test_preview_alongside",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "test_preview_alongside()"
     },
     {
@@ -508,8 +508,8 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "scripts_headless_test_main",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "main()"
     },
     {
@@ -519,8 +519,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "scripts_headless_test_rationale_144",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "xigma-i/delta only: model_params() must expose a 'chunk' key (the     \"query vra"
     },
     {
@@ -530,8 +530,8 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "scripts_headless_test_rationale_181",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "mirrors app.py's on_start(): the always-on analytical preview runs     alongside"
     },
     {
@@ -552,8 +552,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scripts_run_gui",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "run_gui.py"
     },
     {
@@ -563,8 +563,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_init",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "gammaforge/__init__.py"
     },
     {
@@ -574,8 +574,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "src_gammaforge_init_run_gui",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "run_gui()"
     },
     {
@@ -585,8 +585,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_init_rationale_1",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "gammaforge: unified package for inverse-compton scattering simulation.  subpacka"
     },
     {
@@ -596,8 +596,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_gui_init",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "gui/__init__.py"
     },
     {
@@ -607,8 +607,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_gui_init_rationale_1",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "compton-guide: tkinter gui for pluggable compton-scattering physics models."
     },
     {
@@ -618,8 +618,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "app.py"
     },
     {
@@ -651,8 +651,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_pq",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "_pq()"
     },
     {
@@ -860,8 +860,8 @@
       "source_location": "L671",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_get_output_spec",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 1,
+      "community_name": "Bunch Sampling",
       "norm_label": "._get_output_spec()"
     },
     {
@@ -926,8 +926,8 @@
       "source_location": "L804",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_update_derived",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 1,
+      "community_name": "Bunch Sampling",
       "norm_label": "._update_derived()"
     },
     {
@@ -1102,8 +1102,8 @@
       "source_location": "L1312",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_main",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "main()"
     },
     {
@@ -1113,8 +1113,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_106",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "shortcut to build a physicalquantity -- the gui wraps its own raw     floats dir"
     },
     {
@@ -1212,8 +1212,8 @@
       "source_location": "L672",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_672",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 1,
+      "community_name": "Bunch Sampling",
       "norm_label": "build an outputspec from the gui fields."
     },
     {
@@ -1245,8 +1245,8 @@
       "source_location": "L805",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_805",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 1,
+      "community_name": "Bunch Sampling",
       "norm_label": "refresh electron and laser values derived from the current fields."
     },
     {
@@ -1333,8 +1333,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_pq",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "_pq()"
     },
     {
@@ -1344,8 +1344,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_sigma_from_emittance",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 1,
+      "community_name": "Bunch Sampling",
       "norm_label": "sigma_from_emittance()"
     },
     {
@@ -1355,8 +1355,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_bunch",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": "bunch"
     },
     {
@@ -1366,8 +1366,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_bunch_n_particles",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": ".n_particles()"
     },
     {
@@ -1377,8 +1377,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_bunch_n_electrons",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": ".n_electrons()"
     },
     {
@@ -1630,8 +1630,8 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_validate",
-      "community": 36,
-      "community_name": "ValueError",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "validate()"
     },
     {
@@ -1674,8 +1674,8 @@
       "source_location": "L529",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_sample_gaussian_canonical",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "sample_gaussian_canonical()"
     },
     {
@@ -1773,8 +1773,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_91",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "shortcut to build a physicalquantity."
     },
     {
@@ -1784,8 +1784,8 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_96",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 1,
+      "community_name": "Bunch Sampling",
       "norm_label": "transverse rms beam size [m] from normalised emittance, beta function,     and l"
     },
     {
@@ -1795,8 +1795,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_119",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": "macroparticle electron bunch. si units, flat arrays.      ``x``/``y``/``z`` are"
     },
     {
@@ -1806,8 +1806,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_144",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": "total number of physical electrons."
     },
     {
@@ -1883,8 +1883,8 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_312",
-      "community": 36,
-      "community_name": "ValueError",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "validate a :class:`gaussianelectronbeam`.      raises ``valueerror`` on hard req"
     },
     {
@@ -1916,8 +1916,8 @@
       "source_location": "L530",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_530",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "draw macroparticles from a :class:`gaussianelectronbeam` using     canonical var"
     },
     {
@@ -2004,8 +2004,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "interaction.py"
     },
     {
@@ -2015,8 +2015,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_interactionparameters",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "interactionparameters"
     },
     {
@@ -2026,8 +2026,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_recoil_parameter",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "recoil_parameter()"
     },
     {
@@ -2037,8 +2037,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_rationale_1",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "the shared \"interaction parameters\" bundle: one canonical (laser, electrons) pai"
     },
     {
@@ -2048,8 +2048,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_rationale_41",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "one canonical (laser, electrons) pair -- the physics-parameter     bundle every"
     },
     {
@@ -2059,8 +2059,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_rationale_50",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "quantum recoil parameter ``q = 4 * gamma * hbar * omega / (m_e * c^2)``.      di"
     },
     {
@@ -2092,8 +2092,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "sdds.py"
     },
     {
@@ -2103,8 +2103,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds_load_elegant_ele",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": "load_elegant_ele()"
     },
     {
@@ -2114,8 +2114,8 @@
       "source_location": "L137",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds_save_elegant_ele",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 2,
+      "community_name": "GUI App Layout",
       "norm_label": "save_elegant_ele()"
     },
     {
@@ -2125,8 +2125,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds_rationale_1",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "elegant / sdds ``.ele`` file i/o for :class:`gammaforge.io.bunch.bunch`.  reloca"
     },
     {
@@ -2136,8 +2136,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds_rationale_38",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": "parse a 6-d electron-bunch ``.ele`` file in sdds ascii format.      required col"
     },
     {
@@ -2147,8 +2147,8 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds_rationale_140",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 2,
+      "community_name": "GUI App Layout",
       "norm_label": "write a :class:`bunch` in sdds ascii ``.ele`` format.      mirrors :func:`load_e"
     },
     {
@@ -2169,8 +2169,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_load_electron_beam",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "load_electron_beam()"
     },
     {
@@ -2180,8 +2180,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_save_electron_beam",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "save_electron_beam()"
     },
     {
@@ -2191,7 +2191,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_load_laser",
-      "community": 37,
+      "community": 54,
       "community_name": "test_laser.py",
       "norm_label": "load_laser()"
     },
@@ -2202,7 +2202,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_save_laser",
-      "community": 37,
+      "community": 54,
       "community_name": "test_laser.py",
       "norm_label": "save_laser()"
     },
@@ -2246,7 +2246,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser",
-      "community": 37,
+      "community": 54,
       "community_name": "test_laser.py",
       "norm_label": "gaussianparaxiallaser"
     },
@@ -2323,7 +2323,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser_n_photons",
-      "community": 37,
+      "community": 54,
       "community_name": "test_laser.py",
       "norm_label": ".n_photons()"
     },
@@ -2477,7 +2477,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_rationale_66",
-      "community": 37,
+      "community": 54,
       "community_name": "test_laser.py",
       "norm_label": "only a paraxial gaussian laser pulse *for now*.      every field is a :class:`ph"
     },
@@ -2521,7 +2521,7 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_rationale_132",
-      "community": 37,
+      "community": 54,
       "community_name": "test_laser.py",
       "norm_label": "photon count in the pulse: n_l = pulse_energy / (hbar*omega0). a         pure co"
     },
@@ -2598,8 +2598,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 46,
+      "community_name": "OutputSpec",
       "norm_label": "photons.py"
     },
     {
@@ -2708,8 +2708,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_rationale_1",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 46,
+      "community_name": "OutputSpec",
       "norm_label": "output-side observable representations: the phase-space-slice contract every mod"
     },
     {
@@ -2884,8 +2884,8 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_fwhm_to_sigma_intensity",
-      "community": 45,
-      "community_name": "units.py",
+      "community": 1,
+      "community_name": "Bunch Sampling",
       "norm_label": "fwhm_to_sigma_intensity()"
     },
     {
@@ -2895,8 +2895,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_sigma_intensity_to_fwhm",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "sigma_intensity_to_fwhm()"
     },
     {
@@ -2928,8 +2928,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_w0_to_sigma_intensity",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "w0_to_sigma_intensity()"
     },
     {
@@ -2939,8 +2939,8 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_sigma_intensity_to_w0",
-      "community": 47,
-      "community_name": "app.py",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "sigma_intensity_to_w0()"
     },
     {
@@ -2972,7 +2972,7 @@
       "source_location": "L259",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_unknownconversionerror",
-      "community": 45,
+      "community": 30,
       "community_name": "units.py",
       "norm_label": "unknownconversionerror"
     },
@@ -2994,7 +2994,7 @@
       "source_location": "L263",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_convert",
-      "community": 45,
+      "community": 30,
       "community_name": "units.py",
       "norm_label": "_convert()"
     },
@@ -3005,7 +3005,7 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_convert_width",
-      "community": 45,
+      "community": 30,
       "community_name": "units.py",
       "norm_label": "convert_width()"
     },
@@ -3027,7 +3027,7 @@
       "source_location": "L283",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_convert_amplitude",
-      "community": 45,
+      "community": 30,
       "community_name": "units.py",
       "norm_label": "convert_amplitude()"
     },
@@ -3038,8 +3038,8 @@
       "source_location": "L291",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_physicalquantity",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "physicalquantity"
     },
     {
@@ -3071,8 +3071,8 @@
       "source_location": "L301",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_physicalquantity_to_unit",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": ".to_unit()"
     },
     {
@@ -3082,8 +3082,8 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_physicalquantity_si_magnitude",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": ".si_magnitude()"
     },
     {
@@ -3159,7 +3159,7 @@
       "source_location": "L260",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_260",
-      "community": 45,
+      "community": 30,
       "community_name": "units.py",
       "norm_label": "raised when a convention has no registered conversion in its family."
     },
@@ -3170,8 +3170,8 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_302",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "pure unit conversion (metres <-> centimetres, ps <-> s, ...).         never chan"
     },
     {
@@ -3181,8 +3181,8 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_313",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "convenience: magnitude in the si base unit for this quantity's         dimension"
     },
     {
@@ -3313,8 +3313,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "analytical.py"
     },
     {
@@ -3324,8 +3324,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_estimate_yield",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "estimate_yield()"
     },
     {
@@ -3335,8 +3335,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_estimate_spectrum_width",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "estimate_spectrum_width()"
     },
     {
@@ -3368,8 +3368,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "adapter"
     },
     {
@@ -3379,8 +3379,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter_init",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": ".__init__()"
     },
     {
@@ -3390,8 +3390,8 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter_model_params",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": ".model_params()"
     },
     {
@@ -3401,8 +3401,8 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter_model_choices",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": ".model_choices()"
     },
     {
@@ -3434,8 +3434,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_1",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "fast, closed-form compton-source physics: total yield, angle-integrated spectrum"
     },
     {
@@ -3445,8 +3445,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_44",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "cheap analytic total-photon-yield estimate from an overlap integral     between"
     },
     {
@@ -3456,8 +3456,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_75",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "cheap analytic estimate of the collimated-spectrum fwhm (in units of     the com"
     },
     {
@@ -3478,8 +3478,8 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_113",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "fast closed-form model: total yield, angle-integrated spectrum, and     an estim"
     },
     {
@@ -3511,8 +3511,8 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_slicerequest",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "slicerequest"
     },
     {
@@ -3522,8 +3522,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_outputspec",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "outputspec"
     },
     {
@@ -3533,8 +3533,8 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_job",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "job"
     },
     {
@@ -3665,8 +3665,8 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_rationale_97",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "one requested phase-space slice: which axes, at what resolution,     over what r"
     },
     {
@@ -3676,8 +3676,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_rationale_109",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "model-agnostic output resolution specification.      models receive this in thei"
     },
     {
@@ -3687,8 +3687,8 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_rationale_129",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 0,
+      "community_name": "IO Core + Validation",
       "norm_label": "the single compiled-from-ui config object the gui passes to     ``modeladapter.r"
     },
     {
@@ -4204,8 +4204,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_kascade_kascade_adapter",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "kascade_adapter.py"
     },
     {
@@ -4215,8 +4215,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "src_gammaforge_models_kascade_kascade_adapter_bunch_to_kascade_electrons",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": "_bunch_to_kascade_electrons()"
     },
     {
@@ -4292,8 +4292,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_kascade_kascade_adapter_rationale_1",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "modeladapter wrapping the existing kascade engine.  moves today's ``config``/``r"
     },
     {
@@ -4303,8 +4303,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "src_gammaforge_models_kascade_kascade_adapter_rationale_30",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": "convert a bunch into the plain dict kascade.run_simulation's     ``electrons`` p"
     },
     {
@@ -5114,7 +5114,7 @@
       "label": "_get_numba_kernel()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L482",
+      "source_location": "L495",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_get_numba_kernel",
       "community": 3,
@@ -5125,7 +5125,7 @@
       "label": "_push_and_sample_numba()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L559",
+      "source_location": "L572",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
       "community": 3,
@@ -5268,9 +5268,9 @@
       "label": "Lazily compiles and caches the numba kernel so importing particles.py     doesn'",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L483",
+      "source_location": "L496",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_particles_rationale_483",
+      "id": "src_gammaforge_models_xigma_i_particles_rationale_496",
       "community": 3,
       "community_name": "Laser Overlap",
       "norm_label": "lazily compiles and caches the numba kernel so importing particles.py     doesn'"
@@ -5279,9 +5279,9 @@
       "label": "Per-particle @numba.njit(parallel=True) form of push_and_sample: same     physic",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L560",
+      "source_location": "L573",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_particles_rationale_560",
+      "id": "src_gammaforge_models_xigma_i_particles_rationale_573",
       "community": 3,
       "community_name": "Laser Overlap",
       "norm_label": "per-particle @numba.njit(parallel=true) form of push_and_sample: same     physic"
@@ -6294,8 +6294,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_validation_scenarios",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "scenarios.py"
     },
     {
@@ -6316,8 +6316,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "src_gammaforge_validation_scenarios_baseline",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "_baseline()"
     },
     {
@@ -6327,8 +6327,8 @@
       "source_location": "L136",
       "_origin": "ast",
       "id": "src_gammaforge_validation_scenarios_scaled",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "_scaled()"
     },
     {
@@ -6360,8 +6360,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_validation_scenarios_rationale_1",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "shared physical scenarios for the cross-model validation suite.  only kascade ha"
     },
     {
@@ -6921,8 +6921,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_derived_quantities_are_sane",
-      "community": 36,
-      "community_name": "ValueError",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "test_derived_quantities_are_sane()"
     },
     {
@@ -6987,8 +6987,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_validate_rejects_nonpositive_fields",
-      "community": 36,
-      "community_name": "ValueError",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "test_validate_rejects_nonpositive_fields()"
     },
     {
@@ -6998,8 +6998,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_validate_warns_on_suspicious_emittance",
-      "community": 36,
-      "community_name": "ValueError",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "test_validate_warns_on_suspicious_emittance()"
     },
     {
@@ -7141,7 +7141,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "tests_io_tests_test_conversions_test_time_round_trip",
-      "community": 30,
+      "community": 45,
       "community_name": "units.py",
       "norm_label": "test_time_round_trip()"
     },
@@ -7185,8 +7185,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_test_sdds_round_trip_preserves_bunch_statistics",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 7,
+      "community_name": "Laser Specifications",
       "norm_label": "test_sdds_round_trip_preserves_bunch_statistics()"
     },
     {
@@ -7196,8 +7196,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_test_spec_example_electron_beam_yaml_round_trips",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "test_spec_example_electron_beam_yaml_round_trips()"
     },
     {
@@ -7207,7 +7207,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_test_spec_example_laser_yaml_round_trips",
-      "community": 37,
+      "community": 54,
       "community_name": "test_laser.py",
       "norm_label": "test_spec_example_laser_yaml_round_trips()"
     },
@@ -7691,8 +7691,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testcanonicalsampling",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "testcanonicalsampling"
     },
     {
@@ -7746,8 +7746,8 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testdrift",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "testdrift"
     },
     {
@@ -7801,8 +7801,8 @@
       "source_location": "L232",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitting",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "testfitting"
     },
     {
@@ -7823,8 +7823,8 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitting_test_fit_with_drift",
-      "community": 35,
-      "community_name": "drift",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": ".test_fit_with_drift()"
     },
     {
@@ -7845,8 +7845,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitting_test_chirp_is_finite",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": ".test_chirp_is_finite()"
     },
     {
@@ -7856,8 +7856,8 @@
       "source_location": "L297",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitquality",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 44,
+      "community_name": "TestFitQuality",
       "norm_label": "testfitquality"
     },
     {
@@ -7900,8 +7900,8 @@
       "source_location": "L380",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testintegration",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "testintegration"
     },
     {
@@ -7922,8 +7922,8 @@
       "source_location": "L425",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testintegration_test_sample_gaussian_bunch_delegates",
-      "community": 7,
-      "community_name": "Laser Specifications",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": ".test_sample_gaussian_bunch_delegates()"
     },
     {
@@ -7966,8 +7966,8 @@
       "source_location": "L511",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testedgecases_test_small_number_of_particles",
-      "community": 18,
-      "community_name": "sample_gaussian_canonical",
+      "community": 19,
+      "community_name": "test_bunch_improvements.py",
       "norm_label": ".test_small_number_of_particles()"
     },
     {
@@ -7977,8 +7977,8 @@
       "source_location": "L526",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "testchirpanddispersion"
     },
     {
@@ -7988,8 +7988,8 @@
       "source_location": "L533",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_chirp_creates_z_gamma_correlation",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_chirp_creates_z_gamma_correlation()"
     },
     {
@@ -7999,8 +7999,8 @@
       "source_location": "L564",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_chirp_sign",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_chirp_sign()"
     },
     {
@@ -8010,8 +8010,8 @@
       "source_location": "L609",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_chirp_mass_shell",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_chirp_mass_shell()"
     },
     {
@@ -8021,8 +8021,8 @@
       "source_location": "L645",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_dispersion_x_creates_correlation",
-      "community": 18,
-      "community_name": "sample_gaussian_canonical",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_dispersion_x_creates_correlation()"
     },
     {
@@ -8032,8 +8032,8 @@
       "source_location": "L669",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_dispersion_sign",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_dispersion_sign()"
     },
     {
@@ -8043,8 +8043,8 @@
       "source_location": "L710",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_dispersion_mass_shell",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_dispersion_mass_shell()"
     },
     {
@@ -8054,8 +8054,8 @@
       "source_location": "L742",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_chirp_and_dispersion_together",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_chirp_and_dispersion_together()"
     },
     {
@@ -8065,8 +8065,8 @@
       "source_location": "L774",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_no_chirp_dispersion_default",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_no_chirp_dispersion_default()"
     },
     {
@@ -8076,8 +8076,8 @@
       "source_location": "L789",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_too_strong_correlations_raise",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_too_strong_correlations_raise()"
     },
     {
@@ -8087,8 +8087,8 @@
       "source_location": "L814",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_gamma_total_variance_preserved",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": ".test_gamma_total_variance_preserved()"
     },
     {
@@ -8153,8 +8153,8 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_85",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "test canonical sampling with mass-shell enforcement."
     },
     {
@@ -8208,8 +8208,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_152",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "test vacuum propagation."
     },
     {
@@ -8263,8 +8263,8 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_233",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "test structured gaussian fitting."
     },
     {
@@ -8285,8 +8285,8 @@
       "source_location": "L251",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_251",
-      "community": 35,
-      "community_name": "drift",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "verify fitting works correctly with drifted beam."
     },
     {
@@ -8307,8 +8307,8 @@
       "source_location": "L279",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_279",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 18,
+      "community_name": "sample_gaussian_canonical",
       "norm_label": "verify chirp is computed and finite for uncorrelated sampling."
     },
     {
@@ -8318,8 +8318,8 @@
       "source_location": "L298",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_298",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 44,
+      "community_name": "TestFitQuality",
       "norm_label": "test fit quality evaluation metrics."
     },
     {
@@ -8362,8 +8362,8 @@
       "source_location": "L381",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_381",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "end-to-end integration tests."
     },
     {
@@ -8384,8 +8384,8 @@
       "source_location": "L426",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_426",
-      "community": 7,
-      "community_name": "Laser Specifications",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "verify sample_gaussian_bunch delegates to canonical sampling."
     },
     {
@@ -8428,8 +8428,8 @@
       "source_location": "L512",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_512",
-      "community": 18,
-      "community_name": "sample_gaussian_canonical",
+      "community": 19,
+      "community_name": "test_bunch_improvements.py",
       "norm_label": "test with very small number of particles."
     },
     {
@@ -8439,8 +8439,8 @@
       "source_location": "L527",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_527",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "test chirp and dispersion correlations in sampling."
     },
     {
@@ -8450,8 +8450,8 @@
       "source_location": "L534",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_534",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify chirp creates measurable z-\u03b3 correlation."
     },
     {
@@ -8461,8 +8461,8 @@
       "source_location": "L565",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_565",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify chirp sign is respected."
     },
     {
@@ -8472,8 +8472,8 @@
       "source_location": "L610",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_610",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify mass-shell holds with chirp."
     },
     {
@@ -8483,8 +8483,8 @@
       "source_location": "L646",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_646",
-      "community": 18,
-      "community_name": "sample_gaussian_canonical",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify x-\u03b3 dispersion creates measurable correlation."
     },
     {
@@ -8494,8 +8494,8 @@
       "source_location": "L670",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_670",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify dispersion sign is respected."
     },
     {
@@ -8505,8 +8505,8 @@
       "source_location": "L711",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_711",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify mass-shell holds with dispersion."
     },
     {
@@ -8516,8 +8516,8 @@
       "source_location": "L743",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_743",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify chirp and dispersion work together."
     },
     {
@@ -8527,8 +8527,8 @@
       "source_location": "L775",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_775",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify default (no chirp/dispersion) gives zero correlations."
     },
     {
@@ -8538,8 +8538,8 @@
       "source_location": "L790",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_790",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify error on too-strong chirp/dispersion."
     },
     {
@@ -8549,8 +8549,8 @@
       "source_location": "L815",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_815",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 36,
+      "community_name": "ValueError",
       "norm_label": "verify total marginal variance of gamma is preserved."
     },
     {
@@ -8642,10 +8642,21 @@
       "norm_label": "test_cupy_oom_retry_halves_chunk_and_succeeds()"
     },
     {
+      "label": "test_cupy_oom_retry_covers_diagnostics_binning_too()",
+      "file_type": "code",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L140",
+      "_origin": "ast",
+      "id": "tests_test_xigma_chunking_test_cupy_oom_retry_covers_diagnostics_binning_too",
+      "community": 16,
+      "community_name": "cache.py",
+      "norm_label": "test_cupy_oom_retry_covers_diagnostics_binning_too()"
+    },
+    {
       "label": "test_estimate_chunk_size_numpy_returns_n_particles_unchanged()",
       "file_type": "code",
       "source_file": "tests/test_xigma_chunking.py",
-      "source_location": "L139",
+      "source_location": "L161",
       "_origin": "ast",
       "id": "tests_test_xigma_chunking_test_estimate_chunk_size_numpy_returns_n_particles_unchanged",
       "community": 16,
@@ -8656,7 +8667,7 @@
       "label": "test_estimate_chunk_size_cupy_bounded_by_n_particles()",
       "file_type": "code",
       "source_file": "tests/test_xigma_chunking.py",
-      "source_location": "L145",
+      "source_location": "L167",
       "_origin": "ast",
       "id": "tests_test_xigma_chunking_test_estimate_chunk_size_cupy_bounded_by_n_particles",
       "community": 16,
@@ -8695,6 +8706,17 @@
       "community": 16,
       "community_name": "cache.py",
       "norm_label": "a chunk sized too large to fit in memory (but < n_particles, so the     chunked/"
+    },
+    {
+      "label": "Regression test for a review finding: the OOM-retry halving must     protect the",
+      "file_type": "rationale",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L141",
+      "_origin": "ast",
+      "id": "tests_test_xigma_chunking_rationale_141",
+      "community": 16,
+      "community_name": "cache.py",
+      "norm_label": "regression test for a review finding: the oom-retry halving must     protect the"
     },
     {
       "label": "README.md",
@@ -9638,9 +9660,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 48,
       "norm_label": "sample_gaussian_canonical",
-      "community_name": "TabulatedEngine",
+      "community_name": "build_params (CGS CollisionParams)",
       "id": "io_sample_gaussian_canonical"
     },
     {
@@ -9778,9 +9800,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 68,
+      "community": 25,
       "norm_label": "detect_device()",
-      "community_name": "spectrum_kernel_4d (GPU kernel)",
+      "community_name": "TabulatedEngine",
       "id": "misc_detect_device"
     },
     {
@@ -9862,9 +9884,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 68,
+      "community": 25,
       "norm_label": "spectrum_kernel_4d (gpu kernel)",
-      "community_name": "spectrum_kernel_4d (GPU kernel)",
+      "community_name": "TabulatedEngine",
       "id": "docs_models_xigma_i_spectrum_kernel_4d"
     },
     {
@@ -9876,9 +9898,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 68,
+      "community": 25,
       "norm_label": "spectrum4d_cpu (numba fallback)",
-      "community_name": "spectrum_kernel_4d (GPU kernel)",
+      "community_name": "TabulatedEngine",
       "id": "docs_models_xigma_i_spectrum4d_cpu"
     },
     {
@@ -10128,9 +10150,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 68,
+      "community": 25,
       "norm_label": "~2\u03c0 angular-spectrum residual (open)",
-      "community_name": "spectrum_kernel_4d (GPU kernel)",
+      "community_name": "TabulatedEngine",
       "id": "concept_2pi_residual"
     },
     {
@@ -10226,9 +10248,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 42,
       "norm_label": "xigma-i passport (v0.1)",
-      "community_name": "TabulatedEngine",
+      "community_name": "gui_adapter.py (bridge into compton_gui as pluggable ModelAdapter)",
       "id": "docs_models_xigma_passport"
     },
     {
@@ -10464,9 +10486,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 48,
       "norm_label": "macrobunch",
-      "community_name": "TabulatedEngine",
+      "community_name": "build_params (CGS CollisionParams)",
       "id": "io_macro_bunch"
     },
     {
@@ -10548,9 +10570,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 42,
       "norm_label": "xigma four-stage pipeline (stage 0-2 + validation)",
-      "community_name": "TabulatedEngine",
+      "community_name": "gui_adapter.py (bridge into compton_gui as pluggable ModelAdapter)",
       "id": "concept_four_stage_pipeline"
     },
     {
@@ -10562,9 +10584,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 42,
       "norm_label": "tabulated overlap table h[gamma, theta_x, theta_y, a0]",
-      "community_name": "TabulatedEngine",
+      "community_name": "gui_adapter.py (bridge into compton_gui as pluggable ModelAdapter)",
       "id": "concept_tabulated_overlap_table"
     },
     {
@@ -19641,7 +19663,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L578",
+      "source_location": "L591",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
@@ -27391,7 +27413,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L482",
+      "source_location": "L495",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles",
@@ -27435,7 +27457,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L559",
+      "source_location": "L572",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles",
@@ -27687,7 +27709,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L575",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
@@ -27802,7 +27824,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L582",
+      "source_location": "L595",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
@@ -27813,10 +27835,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L483",
+      "source_location": "L496",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_particles_rationale_483",
+      "source": "src_gammaforge_models_xigma_i_particles_rationale_496",
       "target": "src_gammaforge_models_xigma_i_particles_get_numba_kernel",
       "confidence_score": 1.0
     },
@@ -27824,10 +27846,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L560",
+      "source_location": "L573",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_particles_rationale_560",
+      "source": "src_gammaforge_models_xigma_i_particles_rationale_573",
       "target": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
       "confidence_score": 1.0
     },
@@ -33107,6 +33129,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L140",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_xigma_chunking",
+      "target": "tests_test_xigma_chunking_test_cupy_oom_retry_covers_diagnostics_binning_too",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_xigma_chunking.py",
       "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast",
@@ -33118,7 +33151,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_xigma_chunking.py",
-      "source_location": "L145",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_xigma_chunking",
@@ -33129,7 +33162,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_xigma_chunking.py",
-      "source_location": "L139",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_xigma_chunking",
@@ -33198,6 +33231,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L152",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_xigma_chunking_test_cupy_oom_retry_covers_diagnostics_binning_too",
+      "target": "tests_test_xigma_chunking_kwargs_for",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_xigma_chunking.py",
       "source_location": "L133",
       "weight": 1.0,
       "_origin": "ast",
@@ -33258,6 +33303,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L151",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_xigma_chunking_test_cupy_oom_retry_covers_diagnostics_binning_too",
+      "target": "tests_test_xigma_chunking_bunch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_xigma_chunking.py",
       "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast",
@@ -33309,6 +33366,17 @@
       "_origin": "ast",
       "source": "tests_test_xigma_chunking_rationale_128",
       "target": "tests_test_xigma_chunking_test_cupy_oom_retry_halves_chunk_and_succeeds",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L141",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_xigma_chunking_rationale_141",
+      "target": "tests_test_xigma_chunking_test_cupy_oom_retry_covers_diagnostics_binning_too",
       "confidence_score": 1.0
     },
     {
@@ -38417,5 +38485,5 @@
       "source_file": "docs/refactor/core-simulation-api.md"
     }
   ],
-  "built_at_commit": "2ef47259b1936ddf72597b9078ade1f8033dd878"
+  "built_at_commit": "be3c6c665aea8a19fd789b14dc64e045b2a9a755"
 }

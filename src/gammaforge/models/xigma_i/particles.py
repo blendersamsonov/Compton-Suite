@@ -432,6 +432,23 @@ def _push_and_sample_vectorized(k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las,
                 x0[sl], y0[sl], z0[sl], theta_x[sl], theta_y[sl], weight,
                 t0_local[sl], t1_local[sl], n_steps,
                 w0, zT, z_rayleigh, beta_ff, N_l, ellipticity, sigma_T, k0, xp)
+            # Binning runs inside the SAME try block as the integration step,
+            # not after it: _bin_temporal/_bin_spatial allocate their own
+            # (chunk, n_steps)-sized temporaries on top of contribution_c/
+            # t_c/x_c/y_c (still alive at this point), comparable in size to
+            # the integration step's own -- and both adapters always request
+            # diagnostics (XigmaAdapter/DirectAdapter default n_time_bins/
+            # n_spatial_bins to non-None), so this is the codepath real runs
+            # actually take. An OOM here needs the same halve-and-retry
+            # coverage as the integration step, or the retry loop protects a
+            # path nothing calls in practice.
+            time_env_c = spat_env_c = None
+            if want_time:
+                t_edges_out, time_env_c = _bin_temporal(
+                    contribution_c, t_c, t0_local[sl], t1_local[sl], t_edges, n_time_bins, omega_las, xp)
+            if want_spatial:
+                sx_edges_out, sy_edges_out, spat_env_c = _bin_spatial(
+                    contribution_c, x_c, y_c, spatial_edges, n_spatial_bins, k0, sigma_ex, sigma_ey, sigma_lr0, xp)
         except oom_exc:
             if halvings >= _MAX_OOM_HALVINGS or cur_chunk <= 1:
                 raise
@@ -443,12 +460,8 @@ def _push_and_sample_vectorized(k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las,
         a0_parts.append(a0_c)
         L_parts.append(L_c)
         if want_time:
-            t_edges_out, time_env_c = _bin_temporal(
-                contribution_c, t_c, t0_local[sl], t1_local[sl], t_edges, n_time_bins, omega_las, xp)
             time_envelope_total = time_env_c if time_envelope_total is None else time_envelope_total + time_env_c
         if want_spatial:
-            sx_edges_out, sy_edges_out, spat_env_c = _bin_spatial(
-                contribution_c, x_c, y_c, spatial_edges, n_spatial_bins, k0, sigma_ex, sigma_ey, sigma_lr0, xp)
             spatial_envelope_total = spat_env_c if spatial_envelope_total is None else spatial_envelope_total + spat_env_c
 
         if is_cupy:
