@@ -106,17 +106,23 @@ class Config:
     values, so they don't belong on the shared ``GaussianParaxialLaser``
     itself).
 
-    Collision geometry (foci displacement, crossing angle) and the
-    classical/quantum toggle are kascade-owned fields, not part of the
-    shared ``InteractionParameters`` bundle: not every model supports a
-    nonzero/True value (xigma_i/delta are head-on-only with no quantum
-    toggle today), so each model owns what it can actually act on instead
-    of the shared bundle carrying fields most models ignore.
+    Foci-displacement geometry and the classical/quantum toggle are
+    kascade-owned fields, not part of the shared ``InteractionParameters``
+    bundle: not every model supports a nonzero/True value (xigma_i/delta
+    are head-on-only with no quantum toggle today), so each model owns what
+    it can actually act on instead of the shared bundle carrying fields
+    most models ignore. ``crossing_angle`` is the one exception: it's
+    copied here from the shared ``interaction.laser.crossing_angle``
+    (``kascade_adapter.py``'s ``run()``) purely so this module's physics
+    functions (``laser_axis``, ``cos_collision``, ...) can read it off
+    ``cfg`` like every other geometry field -- the GUI's Laser panel, not
+    kascade's own Model-Parameters panel, is its actual input.
     """
 
     interaction: _InteractionParameters
 
-    # ---- collision geometry (kascade-owned) -------------------------------
+    # ---- collision geometry (delta_x/y/z kascade-owned; crossing_angle
+    # sourced from the shared laser, see docstring above) -------------------
     crossing_angle: float = 0.0        # rad; laser tilt from head-on counter-propagation
     delta_x: float = 0.0               # m; laser focus offset from the interaction point
     delta_y: float = 0.0

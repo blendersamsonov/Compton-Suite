@@ -24,6 +24,7 @@ from gammaforge.io.io_formats.yaml_spec import (  # noqa: E402
 )
 from gammaforge.io.laser import GaussianParaxialLaser  # noqa: E402
 from gammaforge.io.units import (  # noqa: E402
+    NoConvention,
     PhysicalMeaning,
     PhysicalQuantity,
     TimeConvention,
@@ -98,6 +99,41 @@ electron_beam:
         reloaded = load_electron_beam(path)
     assert abs(reloaded.bunch_charge_C.to_unit("coulomb").magnitude
                / beam.bunch_charge_C.to_unit("coulomb").magnitude - 1.0) < 1e-9
+    # v0.1-minimal example has none of chirp_h/dispersion_x/dispersion_y/
+    # alpha_x/alpha_y -- confirm they default to 0.0, not crash on missing keys.
+    assert reloaded.chirp_h == 0.0
+    assert reloaded.dispersion_x == 0.0
+    assert reloaded.dispersion_y == 0.0
+    assert reloaded.alpha_x == 0.0
+    assert reloaded.alpha_y == 0.0
+
+
+def test_electron_beam_yaml_round_trips_chirp_dispersion_alpha():
+    beam = GaussianElectronBeam(
+        bunch_charge_C=PhysicalQuantity(100e-12, "coulomb", PhysicalMeaning.BUNCH_CHARGE),
+        kinetic_energy_eV=PhysicalQuantity(200e6, "electron_volt", PhysicalMeaning.BEAM_ENERGY),
+        rel_energy_spread_rms=0.001,
+        sigma_x_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+        sigma_y_m=PhysicalQuantity(10e-6, "meter", PhysicalMeaning.ELECTRON_BEAM_SIZE, WidthConvention.SIGMA_INTENSITY_RMS),
+        emit_geom_x_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+        emit_geom_y_m=PhysicalQuantity(0.05e-6, "meter", PhysicalMeaning.EMITTANCE),
+        sigma_t_s=PhysicalQuantity(1e-12, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
+        sigma_pz=0.001,
+        chirp_h=12.5,
+        dispersion_x=0.3,
+        dispersion_y=-0.2,
+        alpha_x=1.1,
+        alpha_y=-0.7,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = str(Path(tmp) / "beam.yaml")
+        save_electron_beam(beam, path)
+        reloaded = load_electron_beam(path)
+    assert abs(reloaded.chirp_h - 12.5) < 1e-9
+    assert abs(reloaded.dispersion_x - 0.3) < 1e-9
+    assert abs(reloaded.dispersion_y - (-0.2)) < 1e-9
+    assert abs(reloaded.alpha_x - 1.1) < 1e-9
+    assert abs(reloaded.alpha_y - (-0.7)) < 1e-9
 
 
 def test_spec_example_laser_yaml_round_trips():
@@ -126,6 +162,34 @@ laser:
         save_laser(pulse, path)
         reloaded = load_laser(path)
     assert abs(reloaded.a0_focus / pulse.a0_focus - 1.0) < 1e-9
+    # v0.1-minimal example has none of beta_ff/phi_pol/ellipticity/
+    # crossing_angle -- confirm they default to 0.0, not crash on missing keys.
+    assert reloaded.beta_ff == 0.0
+    assert reloaded.phi_pol == 0.0
+    assert reloaded.ellipticity == 0.0
+    assert reloaded.crossing_angle == 0.0
+
+
+def test_laser_yaml_round_trips_beta_ff_phi_pol_ellipticity_crossing_angle():
+    pulse = GaussianParaxialLaser(
+        pulse_energy_J=PhysicalQuantity(0.05, "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
+        wavelength_m=PhysicalQuantity(0.8e-6, "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
+        waist_rms_x_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        waist_rms_y_m=PhysicalQuantity(2.5e-6, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+        duration_rms_s=PhysicalQuantity(12.74e-15, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
+        beta_ff=0.4,
+        phi_pol=0.6,
+        ellipticity=0.2,
+        crossing_angle=0.05,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        path = str(Path(tmp) / "laser.yaml")
+        save_laser(pulse, path)
+        reloaded = load_laser(path)
+    assert abs(reloaded.beta_ff - 0.4) < 1e-9
+    assert abs(reloaded.phi_pol - 0.6) < 1e-9
+    assert abs(reloaded.ellipticity - 0.2) < 1e-9
+    assert abs(reloaded.crossing_angle - 0.05) < 1e-9
 
 
 if __name__ == "__main__":

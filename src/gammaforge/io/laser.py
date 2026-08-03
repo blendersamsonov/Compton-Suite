@@ -8,10 +8,12 @@ ellipticity), not model-specific parameters, so they live here rather than
 on any individual model's config -- any model that cares reads them
 straight off the shared laser.
 
-Head-on only in v0.1 -- the laser propagates along ``-z``, the electron
-beam along ``+z`` (see ``bunch.py``'s module docstring for the shared
-geometric convention). No crossing angle in this shared representation yet
-(see `docs/models/tasks.md`'s tracked "crossing angle support" item).
+Head-on by default -- the laser propagates along ``-z``, the electron beam
+along ``+z`` (see ``bunch.py``'s module docstring for the shared geometric
+convention); ``crossing_angle`` tilts the laser away from this. Not every
+model supports a nonzero value yet -- kascade does, xigma-i/delta remain
+head-on-only and warn-and-ignore a nonzero ``crossing_angle`` (see
+`docs/models/tasks.md`'s tracked "crossing angle support" item for xigma-i).
 
 KNOWN FUTURE GAP: ``a0_at()``'s energy-to-intensity-to-a0 chain still
 assumes linear polarization and does not yet use ``ellipticity`` -- adding
@@ -78,6 +80,13 @@ class GaussianParaxialLaser:
     ``a0`` is not a settable field: it is derived from pulse energy, waist,
     duration and wavelength via the standard plane-wave relation, so it can
     never disagree with the other fields by construction.
+
+    ``crossing_angle`` (radians) tilts the laser's propagation direction
+    away from head-on counter-propagation against the fixed +z electron
+    beam axis -- a property of the laser's own geometry, not a model-owned
+    knob. Not every model supports a nonzero value yet (xigma-i/delta are
+    head-on-only); those adapters warn and ignore it rather than silently
+    treating it as zero.
     """
 
     pulse_energy_J: PhysicalQuantity
@@ -89,6 +98,7 @@ class GaussianParaxialLaser:
     beta_ff: float = 0.0
     phi_pol: float = 0.0
     ellipticity: float = 0.0
+    crossing_angle: float = 0.0
 
     # -- Gaussian-beam propagation -------------------------------------------
     # Same two-category split as bunch.py's GaussianElectronBeam: genuinely
