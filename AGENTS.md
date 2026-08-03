@@ -289,7 +289,7 @@ python3 src/gammaforge/validation/run_cross_validation.py
 
 - **a0/N_l pass-through**: `CollisionParams.a0`/`.N_l` are now a direct pass-through of `GaussianParaxialLaser.a0_focus`/`.n_photons` (a0/N_l are model-agnostic, available from the input laser). Verified by `validation/tier0_wiring.py`'s `check_a0_N_l_passthrough`.
 
-- **CUDA OOM with large electron bunches in xigma_i/delta**: GPU memory exhaustion when running large n_mc values (e.g. 200k+). `particles.push_and_sample` processes all electrons at once with no batching. Workaround: chunked GPU processing or automatic CPU fallback needed.
+- **~~CUDA OOM with large electron bunches in xigma_i/delta~~ (resolved)**: `particles.push_and_sample(..., chunk=...)` now chunks the O(n_particles * n_steps) trajectory-integration step over particle slices, concatenating outputs (exact, since each particle's trajectory is independent) -- see `particles._integrate_trajectory_core`/`estimate_chunk_size`. `estimate_chunk_size(n_particles, n_steps, backend)` auto-sizes `chunk` from `gammaforge.misc.available_vram_bytes()` (capped at 70%) on `backend='cupy'`; a static per-(particle*step) byte estimate calibrated on a GTX 1660 Ti backs this, with an in-loop OOM-retry (halve remaining chunk size, bounded) as a safety net against the estimate being off. Both `XigmaAdapter`/`DirectAdapter` expose `chunk` via `model_params()` (`0` = auto). `deposition.build_table_streaming` remains a separate, unused utility (chunks bunch *sampling*, not the trajectory integration) -- not wired into either adapter, out of scope here.
 
 ---
 
@@ -311,7 +311,7 @@ In priority order, as recorded in `docs/gui/tasks.md` and `docs/models/tasks.md`
 
 ### Xigma-i
 
-- [ ] **Streaming GPU usage:** query VRAM, cap allocation at ~70%.
+- [x] **Streaming GPU usage:** query VRAM, cap allocation at ~70%. (`particles.push_and_sample(..., chunk=...)` + `particles.estimate_chunk_size()`, see "Open items" above.)
 - [ ] **Crossing angle support** (should only change the polarization factor).
 - [ ] **Rename:** drop "-i" suffix → just "XIGMA". (Note: the adapter's display name is already `"XIGMA"`; the registry key and package name themselves still say `xigma_i`/`xigma-i`.)
 - [ ] **Gamma-axis rescaling** analogous to a0 rescaling, to vary mean energy without recomputing Stages 0-1.

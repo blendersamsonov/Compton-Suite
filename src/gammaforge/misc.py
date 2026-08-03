@@ -43,3 +43,15 @@ def to_host(x, device: str):
     """Bring an array back to host (numpy) if it's on-device (cupy);
     a no-op for CPU-resident arrays."""
     return x.get() if device == 'gpu' else x
+
+
+def available_vram_bytes() -> int | None:
+    """Free GPU memory in bytes via cupy, or None if no GPU/cupy usable --
+    the one place any model queries VRAM for auto-sizing a chunk/batch."""
+    if not _HAS_CUPY:
+        return None
+    try:
+        free, _total = cp.cuda.Device().mem_info
+        return int(free)
+    except Exception:
+        return None

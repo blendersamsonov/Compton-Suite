@@ -140,6 +140,43 @@ def test_model(name: str, adapter) -> bool:
     return ok
 
 
+def test_chunk_override(name: str, adapter) -> bool:
+    """xigma-i/delta only: model_params() must expose a 'chunk' key (the
+    "query VRAM, cap allocation at ~70%" backlog item, see CLAUDE.md's
+    former "CUDA OOM" open item), and an explicit small chunk override
+    must agree with the default (chunk=0, i.e. auto-sized) run -- chunking
+    is an exact repartition of independent per-particle trajectories, not
+    an approximation, so results should match closely, not just "be
+    finite"."""
+    print(f"\n=== {name} (chunk override) ===")
+    keys = [key for _label, _default, key in adapter.model_params()]
+    ok = check("model_params() lists 'chunk'", "chunk" in keys, f"keys={keys}")
+    if not ok:
+        return False
+
+    electrons = sample_gaussian_bunch(_BEAM, n_particles=N_MC, rng=np.random.default_rng(SEED))
+    interaction = InteractionParameters(laser=_LASER, electrons=electrons)
+    extra_default = {key: default for _label, default, key in adapter.model_params()}
+
+    extra_chunked = dict(extra_default)
+    extra_chunked["chunk"] = max(1, N_MC // 4)
+
+    try:
+        res_default = adapter.run(Job(interaction=interaction, output=OutputSpec(), seed=SEED, extra=extra_default))
+        res_chunked = adapter.run(Job(interaction=interaction, output=OutputSpec(), seed=SEED, extra=extra_chunked))
+    except Exception as e:
+        print(f"  [FAIL] run() with chunk override raised: {e}")
+        traceback.print_exc()
+        return False
+
+    y_default, y_chunked = total_yield(res_default), total_yield(res_chunked)
+    ratio = (y_chunked / y_default) if y_default else float("nan")
+    ok &= check("total_yield with explicit chunk matches default (auto) run",
+                np.isfinite(ratio) and 0.999 < ratio < 1.001, f"ratio={ratio:.6g}")
+    print(f"  -> {name} (chunk override): {'ALL PASS' if ok else 'FAILURES ABOVE'}")
+    return ok
+
+
 def test_preview_alongside(models: dict) -> bool:
     """Mirrors app.py's on_start(): the always-on analytical preview runs
     alongside whichever other model is selected, reusing the SAME sampled
@@ -184,6 +221,9 @@ def main() -> int:
             print(f"\n=== {name} ===\n  SKIPPED (not available)")
             continue
         all_ok &= test_model(name, models[name])
+    for name in ("xigma-i", "delta"):
+        if name in models:
+            all_ok &= test_chunk_override(name, models[name])
     all_ok &= test_preview_alongside(models)
     print("\n" + ("=" * 40))
     print("RESULT:", "ALL PASS" if all_ok else "SOME FAILURES")

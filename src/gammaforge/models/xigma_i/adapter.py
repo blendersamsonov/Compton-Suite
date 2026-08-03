@@ -109,6 +109,7 @@ class XigmaAdapter:
         self.n_bins_a0 = 12
         self.a0_max = DEFAULT_A0_MAX
         self.samples_per_point_2 = 32
+        self.chunk = 0  # 0 = auto-size from free VRAM, see particles.estimate_chunk_size
 
         # Recompute-cache state, populated by run() -- lets
         # spectrum_in_angular_range() reuse the already-built table without
@@ -128,12 +129,14 @@ class XigmaAdapter:
             ("Grid bins: a0", self.n_bins_a0, "n_bins_a0"),
             ("a0_max (model valid range)", self.a0_max, "a0_max"),
             ("Stage 2 samples/point", self.samples_per_point_2, "samples_per_point_2"),
+            ("Particle chunk size (0=auto from VRAM)", self.chunk, "chunk"),
         ]
 
     def model_choices(self) -> dict[str, list[str]]:
         return {"device_preference": ["auto", "gpu", "cpu"]}
 
     def run(self, job: Job) -> Results:
+        from . import particles
         from .tabulated_engine import TabulatedEngine
 
         extra = job.extra
@@ -145,6 +148,7 @@ class XigmaAdapter:
         self.n_bins_a0 = int(float(extra.get("n_bins_a0", self.n_bins_a0)))
         self.a0_max = float(extra.get("a0_max", self.a0_max))
         self.samples_per_point_2 = int(float(extra.get("samples_per_point_2", self.samples_per_point_2)))
+        self.chunk = int(float(extra.get("chunk", self.chunk)))
 
         self.interaction = job.interaction
         electrons = job.interaction.electrons
@@ -174,10 +178,12 @@ class XigmaAdapter:
 
         n_particles_new = electrons.n_particles
         n_bins = (self.n_bins_gamma, self.n_bins_theta_x, self.n_bins_theta_y, self.n_bins_a0)
+        chunk = self.chunk if self.chunk > 0 else particles.estimate_chunk_size(
+            n_particles_new, self.n_steps_0, push_backend)
         engine.run(n_steps=self.n_steps_0,
                    n_bins=n_bins, backend=push_backend, a0_max=self.a0_max,
                    n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins,
-                   bunch=electrons)
+                   bunch=electrons, chunk=chunk)
         total_yield = engine.total_yield
         photon_slices = [PhasespaceSlice(axes={}, distr=np.asarray(total_yield))]
 
@@ -329,6 +335,7 @@ class DirectAdapter:
         self.device_preference = "auto"
         self.n_steps_0 = 64
         self.n_theta_grid = 9
+        self.chunk = 0  # 0 = auto-size from free VRAM, see particles.estimate_chunk_size
 
         # Recompute-cache state, populated by run() -- the raw per-particle
         # arrays needed for spectrum_in_angular_range()'s on-demand requery
@@ -348,6 +355,7 @@ class DirectAdapter:
             ("Device (auto/gpu/cpu)", self.device_preference, "device_preference"),
             ("Stage 0 trajectory steps", self.n_steps_0, "n_steps_0"),
             ("Angular-spectrum grid points/axis", self.n_theta_grid, "n_theta_grid"),
+            ("Particle chunk size (0=auto from VRAM)", self.chunk, "chunk"),
         ]
 
     def model_choices(self) -> dict[str, list[str]]:
@@ -365,6 +373,7 @@ class DirectAdapter:
         self.device_preference = str(extra.get("device_preference", self.device_preference))
         self.n_steps_0 = int(float(extra.get("n_steps_0", self.n_steps_0)))
         self.n_theta_grid = int(float(extra.get("n_theta_grid", self.n_theta_grid)))
+        self.chunk = int(float(extra.get("chunk", self.chunk)))
 
         self.interaction = job.interaction
         electrons = job.interaction.electrons
@@ -385,6 +394,8 @@ class DirectAdapter:
         push_backend = 'cupy' if device == 'gpu' else 'numpy'
         n_time_bins = time_req.bins[0] if time_req is not None else 128
         n_spatial_bins = space_req.bins if space_req is not None else (64, 64)
+        chunk = self.chunk if self.chunk > 0 else particles.estimate_chunk_size(
+            n_particles_new, self.n_steps_0, push_backend)
         gamma, tx, ty, a0_shape, w, diagnostics = particles.push_and_sample(
             electrons,
             k0_las=(2.0 * np.pi / laser.wavelength_m.quantity).to("1 / centimeter").magnitude,
@@ -396,7 +407,7 @@ class DirectAdapter:
             sigma_ex=beam.sigma_x_m.to_unit("centimeter").magnitude,
             sigma_ey=beam.sigma_y_m.to_unit("centimeter").magnitude,
             n_steps=self.n_steps_0, backend=push_backend,
-            n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins)
+            n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins, chunk=chunk)
         a0_val = laser.a0_focus
         a0 = a0_shape * a0_val ** 2   # exact per-particle retarget (no table/binning needed)
 

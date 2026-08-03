@@ -57,7 +57,7 @@ class TabulatedEngine:
 
     def run(self, *, n_steps=100, n_bins=(48, 48, 48, 12), scheme='nearest',
             backend='numpy', a0_max=DEFAULT_A0_MAX,
-            n_time_bins=None, n_spatial_bins=None, bunch):
+            n_time_bins=None, n_spatial_bins=None, bunch, chunk=None):
         """Stage 0 (particles.push_and_sample) + Stage 1
         (deposition.build_table, a0_kind='shape') + retarget to this
         collision's actual a0 (deposition.retarget_a0) -- one physical,
@@ -78,6 +78,10 @@ class TabulatedEngine:
         t_edges/spatial_edges override exposed here; construct via
         particles.push_and_sample directly if a specific window is needed).
 
+        chunk (optional): forwarded to push_and_sample -- see that
+        function's docstring and particles.estimate_chunk_size for
+        auto-sizing this from free VRAM on backend='cupy'.
+
         bunch: a gammaforge.io.bunch.Bunch (SI) to push -- required,
         keyword-only. Electron sampling is the caller's job, not this
         engine's: there is exactly one place electron bunches get drawn
@@ -97,7 +101,7 @@ class TabulatedEngine:
             sigma_ex=beam.sigma_x_m.to_unit("centimeter").magnitude,
             sigma_ey=beam.sigma_y_m.to_unit("centimeter").magnitude,
             n_steps=n_steps, backend=backend,
-            n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins)
+            n_time_bins=n_time_bins, n_spatial_bins=n_spatial_bins, chunk=chunk)
         if n_time_bins is not None or n_spatial_bins is not None:
             gamma, tx, ty, a0_shape, w, diagnostics = result
         else:

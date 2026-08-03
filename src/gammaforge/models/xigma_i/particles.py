@@ -27,11 +27,27 @@ from dataclasses import dataclass
 
 from gammaforge.io.laser import GaussianParaxialLaser
 from gammaforge.io.bunch import ballistic_position_z0_reference, laser_overlap_time_window
+from gammaforge.misc import available_vram_bytes
 
 from .config import GAUSS_WIDTH, LORENTZ_WIDTH
 
 V_REL = 2.0  # relative-velocity factor for near-backscattering geometry
 _M_TO_CM = 100.0
+
+# push_and_sample(..., chunk=...)'s OOM-retry bound: halve the remaining
+# chunk size on a cupy OutOfMemoryError, up to this many times, before
+# giving up and re-raising -- robust to the static byte estimate below
+# being off (other GPU processes, driver/cupy-version drift).
+_MAX_OOM_HALVINGS = 6
+
+# Calibrated on a GTX 1660 Ti (6GB, cupy 14.0.1): push_and_sample(backend=
+# 'cupy') at n_steps=64 succeeded at 400,000 particles, OOM'd at 800,000
+# ("Out of memory allocating 409,600,000 bytes" for n=800_000,
+# n_steps=64), i.e. ~113 bytes per (particle x step) -- consistent with
+# roughly 14 concurrently-live (n, n_steps) float64 temporaries in
+# _integrate_trajectory_core. Rounded up here for headroom against other
+# GPU processes / cupy-version drift.
+_BYTES_PER_PARTICLE_STEP = 200
 
 
 @dataclass
@@ -171,11 +187,36 @@ def _normalise_bunch(k0_las, N_e, macrobunch, xp):
     return x0, y0, z0, gamma, theta_x, theta_y, weight
 
 
+def estimate_chunk_size(n_particles, n_steps, backend, safety_frac=0.7):
+    """Auto-sized ``chunk`` for ``push_and_sample``'s cupy path, from
+    currently free VRAM (``gammaforge.misc.available_vram_bytes``), capped
+    at ``safety_frac`` of that headroom -- the "query VRAM, cap allocation
+    at ~70%" backlog item (docs/models/tasks.md).
+
+    Returns ``n_particles`` unchanged (i.e. "don't chunk") for
+    ``backend != 'cupy'`` (the numpy/numba paths aren't the documented OOM
+    problem -- numba's own per-particle compiled loop already avoids the
+    O(n*n_steps) blowup, and plain numpy is bounded by system RAM, not the
+    much tighter VRAM budget this estimates) or if the VRAM query fails
+    (no GPU/cupy usable) -- the caller can still pass an explicit
+    ``chunk`` in that case.
+    """
+    if backend != 'cupy':
+        return n_particles
+    free_bytes = available_vram_bytes()
+    if free_bytes is None:
+        return n_particles
+    budget = free_bytes * safety_frac
+    chunk = int(budget / (_BYTES_PER_PARTICLE_STEP * n_steps))
+    return max(1, min(chunk, n_particles))
+
+
 def push_and_sample(macrobunch, *, k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las,
                      N_l, ellipticity, N_e, sigma_ex, sigma_ey,
                      n_steps=200, backend='numpy',
                      n_time_bins=None, t_edges=None,
-                     n_spatial_bins=None, spatial_edges=None):
+                     n_spatial_bins=None, spatial_edges=None,
+                     chunk=None):
     """Ballistically push each macroparticle and emit one sample per particle.
 
     Every physics scalar (``k0_las``, ``beta_ff``, ``sigma_lr0``,
@@ -225,18 +266,29 @@ def push_and_sample(macrobunch, *, k0_las, beta_ff, sigma_lr0, sigma_lz, omega_l
     unpacks; if either is given, a 6th value (PushDiagnostics) is appended.
     Only supported for backend='numpy'/'cupy' -- see
     _push_and_sample_numba's docstring for why numba doesn't implement this.
+
+    chunk: if given (and less than n_particles), the O(n_particles *
+    n_steps) trajectory-integration step runs on `chunk`-sized slices of
+    the bunch instead of all particles at once, concatenating the small
+    per-particle outputs and summing the (shared-bin) diagnostics
+    histograms across chunks -- since each particle's trajectory is
+    independent (the final reductions are all axis=1, i.e. per-particle),
+    this is an exact repartition, not an approximation. See
+    estimate_chunk_size for auto-sizing this from free VRAM. Ignored for
+    backend='numba' (that backend's own per-particle compiled loop already
+    avoids the O(n*n_steps) blowup this chunks around, see its docstring).
     """
     if backend == 'numpy':
         return _push_and_sample_vectorized(
             k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las, N_l, ellipticity, N_e,
             sigma_ex, sigma_ey, macrobunch, n_steps, np,
-            n_time_bins, t_edges, n_spatial_bins, spatial_edges)
+            n_time_bins, t_edges, n_spatial_bins, spatial_edges, chunk)
     if backend == 'cupy':
         import cupy as cp
         return _push_and_sample_vectorized(
             k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las, N_l, ellipticity, N_e,
             sigma_ex, sigma_ey, macrobunch, n_steps, cp,
-            n_time_bins, t_edges, n_spatial_bins, spatial_edges)
+            n_time_bins, t_edges, n_spatial_bins, spatial_edges, chunk)
     if backend == 'numba':
         if n_time_bins is not None or t_edges is not None or n_spatial_bins is not None or spatial_edges is not None:
             raise NotImplementedError(
@@ -250,24 +302,23 @@ def push_and_sample(macrobunch, *, k0_las, beta_ff, sigma_lr0, sigma_lz, omega_l
     raise ValueError(f"backend must be 'numpy', 'numba', or 'cupy', got {backend!r}")
 
 
-def _push_and_sample_vectorized(k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las, N_l, ellipticity, N_e,
-                                 sigma_ex, sigma_ey, macrobunch, n_steps, xp,
-                                 n_time_bins=None, t_edges=None,
-                                 n_spatial_bins=None, spatial_edges=None):
-    """MUST USE io/bunch.py stream function!!
+def _integrate_trajectory_core(x0, y0, z0, theta_x, theta_y, weight, t0_local, t1_local, n_steps,
+                                w0, zT, z_rayleigh, beta_ff, N_l, ellipticity, sigma_T, k0, xp):
+    """The O(n_particles * n_steps) trajectory-integration math shared by
+    both the unchunked and chunked paths of _push_and_sample_vectorized --
+    every array here scales with whatever per-particle slice it's given
+    (x0/y0/z0/theta_x/theta_y/t0_local/t1_local), with no cross-particle
+    coupling (the reductions below are all axis=1, i.e. per-particle, over
+    the timestep axis). `weight` is the scalar N_e/n_particles_total from
+    _normalise_bunch, NOT sliced -- it's already the correct per-particle
+    weight for the true full population regardless of which/how-many
+    particles this call integrates. Calling this once on the full bunch,
+    or many times on chunks of it, is therefore numerically identical.
+
+    Returns (L, a0_shape, contribution, t, x, y) -- contribution/t/x/y are
+    only needed by the diagnostics binners (_bin_temporal/_bin_spatial);
+    callers that don't want diagnostics can discard them.
     """
-    from .config import sigma_T
-
-    k0 = k0_las
-    w0 = k0 * sigma_lr0
-    zT = k0 * sigma_lz
-    z_rayleigh = 2 * w0 * w0 * (1.0 + beta_ff)
-
-    x0, y0, z0, gamma, theta_x, theta_y, weight = _normalise_bunch(k0_las, N_e, macrobunch, xp)
-
-    t0_local, t1_local = laser_overlap_time_window(
-        z0, k0_las=k0, sigma_lz=sigma_lz, sigma_lr0=sigma_lr0,
-        beta_ff=beta_ff, gauss_width=GAUSS_WIDTH, lorentz_width=LORENTZ_WIDTH, xp=xp)
     span = xp.maximum(0.0, t1_local - t0_local)
     dt = span / n_steps
 
@@ -303,19 +354,125 @@ def _push_and_sample_vectorized(k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las,
     # kwarg support is version-dependent; xp.where is safe on both.
     a0_shape = xp.where(denom > 0, F_pol * (ratio**2).sum(axis=1) / xp.maximum(denom, 1e-300), 0.0)
 
+    return L, a0_shape, contribution, t, x, y
+
+
+def _push_and_sample_vectorized(k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las, N_l, ellipticity, N_e,
+                                 sigma_ex, sigma_ey, macrobunch, n_steps, xp,
+                                 n_time_bins=None, t_edges=None,
+                                 n_spatial_bins=None, spatial_edges=None,
+                                 chunk=None):
+    """MUST USE io/bunch.py stream function!!
+    """
+    from .config import sigma_T
+
+    k0 = k0_las
+    w0 = k0 * sigma_lr0
+    zT = k0 * sigma_lz
+    z_rayleigh = 2 * w0 * w0 * (1.0 + beta_ff)
+
+    x0, y0, z0, gamma, theta_x, theta_y, weight = _normalise_bunch(k0_las, N_e, macrobunch, xp)
+
+    t0_local, t1_local = laser_overlap_time_window(
+        z0, k0_las=k0, sigma_lz=sigma_lz, sigma_lr0=sigma_lr0,
+        beta_ff=beta_ff, gauss_width=GAUSS_WIDTH, lorentz_width=LORENTZ_WIDTH, xp=xp)
+
     want_time = n_time_bins is not None or t_edges is not None
     want_spatial = n_spatial_bins is not None or spatial_edges is not None
+    n = int(x0.shape[0])
+
+    if chunk is None or chunk >= n:
+        L, a0_shape, contribution, t, x, y = _integrate_trajectory_core(
+            x0, y0, z0, theta_x, theta_y, weight, t0_local, t1_local, n_steps,
+            w0, zT, z_rayleigh, beta_ff, N_l, ellipticity, sigma_T, k0, xp)
+        if not want_time and not want_spatial:
+            return gamma, theta_x, theta_y, a0_shape, L
+        diagnostics = PushDiagnostics()
+        if want_time:
+            diagnostics.t_edges, diagnostics.time_envelope = _bin_temporal(
+                contribution, t, t0_local, t1_local, t_edges, n_time_bins, omega_las, xp)
+        if want_spatial:
+            (diagnostics.spatial_x_edges, diagnostics.spatial_y_edges,
+             diagnostics.spatial_envelope) = _bin_spatial(
+                contribution, x, y, spatial_edges, n_spatial_bins, k0, sigma_ex, sigma_ey, sigma_lr0, xp)
+        return gamma, theta_x, theta_y, a0_shape, L, diagnostics
+
+    # Chunked path: resolve shared diagnostics bin edges once from the
+    # FULL bunch's t0_local/t1_local (not per-chunk -- _resolve_time_range/
+    # _resolve_spatial_range auto-derive a window from whatever slice
+    # they're given, which would differ chunk to chunk and make the
+    # per-chunk histograms unsummable). Every chunk below then bins into
+    # these identical edges and the resulting envelopes (already rate/
+    # density, not raw counts -- see _bin_temporal/_bin_spatial) are
+    # directly summable since dt_sec/bin_area depend only on the shared
+    # edges, not on which chunk produced them.
+    if want_time and t_edges is None:
+        t_lo, t_hi, n_tb = _resolve_time_range(t0_local, t1_local, None, n_time_bins, xp)
+        t_edges = xp.linspace(t_lo, t_hi, n_tb + 1)
+    if want_spatial and spatial_edges is None:
+        sx_lo, sx_hi, sy_lo, sy_hi, nsx, nsy = _resolve_spatial_range(
+            k0, sigma_ex, sigma_ey, sigma_lr0, None, n_spatial_bins)
+        spatial_edges = (xp.linspace(sx_lo, sx_hi, nsx + 1), xp.linspace(sy_lo, sy_hi, nsy + 1))
+
+    is_cupy = xp is not np
+    oom_exc = xp.cuda.memory.OutOfMemoryError if is_cupy else ()
+
+    a0_parts, L_parts = [], []
+    time_envelope_total = spatial_envelope_total = None
+    t_edges_out = sx_edges_out = sy_edges_out = None
+
+    start = 0
+    cur_chunk = int(chunk)
+    halvings = 0
+    while start < n:
+        end = min(start + cur_chunk, n)
+        sl = slice(start, end)
+        try:
+            L_c, a0_c, contribution_c, t_c, x_c, y_c = _integrate_trajectory_core(
+                x0[sl], y0[sl], z0[sl], theta_x[sl], theta_y[sl], weight,
+                t0_local[sl], t1_local[sl], n_steps,
+                w0, zT, z_rayleigh, beta_ff, N_l, ellipticity, sigma_T, k0, xp)
+        except oom_exc:
+            if halvings >= _MAX_OOM_HALVINGS or cur_chunk <= 1:
+                raise
+            cur_chunk = max(1, cur_chunk // 2)
+            halvings += 1
+            xp.get_default_memory_pool().free_all_blocks()
+            continue
+
+        a0_parts.append(a0_c)
+        L_parts.append(L_c)
+        if want_time:
+            t_edges_out, time_env_c = _bin_temporal(
+                contribution_c, t_c, t0_local[sl], t1_local[sl], t_edges, n_time_bins, omega_las, xp)
+            time_envelope_total = time_env_c if time_envelope_total is None else time_envelope_total + time_env_c
+        if want_spatial:
+            sx_edges_out, sy_edges_out, spat_env_c = _bin_spatial(
+                contribution_c, x_c, y_c, spatial_edges, n_spatial_bins, k0, sigma_ex, sigma_ey, sigma_lr0, xp)
+            spatial_envelope_total = spat_env_c if spatial_envelope_total is None else spatial_envelope_total + spat_env_c
+
+        if is_cupy:
+            # Same reasoning as deposition.py's chunked branches (_deposit,
+            # build_table_streaming): a memory-constrained GPU has no
+            # headroom for several stale chunks' temporaries plus the
+            # running accumulators -- drop the pool's hold explicitly
+            # rather than trusting GC timing before the next iteration.
+            del L_c, a0_c, contribution_c, t_c, x_c, y_c
+            xp.get_default_memory_pool().free_all_blocks()
+        start = end
+
+    a0_shape = xp.concatenate(a0_parts)
+    L = xp.concatenate(L_parts)
+
     if not want_time and not want_spatial:
         return gamma, theta_x, theta_y, a0_shape, L
 
     diagnostics = PushDiagnostics()
     if want_time:
-        diagnostics.t_edges, diagnostics.time_envelope = _bin_temporal(
-            contribution, t, t0_local, t1_local, t_edges, n_time_bins, omega_las, xp)
+        diagnostics.t_edges, diagnostics.time_envelope = t_edges_out, time_envelope_total
     if want_spatial:
-        (diagnostics.spatial_x_edges, diagnostics.spatial_y_edges,
-         diagnostics.spatial_envelope) = _bin_spatial(
-            contribution, x, y, spatial_edges, n_spatial_bins, k0, sigma_ex, sigma_ey, sigma_lr0, xp)
+        diagnostics.spatial_x_edges, diagnostics.spatial_y_edges = sx_edges_out, sy_edges_out
+        diagnostics.spatial_envelope = spatial_envelope_total
     return gamma, theta_x, theta_y, a0_shape, L, diagnostics
 
 

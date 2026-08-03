@@ -100,6 +100,32 @@ offload, same vectorised form as `'numpy'` run with cupy arrays -- output
 stays on-device, ready to feed `deposition.build_table` without a host
 round-trip).
 
+`chunk` (optional, `'numpy'`/`'cupy'` only): slices the bunch into
+`chunk`-sized pieces and runs the O(`n_particles * n_steps`) trajectory
+integration (`_integrate_trajectory_core`) per slice, concatenating the
+small per-particle outputs and summing diagnostics histograms across
+slices -- exact, not an approximation, since each particle's trajectory
+is independent of every other's. This is what fixes the CUDA-OOM-at-large-
+`n_particles` case: `'cupy'`'s vectorised form materialises the full
+`(n_particles, n_steps)` array like `'numpy'` does, unlike `'numba'`,
+which avoids that via its own per-particle compiled loop (so `chunk` is
+ignored for `backend='numba'`). `particles.estimate_chunk_size(n_particles,
+n_steps, backend, safety_frac=0.7)` auto-sizes `chunk` from
+`gammaforge.misc.available_vram_bytes()` for `backend='cupy'` (`n_particles`
+unchanged, i.e. no chunking, for `'numpy'`/`'numba'` or if the VRAM query
+fails) -- calibrated on a GTX 1660 Ti (6GB, cupy 14.0.1): unchunked
+`push_and_sample(backend='cupy')` at `n_steps=64` OOMs at
+`n_particles=800_000` (succeeds at 400,000); chunked, it succeeds. A
+cupy `OutOfMemoryError` mid-chunk halves the remaining chunk size and
+retries (bounded) rather than trusting that static estimate blindly.
+`XigmaAdapter`/`DirectAdapter` (`adapter.py`) both expose `chunk` via
+`model_params()` (`0` = auto). Not to be confused with
+`deposition.build_table_streaming`, a separate, currently-unwired utility
+that chunks bunch *sampling* (drawing macroparticles from a `beam`
+description in pieces), not this trajectory-integration step -- it solves
+a different problem (bunch too large to sample into host RAM at all) than
+the one `chunk` addresses here.
+
 **a0 is a trajectory average, not an instantaneous sample.** `a0` (`H`'s
 4th axis) is `ahat(zeta) = (TrXi/2) * integral[a0_local(t)^2]^2 dt /
 integral[a0_local(t)^2] dt` (Paper/xigma.tex eq. "ahattraj"), where
