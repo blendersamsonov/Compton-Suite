@@ -34,6 +34,7 @@ sampled/binned shape to branch on (see ``gammaforge.io.photons``).
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -202,7 +203,7 @@ def discover_models() -> dict:
         register("xigma-i", xigma_adapter.XigmaAdapter())
         register("delta", xigma_adapter.DirectAdapter())
     except Exception as exc:  # pragma: no cover - depends on local GPU/env
-        print(f"xigma-i/delta unavailable: {exc}")
+        warnings.warn(f"xigma-i/delta unavailable: {exc}", stacklevel=2)
 
     from .analytical import Adapter as AnalyticalAdapter
     register("analytical", AnalyticalAdapter())

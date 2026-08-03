@@ -22,8 +22,8 @@ graphify-out/cache/ast/
 *.ele
 
 # validation/visualize.py's generated plots -- regenerate, don't commit.
-/validation/plots/
+src/gammaforge/validation/plots/
 
 # validation/cache.py's commit-hash-keyed result cache -- regenerate,
 # don't commit (and it's keyed to local commit state anyway).
-/validation/.cache/
+src/gammaforge/validation/.cache/

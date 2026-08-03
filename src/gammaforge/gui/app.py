@@ -722,6 +722,7 @@ class ComptonGUIApp(tk.Tk):
             width = self.preview_res.model_specific.get("estimated_spectrum_width_fwhm")
             self.preview_lbls["width"].config(text=f"{width:.4g}" if width is not None else "--")
         except Exception:
+            traceback.print_exc()
             self.preview_lbls["status"].config(text="render error")
 
     # ---- plots (tabbed notebook) ----------------------------------------
@@ -1053,6 +1054,7 @@ class ComptonGUIApp(tk.Tk):
             try:
                 preview_res = analytical_adapter.run(preview_job)
             except Exception:
+                traceback.print_exc()
                 preview_res = None
 
             self.q.put(("done", (res, preview_res)))
