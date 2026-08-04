@@ -361,7 +361,7 @@
       "source_file": ".opencode/opencode.json",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "home_alexander_work_code_comptonsuite_opencode_opencode_json",
+      "id": "opencode_opencode",
       "community": 58,
       "community_name": "opencode.json",
       "norm_label": "opencode.json"
@@ -372,7 +372,7 @@
       "source_file": ".opencode/opencode.json",
       "source_location": "L2",
       "_origin": "ast",
-      "id": "home_alexander_work_code_comptonsuite_opencode_opencode_schema",
+      "id": "opencode_opencode_schema",
       "community": 58,
       "community_name": "opencode.json",
       "norm_label": "$schema"
@@ -383,7 +383,7 @@
       "source_file": ".opencode/opencode.json",
       "source_location": "L3",
       "_origin": "ast",
-      "id": "home_alexander_work_code_comptonsuite_opencode_opencode_plugin",
+      "id": "opencode_opencode_plugin",
       "community": 58,
       "community_name": "opencode.json",
       "norm_label": "plugin"
@@ -9607,9 +9607,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 22,
       "norm_label": "gaussianparaxiallaser",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "core-simulation-api refactor (completed)",
       "id": "io_gaussian_paraxial_laser"
     },
     {
@@ -9649,9 +9649,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 48,
       "norm_label": "sample_gaussian_canonical",
-      "community_name": "TabulatedEngine",
+      "community_name": "build_params (CGS CollisionParams)",
       "id": "io_sample_gaussian_canonical"
     },
     {
@@ -9705,9 +9705,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 22,
       "norm_label": "a0_from_fields",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "core-simulation-api refactor (completed)",
       "id": "io_a0_from_fields"
     },
     {
@@ -9733,9 +9733,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 22,
       "norm_label": "gaussian_pulse_envelope",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "core-simulation-api refactor (completed)",
       "id": "io_gaussian_pulse_envelope"
     },
     {
@@ -9761,9 +9761,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 22,
       "norm_label": "build_params (cgs collisionparams)",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "core-simulation-api refactor (completed)",
       "id": "io_build_params"
     },
     {
@@ -9789,9 +9789,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 25,
       "norm_label": "detect_device()",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "TabulatedEngine",
       "id": "misc_detect_device"
     },
     {
@@ -9873,9 +9873,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 25,
       "norm_label": "spectrum_kernel_4d (gpu kernel)",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "TabulatedEngine",
       "id": "docs_models_xigma_i_spectrum_kernel_4d"
     },
     {
@@ -9887,9 +9887,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 25,
       "norm_label": "spectrum4d_cpu (numba fallback)",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "TabulatedEngine",
       "id": "docs_models_xigma_i_spectrum4d_cpu"
     },
     {
@@ -10139,9 +10139,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 25,
       "norm_label": "~2\u03c0 angular-spectrum residual (open)",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "TabulatedEngine",
       "id": "concept_2pi_residual"
     },
     {
@@ -10153,9 +10153,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 48,
+      "community": 22,
       "norm_label": "a0 formula discrepancy (resolved)",
-      "community_name": "build_params (CGS CollisionParams)",
+      "community_name": "core-simulation-api refactor (completed)",
       "id": "concept_a0_formula_resolved"
     },
     {
@@ -10237,9 +10237,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 42,
       "norm_label": "xigma-i passport (v0.1)",
-      "community_name": "TabulatedEngine",
+      "community_name": "gui_adapter.py (bridge into compton_gui as pluggable ModelAdapter)",
       "id": "docs_models_xigma_passport"
     },
     {
@@ -10475,9 +10475,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 48,
       "norm_label": "macrobunch",
-      "community_name": "TabulatedEngine",
+      "community_name": "build_params (CGS CollisionParams)",
       "id": "io_macro_bunch"
     },
     {
@@ -10559,9 +10559,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 42,
       "norm_label": "xigma four-stage pipeline (stage 0-2 + validation)",
-      "community_name": "TabulatedEngine",
+      "community_name": "gui_adapter.py (bridge into compton_gui as pluggable ModelAdapter)",
       "id": "concept_four_stage_pipeline"
     },
     {
@@ -10573,9 +10573,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 25,
+      "community": 42,
       "norm_label": "tabulated overlap table h[gamma, theta_x, theta_y, a0]",
-      "community_name": "TabulatedEngine",
+      "community_name": "gui_adapter.py (bridge into compton_gui as pluggable ModelAdapter)",
       "id": "concept_tabulated_overlap_table"
     },
     {
@@ -13392,8 +13392,8 @@
       "source_location": "L3",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "home_alexander_work_code_comptonsuite_opencode_opencode_json",
-      "target": "home_alexander_work_code_comptonsuite_opencode_opencode_plugin",
+      "source": "opencode_opencode",
+      "target": "opencode_opencode_plugin",
       "confidence_score": 1.0
     },
     {
@@ -13403,8 +13403,8 @@
       "source_location": "L2",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "home_alexander_work_code_comptonsuite_opencode_opencode_json",
-      "target": "home_alexander_work_code_comptonsuite_opencode_opencode_schema",
+      "source": "opencode_opencode",
+      "target": "opencode_opencode_schema",
       "confidence_score": 1.0
     },
     {
@@ -13415,7 +13415,7 @@
       "weight": 1.0,
       "context": "import",
       "_origin": "ast",
-      "source": "home_alexander_work_code_comptonsuite_opencode_opencode_plugin",
+      "source": "opencode_opencode_plugin",
       "target": "ref_opencode_plugins_graphify_js",
       "confidence_score": 1.0
     },
@@ -38390,5 +38390,5 @@
       "source_file": "docs/refactor/core-simulation-api.md"
     }
   ],
-  "built_at_commit": "b13bcd30dfaa1bbbb6773ef996352261244a39a1"
+  "built_at_commit": "8d2d5f9fd10adb35a572bdee0163b8162e355a84"
 }

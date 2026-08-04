@@ -1,4 +1,4 @@
-# Graph Report - polish-pass  (2026-08-03)
+# Graph Report - ComptonSuite  (2026-08-03)
 
 ## Corpus Check
 - 73 files · ~80,200 words
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b13bcd30`
+- Built from commit: `8d2d5f9f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -363,7 +363,7 @@ _Questions this graph is uniquely positioned to answer:_
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **Why does `XigmaAdapter` connect `XigmaAdapter` to `build_params (CGS CollisionParams)`, `Model Tasks (Xigma-i, Analytical model, All models)`, `IO Core + Validation`?**
   _High betweenness centrality (0.120) - this node is a cross-community bridge._
-- **Why does `TabulatedEngine` connect `build_params (CGS CollisionParams)` to `deposition (Stage 1)`, `XigmaAdapter`?**
+- **Why does `TabulatedEngine` connect `build_params (CGS CollisionParams)` to `deposition (Stage 1)`, `XigmaAdapter`, `TabulatedEngine`, `core-simulation-api refactor (completed)`?**
   _High betweenness centrality (0.105) - this node is a cross-community bridge._
 - **Why does `GaussianElectronBeam` connect `ValueError` to `IO Core + Validation`, `Bunch Sampling`, `drift`, `Laser Specifications`, `Canonical Sampling Tests`, `TestFitQuality`, `OutputSpec`, `PhysicalQuantity`, `GUI Model Selection`, `fit_gaussian`, `sample_gaussian_canonical`, `yaml_spec.py`, `test_bunch_improvements.py`, `TestEdgeCases`, `units.py`?**
   _High betweenness centrality (0.103) - this node is a cross-community bridge._
