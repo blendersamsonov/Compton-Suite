@@ -50,7 +50,6 @@ class KascadeAdapter:
 
     def model_params(self) -> list[tuple[str, float | str, str]]:
         return [
-            ("Crossing angle (rad)", 0.0, "crossing_angle"),
             ("Laser focus offset x (m)", 0.0, "delta_x"),
             ("Laser focus offset y (m)", 0.0, "delta_y"),
             ("Laser focus offset z (m)", 0.0, "delta_z"),
@@ -67,7 +66,7 @@ class KascadeAdapter:
         extra = job.extra
         cfg = _kascade.Config(
             interaction=job.interaction,
-            crossing_angle=float(extra.get("crossing_angle", 0.0)),
+            crossing_angle=job.interaction.laser.crossing_angle,
             delta_x=float(extra.get("delta_x", 0.0)),
             delta_y=float(extra.get("delta_y", 0.0)),
             delta_z=float(extra.get("delta_z", 0.0)),

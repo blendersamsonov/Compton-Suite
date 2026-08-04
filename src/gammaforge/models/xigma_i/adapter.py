@@ -34,6 +34,8 @@ straight off ``job.interaction.laser`` -- not adapter state, not
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from gammaforge.io.interaction import InteractionParameters
@@ -154,6 +156,12 @@ class XigmaAdapter:
         electrons = job.interaction.electrons
         device = _resolve_device(self.device_preference)
         self.device = device
+
+        if job.interaction.laser.crossing_angle != 0.0:
+            warnings.warn(
+                "XigmaAdapter (xigma-i) is head-on-only; ignoring nonzero "
+                f"crossing_angle ({job.interaction.laser.crossing_angle} rad)."
+            )
 
         beam, laser = self.interaction.electrons.gaussian_fit, self.interaction.laser
         xp = get_xp(device)
@@ -379,6 +387,12 @@ class DirectAdapter:
         electrons = job.interaction.electrons
         device = _resolve_device(self.device_preference)
         self.device = device
+
+        if job.interaction.laser.crossing_angle != 0.0:
+            warnings.warn(
+                "DirectAdapter (delta) is head-on-only; ignoring nonzero "
+                f"crossing_angle ({job.interaction.laser.crossing_angle} rad)."
+            )
 
         beam, laser = self.interaction.electrons.gaussian_fit, self.interaction.laser
 

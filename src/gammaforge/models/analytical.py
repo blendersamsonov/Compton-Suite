@@ -28,6 +28,8 @@ that limitation unchanged.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from scipy.special import erfcx
 
@@ -139,6 +141,12 @@ class Adapter:
         beam = job.interaction.electrons.gaussian_fit
         self._last_beam = beam
         pulse = job.interaction.laser
+
+        if pulse.crossing_angle != 0.0:
+            warnings.warn(
+                "analytical.Adapter is head-on-only; ignoring nonzero "
+                f"crossing_angle ({pulse.crossing_angle} rad)."
+            )
 
         total_yield = float(estimate_yield(beam, pulse))
         width = float(estimate_spectrum_width(beam, pulse, self.theta_col_rad))

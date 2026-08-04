@@ -38,6 +38,7 @@ Run: ``python3 -m gammaforge.gui.app`` or ``scripts/run_gui.py``.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import queue
 import threading
@@ -52,8 +53,21 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-from gammaforge.io.bunch import GaussianElectronBeam, sample_gaussian_bunch, sigma_from_emittance
+from gammaforge.io.bunch import (
+    GaussianElectronBeam,
+    drift,
+    fit_gaussian,
+    sample_gaussian_bunch,
+    sigma_from_emittance,
+)
 from gammaforge.io.interaction import InteractionParameters, recoil_parameter
+from gammaforge.io.io_formats.sdds import load_elegant_ele
+from gammaforge.io.io_formats.yaml_spec import (
+    load_electron_beam,
+    load_laser,
+    save_electron_beam,
+    save_laser,
+)
 from gammaforge.io.laser import GaussianParaxialLaser
 from gammaforge.io.units import (
     C_LIGHT,
@@ -238,6 +252,11 @@ class ComptonGUIApp(tk.Tk):
         filemenu.add_separator()
         filemenu.add_command(label="Save plots...", command=self._save_fig)
         filemenu.add_separator()
+        filemenu.add_command(label="Save electron beam config...", command=self._save_beam_config)
+        filemenu.add_command(label="Load electron beam config...", command=self._load_beam_config)
+        filemenu.add_command(label="Save laser config...", command=self._save_laser_config)
+        filemenu.add_command(label="Load laser config...", command=self._load_laser_config)
+        filemenu.add_separator()
         filemenu.add_command(label="Exit", command=self.destroy)
         menubar.add_cascade(label="File", menu=filemenu)
         self.filemenu = filemenu
@@ -279,11 +298,133 @@ class ComptonGUIApp(tk.Tk):
         if path:
             self.fig.savefig(path, dpi=150)
 
+    # ---- YAML config save/load ------------------------------------------
+    def _save_beam_config(self):
+        """Save the current Electrons-panel fields as a
+        ``gaussian_6d_waist`` YAML config (``io.io_formats.yaml_spec``)."""
+        path = filedialog.asksaveasfilename(
+            defaultextension=".yaml", filetypes=[("YAML", "*.yaml *.yml")])
+        if not path:
+            return
+        try:
+            beam, _laser = self._build_beam_and_laser()
+            save_electron_beam(beam, path)
+        except Exception as e:
+            messagebox.showerror("Cannot save electron beam config", str(e))
+
+    def _load_beam_config(self):
+        """Load a ``gaussian_6d_waist`` YAML config and populate the
+        Electrons-panel input fields (never touches ``self.loaded_bunch`` --
+        a YAML config is initial parameters for further sampling, not raw
+        particle data like a loaded ``.ele`` file)."""
+        path = filedialog.askopenfilename(
+            filetypes=[("YAML", "*.yaml *.yml"), ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            beam = load_electron_beam(path)
+        except Exception as e:
+            messagebox.showerror(
+                "Cannot load electron beam config",
+                f"Failed to parse {os.path.basename(path)}:\n\n{e}")
+            return
+
+        if self.loaded_bunch is not None:
+            self._clear_loaded_ele()
+
+        gamma = beam.gamma0
+        emit_geom_x_m = beam.emit_geom_x_m.to_unit("meter").magnitude
+        emit_geom_y_m = beam.emit_geom_y_m.to_unit("meter").magnitude
+        sigma_x_m = beam.sigma_x_m.to_unit("meter").magnitude
+        sigma_y_m = beam.sigma_y_m.to_unit("meter").magnitude
+        # Invert _build_beam_and_laser's forward math exactly (GUI convention
+        # is emit_norm = emit_geom * gamma, no beta0 factor; beta_x/y are a
+        # GUI-only convenience input, not a GaussianElectronBeam field, so
+        # they're reconstructed from sigma_from_emittance's own inverse:
+        # beta = sigma^2 / emit_geom) so save->load->save is a fixed point.
+        emit_x_norm_m = emit_geom_x_m * gamma
+        emit_y_norm_m = emit_geom_y_m * gamma
+        beta_x_m = (sigma_x_m ** 2 / emit_geom_x_m) if emit_geom_x_m > 0 else 0.0
+        beta_y_m = (sigma_y_m ** 2 / emit_geom_y_m) if emit_geom_y_m > 0 else 0.0
+
+        self._duration_convention_var.set("RMS")
+        self.fields["mean_energy_MeV"].set(f"{beam.total_energy.to('megaelectron_volt').magnitude:.6g}")
+        self.fields["rel_spread_pct"].set(f"{beam.rel_energy_spread_rms * 100:.6g}")
+        self.fields["charge_nC"].set(f"{beam.bunch_charge_C.to_unit('nanocoulomb').magnitude:.6g}")
+        self.fields["bunch_duration_ps"].set(f"{beam.sigma_t_s.to_unit('picosecond').magnitude:.6g}")
+        self.fields["emit_x_mmmrad"].set(f"{_native(emit_x_norm_m, 'meter', 'millimeter * milliradian'):.6g}")
+        self.fields["emit_y_mmmrad"].set(f"{_native(emit_y_norm_m, 'meter', 'millimeter * milliradian'):.6g}")
+        self.fields["beta_x_m"].set(f"{beta_x_m:.6g}")
+        self.fields["beta_y_m"].set(f"{beta_y_m:.6g}")
+        self.fields["chirp_h"].set(f"{beam.chirp_h:.6g}")
+        self.fields["dispersion_x"].set(f"{beam.dispersion_x:.6g}")
+        self.fields["dispersion_y"].set(f"{beam.dispersion_y:.6g}")
+        self.fields["alpha_x"].set(f"{beam.alpha_x:.6g}")
+        self.fields["alpha_y"].set(f"{beam.alpha_y:.6g}")
+        self._update_derived()
+
+    def _save_laser_config(self):
+        """Save the current Laser-panel fields as a ``gaussian_paraxial``
+        YAML config (``io.io_formats.yaml_spec``)."""
+        path = filedialog.asksaveasfilename(
+            defaultextension=".yaml", filetypes=[("YAML", "*.yaml *.yml")])
+        if not path:
+            return
+        try:
+            _beam, laser = self._build_beam_and_laser()
+            save_laser(laser, path)
+        except Exception as e:
+            messagebox.showerror("Cannot save laser config", str(e))
+
+    def _load_laser_config(self):
+        """Load a ``gaussian_paraxial`` YAML config and populate the
+        Laser-panel input fields."""
+        path = filedialog.askopenfilename(
+            filetypes=[("YAML", "*.yaml *.yml"), ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            laser = load_laser(path)
+        except Exception as e:
+            messagebox.showerror(
+                "Cannot load laser config",
+                f"Failed to parse {os.path.basename(path)}:\n\n{e}")
+            return
+
+        self._pulse_convention_var.set("RMS")
+        self._waist_convention_var.set("RMS")
+        self._waist_input_mode.set("diameter")
+        self.fields["laser_wavelength_nm"].set(f"{laser.wavelength_m.to_unit('nanometer').magnitude:.6g}")
+        self.fields["laser_energy_mJ"].set(f"{laser.pulse_energy_J.to_unit('millijoule').magnitude:.6g}")
+        self.fields["pulse_duration_ps"].set(f"{laser.duration_rms_s.to_unit('picosecond').magnitude:.6g}")
+        self.fields["crossing_angle"].set(f"{laser.crossing_angle:.6g}")
+        self.fields["z_mismatch_mm"].set(f"{laser.focus_z_m.to_unit('millimeter').magnitude:.6g}")
+        self.fields["beta_ff"].set(f"{laser.beta_ff:.6g}")
+        self.fields["phi_pol"].set(f"{laser.phi_pol:.6g}")
+        self.fields["ellipticity"].set(f"{laser.ellipticity:.6g}")
+
+        wx_um = laser.waist_rms_x_m.to_unit("micrometer").magnitude
+        wy_um = laser.waist_rms_y_m.to_unit("micrometer").magnitude
+        self.fields["waist_diameter_um"].set(f"{2.0 * wx_um:.6g}")
+        elliptical = abs(wy_um - wx_um) > 1e-9 * max(abs(wx_um), abs(wy_um), 1.0)
+        self._elliptical_waist_var.set(elliptical)
+        self.fields["waist_diameter_y_um"].set(f"{2.0 * wy_um:.6g}")
+        self._on_elliptical_waist_toggle()
+        self._update_derived()
+
     # ---- SDDS .ele file load / clear -----------------------------------
     def _load_ele(self):
         """Load a 6-D electron bunch from an SDDS ``.ele`` file and turn the
         Electrons panel into an output display of the parameters that the
-        simulation will actually use."""
+        simulation will actually use.
+
+        ``load_elegant_ele`` alone leaves ``gaussian_fit`` unset (a plain
+        ``.ele`` carries no bunch-charge/current info, so there's nothing
+        to derive one from) -- every ``Bunch`` reaching a ``Job`` needs
+        ``gaussian_fit`` populated (see ``io.interaction``'s module
+        docstring), so this fits the loaded macroparticles with
+        ``fit_gaussian`` and overrides its non-authoritative derived charge
+        with the GUI's own ``charge_nC`` field before attaching it."""
         path = filedialog.askopenfilename(
             title="Load 6-D electron distribution",
             defaultextension=".ele",
@@ -292,14 +433,33 @@ class ComptonGUIApp(tk.Tk):
         if not path:
             return
         try:
-            bunch = self.active_adapter.load_ele_file(path)
+            bunch = load_elegant_ele(path)
         except Exception as e:
             messagebox.showerror(
                 "Cannot load .ele file",
                 f"Failed to parse {os.path.basename(path)}:\n\n{e}")
             return
         try:
-            summary = self.active_adapter.ele_file_summary(bunch)
+            fit = fit_gaussian(bunch)
+            charge_nC = _float_or_none(self.fields["charge_nC"])
+            if charge_nC is not None:
+                fit = dataclasses.replace(
+                    fit,
+                    bunch_charge_C=_pq(_native(charge_nC, "nanocoulomb", "coulomb"), "coulomb",
+                                       PhysicalMeaning.BUNCH_CHARGE, NoConvention.PLAIN),
+                )
+            bunch.gaussian_fit = fit  # Bunch is a plain (non-frozen) dataclass
+            summary = {
+                "mean_energy_MeV": fit.total_energy.to("megaelectron_volt").magnitude,
+                "rel_spread_pct": fit.rel_energy_spread_rms * 100,
+                "bunch_duration_ps": fit.sigma_t_s.to_unit("picosecond").magnitude,
+                "emit_x_mmmrad": fit.emit_norm_x.to("millimeter * milliradian").magnitude,
+                "emit_y_mmmrad": fit.emit_norm_y.to("millimeter * milliradian").magnitude,
+                "beta_x_m": fit.beta_star_x.to("meter").magnitude,
+                "beta_y_m": fit.beta_star_y.to("meter").magnitude,
+                "sigma_ex_um": fit.sigma_x_m.to_unit("micrometer").magnitude,
+                "sigma_ey_um": fit.sigma_y_m.to_unit("micrometer").magnitude,
+            }
         except Exception as e:
             messagebox.showerror(
                 "Cannot compute parameters",
@@ -383,6 +543,12 @@ class ComptonGUIApp(tk.Tk):
         ("eps_y,n [mm*mrad]", 1.0, "emit_y_mmmrad"),
         ("beta_x [m]", 0.2, "beta_x_m"),
         ("beta_y [m]", 0.2, "beta_y_m"),
+        ("Chirp h [1/m]", 0.0, "chirp_h"),
+        ("Dispersion Dx", 0.0, "dispersion_x"),
+        ("Dispersion Dy", 0.0, "dispersion_y"),
+        ("Twiss alpha_x", 0.0, "alpha_x"),
+        ("Twiss alpha_y", 0.0, "alpha_y"),
+        ("Propagate distance [m]", 0.0, "drift_L_m"),
         ]
         self._electron_entries = add_field_grid(
             p, specs, self.fields, n_cols=4, bg=BLUE, width=5)
@@ -415,15 +581,17 @@ class ComptonGUIApp(tk.Tk):
         self.sigma_ey_1e2_lbl = tk.Label(self.sigma_ey_frame, text="(1/e²: --)", bg=BLUE, anchor="w", fg="#456")
         self.sigma_ey_1e2_lbl.pack(side="left", padx=(5, 0))
 
-        # MC sample count & seed (row 3, below the sigma labels)
+        # MC sample count & seed (row 4, below the field grid -- specs above
+        # now spans rows 0-3 since Issue-3's 5 chirp/dispersion/Twiss fields
+        # push it past its old 2-row/8-field size)
         for col, (label, default, key) in enumerate([
                 ("# electrons (MC)", 200000, "n_mc"),
                 ("Random seed", 1, "seed")]):
             tk.Label(p, text=label, bg=BLUE, anchor="w").grid(
-                row=3, column=col * 2, sticky="w", padx=(8, 3), pady=3)
+                row=4, column=col * 2, sticky="w", padx=(8, 3), pady=3)
             var = tk.StringVar(value=str(default))
             ent = tk.Entry(p, textvariable=var, width=11, justify="right")
-            ent.grid(row=3, column=col * 2 + 1, padx=(0, 10), pady=3)
+            ent.grid(row=4, column=col * 2 + 1, padx=(0, 10), pady=3)
             self.fields[key] = var
             self._sample_entries.append((ent, key))
 
@@ -432,7 +600,7 @@ class ComptonGUIApp(tk.Tk):
             p, text="(input mode - edit the fields above to define the bunch)",
             bg=BLUE, anchor="w", fg="#234",
             font=("TkDefaultFont", 9, "italic"))
-        self.electron_mode_lbl.grid(row=4, column=0, columnspan=12, sticky="w",
+        self.electron_mode_lbl.grid(row=5, column=0, columnspan=12, sticky="w",
                                     padx=10, pady=(2, 2))
 
     # ---- Laser panel (red) --------------------------------------------
@@ -501,6 +669,29 @@ class ComptonGUIApp(tk.Tk):
                        value="rayleigh", bg=RED, anchor="w").grid(
             row=1, column=2, columnspan=2, sticky="w", padx=(8, 0), pady=2)
 
+        # Elliptical waist: default is a round beam (Y waist = X waist,
+        # unchanged behavior); checking this reveals an independent Y
+        # diameter entry, sharing the same convention selector/input-mode
+        # radio buttons above (no separate Y convention UI).
+        self._elliptical_waist_var = tk.BooleanVar(value=False)
+        elliptical_check = tk.Checkbutton(
+            waist_frame, text="Elliptical waist", variable=self._elliptical_waist_var,
+            bg=RED, anchor="w", command=self._on_elliptical_waist_toggle)
+        elliptical_check.grid(row=2, column=0, columnspan=2, sticky="w", padx=(8, 0), pady=2)
+
+        self._waist_diameter_y_lbl = tk.Label(
+            waist_frame, text="Waist diameter Y [um]:", bg=RED, anchor="w")
+        self._waist_diameter_y_lbl.grid(row=2, column=2, sticky="w", padx=(8, 3), pady=3)
+        self._waist_diameter_y_var = tk.StringVar(value="10")
+        self._waist_diameter_y_entry = tk.Entry(
+            waist_frame, textvariable=self._waist_diameter_y_var, width=11, justify="right")
+        self._waist_diameter_y_entry.grid(row=2, column=3, padx=(0, 6), pady=3)
+        self.fields["waist_diameter_y_um"] = self._waist_diameter_y_var
+        # Hidden until "Elliptical waist" is checked -- default round-beam
+        # behavior is unaffected.
+        self._waist_diameter_y_lbl.grid_remove()
+        self._waist_diameter_y_entry.grid_remove()
+
         # Mismatch fields (row 2)
         mismatch_specs = [
             ("t-mismatch [ps]", 0, "time_mismatch_ps"),
@@ -548,6 +739,16 @@ class ComptonGUIApp(tk.Tk):
             ent = tk.Entry(advanced_frame, textvariable=var, width=8, justify="right")
             ent.grid(row=0, column=i*2+1, padx=(0, 6), pady=2)
             self.fields[key] = var
+
+    def _on_elliptical_waist_toggle(self):
+        """Show/hide the independent Y-waist-diameter entry -- unchecked
+        (default) keeps the round-beam behavior of a single diameter field."""
+        if self._elliptical_waist_var.get():
+            self._waist_diameter_y_lbl.grid()
+            self._waist_diameter_y_entry.grid()
+        else:
+            self._waist_diameter_y_lbl.grid_remove()
+            self._waist_diameter_y_entry.grid_remove()
 
     # ---- Compton photons panel (yellow) --------------------------------
     def _build_compton_panel(self):
@@ -853,7 +1054,7 @@ class ComptonGUIApp(tk.Tk):
                 pulse_energy_J=_pq(laser_si["pulse_energy_J"], "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
                 wavelength_m=_pq(laser_si["wavelength_m"], "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
                 waist_rms_x_m=_pq(laser_si["sigma0_l_m"], "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
-                waist_rms_y_m=_pq(laser_si["sigma0_l_m"], "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+                waist_rms_y_m=_pq(laser_si["sigma0_l_m_y"], "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
                 duration_rms_s=_pq(laser_si["sigma_par_L_m"] / C_LIGHT, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
                 focus_z_m=_pq(laser_si["focus_z_m"], "meter", PhysicalMeaning.DISPLACEMENT, NoConvention.PLAIN),
             )
@@ -908,10 +1109,29 @@ class ComptonGUIApp(tk.Tk):
                 return None
             sigma0_l_m = (rayleigh_m * wavelength_m / (4.0 * np.pi)) ** 0.5
 
+        # Elliptical waist: independent Y diameter, same convention as X.
+        # Only meaningful in "diameter" input mode -- a single Rayleigh
+        # length can't imply two different waists, so an elliptical Y waist
+        # while in "rayleigh" mode just falls back to the round-beam value.
+        sigma0_l_m_y = sigma0_l_m
+        if self._elliptical_waist_var.get() and self._waist_input_mode.get() == "diameter":
+            waist_diameter_y_um = _float_or_none(self.fields["waist_diameter_y_um"])
+            if waist_diameter_y_um is None:
+                return None
+            waist_radius_y_m = _native(waist_diameter_y_um, "micrometer", "meter") / 2.0
+            waist_convention = self._waist_convention_var.get()
+            if waist_convention == "RMS":
+                sigma0_l_m_y = waist_radius_y_m
+            elif waist_convention == "FWHM":
+                sigma0_l_m_y = fwhm_to_sigma_intensity(waist_radius_y_m)
+            else:  # 1/e^2
+                sigma0_l_m_y = w0_to_sigma_intensity(waist_radius_y_m)
+
         z_mismatch_mm = _float_or_none(self.fields["z_mismatch_mm"])
         return dict(
             wavelength_m=wavelength_m,
             sigma0_l_m=sigma0_l_m,
+            sigma0_l_m_y=sigma0_l_m_y,
             sigma_par_L_m=duration_s * C_LIGHT,
             pulse_energy_J=_native(energy_mJ, "millijoule", "joule"),
             focus_z_m=_native(z_mismatch_mm or 0.0, "millimeter", "meter"),
@@ -935,6 +1155,13 @@ class ComptonGUIApp(tk.Tk):
         if None in (energy_mev, rel_spread_pct, charge_nC, duration_ps,
                     emit_x_mmmrad, emit_y_mmmrad, beta_x_m, beta_y_m):
             raise ValueError("All Electrons-panel fields must be filled in with numbers")
+        # Optional correlations -- default to 0.0 (no chirp/dispersion/tilt)
+        # like beta_ff/phi_pol/ellipticity on the Laser panel, not required.
+        chirp_h = _float_or_none(self.fields["chirp_h"]) or 0.0
+        dispersion_x = _float_or_none(self.fields["dispersion_x"]) or 0.0
+        dispersion_y = _float_or_none(self.fields["dispersion_y"]) or 0.0
+        alpha_x = _float_or_none(self.fields["alpha_x"]) or 0.0
+        alpha_y = _float_or_none(self.fields["alpha_y"]) or 0.0
 
         energy_eV = _native(energy_mev, "megaelectron_volt", "electron_volt")
         gamma = energy_eV / MEC2_EV
@@ -959,6 +1186,8 @@ class ComptonGUIApp(tk.Tk):
             emit_geom_y_m=_pq(emit_y_m / gamma, "meter", PhysicalMeaning.EMITTANCE, NoConvention.PLAIN),
             sigma_t_s=_pq(bunch_duration_s, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
             sigma_pz=rel_spread_pct / 100.0,
+            chirp_h=chirp_h, dispersion_x=dispersion_x, dispersion_y=dispersion_y,
+            alpha_x=alpha_x, alpha_y=alpha_y,
         )
 
         laser_si = self._laser_fields_si()
@@ -967,14 +1196,16 @@ class ComptonGUIApp(tk.Tk):
         beta_ff = _float_or_none(self.fields["beta_ff"]) or 0.0
         phi_pol = _float_or_none(self.fields["phi_pol"]) or 0.0
         ellipticity = _float_or_none(self.fields["ellipticity"]) or 0.0
+        crossing_angle = _float_or_none(self.fields["crossing_angle"]) or 0.0
         laser = GaussianParaxialLaser(
             pulse_energy_J=_pq(laser_si["pulse_energy_J"], "joule", PhysicalMeaning.PULSE_ENERGY, NoConvention.PLAIN),
             wavelength_m=_pq(laser_si["wavelength_m"], "meter", PhysicalMeaning.WAVELENGTH, NoConvention.PLAIN),
             waist_rms_x_m=_pq(laser_si["sigma0_l_m"], "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
-            waist_rms_y_m=_pq(laser_si["sigma0_l_m"], "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
+            waist_rms_y_m=_pq(laser_si["sigma0_l_m_y"], "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
             duration_rms_s=_pq(laser_si["sigma_par_L_m"] / C_LIGHT, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
             focus_z_m=_pq(laser_si["focus_z_m"], "meter", PhysicalMeaning.DISPLACEMENT, NoConvention.PLAIN),
             beta_ff=beta_ff, phi_pol=phi_pol, ellipticity=ellipticity,
+            crossing_angle=crossing_angle,
         )
         return beam, laser
 
@@ -984,9 +1215,10 @@ class ComptonGUIApp(tk.Tk):
         GUI has a live entry for it (i.e. the Model Parameters panel is
         currently showing this adapter's fields), else falling back to the
         adapter's own declared default. ``beta_ff``/``phi_pol``/
-        ``ellipticity`` are NOT here -- they're laser-pulse properties that
-        flow into ``GaussianParaxialLaser`` directly via
-        ``_build_beam_and_laser()``, not model-specific extras."""
+        ``ellipticity``/``crossing_angle`` are NOT here -- they're
+        laser-pulse properties that flow into ``GaussianParaxialLaser``
+        directly via ``_build_beam_and_laser()``, not model-specific
+        extras."""
         extra = {}
         for _label, default, key in adapter.model_params():
             extra[key] = self.fields[key].get() if key in self.fields else default
@@ -1005,9 +1237,8 @@ class ComptonGUIApp(tk.Tk):
 
         if self.loaded_bunch is not None:
             # Invariant: every Bunch reaching a Job must have gaussian_fit
-            # populated. A raw .ele-file load has gaussian_fit=None until
-            # fit -- not reachable today (no wired-up load-.ele-file UI
-            # path exists yet), so no defensive handling here.
+            # populated. _load_ele already fits and attaches gaussian_fit
+            # to self.loaded_bunch before it's ever stored here.
             electrons = self.loaded_bunch
         else:
             try:
@@ -1018,6 +1249,10 @@ class ComptonGUIApp(tk.Tk):
                 return
             electrons = sample_gaussian_bunch(
                 beam, n_particles=n_mc, rng=np.random.default_rng(seed))
+
+        drift_L_m = _float_or_none(self.fields["drift_L_m"]) or 0.0
+        if drift_L_m != 0.0:
+            electrons = drift(electrons, drift_L_m)
 
         interaction = InteractionParameters(laser=laser, electrons=electrons)
 

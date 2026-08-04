@@ -13,12 +13,17 @@ expected to have ``gaussian_fit`` populated (only a raw ``.ele``-file load
 that hasn't been fit yet would leave it ``None`` -- see ``gui/app.py``'s
 ``on_start()``).
 
-Deliberately minimal otherwise: geometry/crossing-angle and any classical/
+Deliberately minimal otherwise: foci-offset geometry and the classical/
 quantum toggle are NOT part of this shared bundle -- not every model
-supports a nonzero/True value (kascade has a real ``crossing_angle``/
-``quantum`` toggle; xigma_i/delta are head-on-only with no quantum toggle),
-so those stay model-owned fields, read straight from ``Job.extra`` at each
-adapter's own boundary (see each adapter's ``run()``).
+supports a nonzero/True value (kascade has a real focus-offset/``quantum``
+toggle; xigma_i/delta are head-on-only with no quantum toggle), so those
+stay model-owned fields, read straight from ``Job.extra`` at each adapter's
+own boundary (see each adapter's ``run()``). ``crossing_angle`` is the one
+exception: it lives on the shared ``GaussianParaxialLaser`` itself
+(``laser.crossing_angle``), not ``Job.extra``, since it's a property of the
+laser's own propagation geometry -- models that don't support a nonzero
+value (xigma_i/delta) warn and ignore it rather than needing it duplicated
+into their own config.
 
 Every physical parameter travels as a :class:`PhysicalQuantity` (never a
 bare float).

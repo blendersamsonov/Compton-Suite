@@ -61,6 +61,11 @@ def load_electron_beam(path: str) -> GaussianElectronBeam:
         emit_geom_y_m=PhysicalQuantity(ey_m, "meter", PhysicalMeaning.EMITTANCE),
         sigma_t_s=PhysicalQuantity(st_s, "second", PhysicalMeaning.BUNCH_LENGTH, TimeConvention.SIGMA_INTENSITY_RMS),
         sigma_pz=float(block.get("sigma_pz", 0.0)),
+        chirp_h=float(block.get("chirp_h", 0.0)),
+        dispersion_x=float(block.get("dispersion_x", 0.0)),
+        dispersion_y=float(block.get("dispersion_y", 0.0)),
+        alpha_x=float(block.get("alpha_x", 0.0)),
+        alpha_y=float(block.get("alpha_y", 0.0)),
     )
 
 
@@ -78,6 +83,11 @@ def save_electron_beam(beam: GaussianElectronBeam, path: str) -> None:
             "emit_geom_y_um": beam.emit_geom_y_m.to_unit("micrometer").magnitude,
             "bunch_duration_rms_ps": beam.sigma_t_s.to_unit("picosecond").magnitude,
             "sigma_pz": beam.sigma_pz,
+            "chirp_h": beam.chirp_h,
+            "dispersion_x": beam.dispersion_x,
+            "dispersion_y": beam.dispersion_y,
+            "alpha_x": beam.alpha_x,
+            "alpha_y": beam.alpha_y,
             "propagation_direction": "+z",
         }
     }
@@ -110,6 +120,10 @@ def load_laser(path: str) -> GaussianParaxialLaser:
         waist_rms_y_m=PhysicalQuantity(wy_m, "meter", PhysicalMeaning.LASER_WIDTH, WidthConvention.SIGMA_INTENSITY_RMS),
         duration_rms_s=PhysicalQuantity(dur_s, "second", PhysicalMeaning.PULSE_DURATION, TimeConvention.SIGMA_INTENSITY_RMS),
         focus_z_m=PhysicalQuantity(fz_m, "meter", PhysicalMeaning.DISPLACEMENT, NoConvention.PLAIN),
+        beta_ff=float(block.get("beta_ff", 0.0)),
+        phi_pol=float(block.get("phi_pol", 0.0)),
+        ellipticity=float(block.get("ellipticity", 0.0)),
+        crossing_angle=float(block.get("crossing_angle", 0.0)),
     )
 
 
@@ -124,6 +138,10 @@ def save_laser(pulse: GaussianParaxialLaser, path: str) -> None:
             "waist_rms_y_um": pulse.waist_rms_y_m.to_unit("micrometer").magnitude,
             "duration_rms_fs": pulse.duration_rms_s.to_unit("femtosecond").magnitude,
             "focus_z_um": pulse.focus_z_m.to_unit("micrometer").magnitude,
+            "beta_ff": pulse.beta_ff,
+            "phi_pol": pulse.phi_pol,
+            "ellipticity": pulse.ellipticity,
+            "crossing_angle": pulse.crossing_angle,
             "propagation_direction": "-z",
         }
     }
