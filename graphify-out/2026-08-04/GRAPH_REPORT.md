@@ -1,4 +1,4 @@
-# Graph Report - ComptonSuite  (2026-08-04)
+# Graph Report - gui-audit-fixes  (2026-08-03)
 
 ## Corpus Check
 - 73 files · ~81,532 words
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c807a824`
+- Built from commit: `8d2d5f9f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

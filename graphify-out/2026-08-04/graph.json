@@ -361,7 +361,7 @@
       "source_file": ".opencode/opencode.json",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "opencode_opencode",
+      "id": "home_alexander_work_code_comptonsuite_opencode_opencode_json",
       "community": 58,
       "community_name": "opencode.json",
       "norm_label": "opencode.json"
@@ -372,7 +372,7 @@
       "source_file": ".opencode/opencode.json",
       "source_location": "L2",
       "_origin": "ast",
-      "id": "opencode_opencode_schema",
+      "id": "home_alexander_work_code_comptonsuite_opencode_opencode_schema",
       "community": 58,
       "community_name": "opencode.json",
       "norm_label": "$schema"
@@ -383,7 +383,7 @@
       "source_file": ".opencode/opencode.json",
       "source_location": "L3",
       "_origin": "ast",
-      "id": "opencode_opencode_plugin",
+      "id": "home_alexander_work_code_comptonsuite_opencode_opencode_plugin",
       "community": 58,
       "community_name": "opencode.json",
       "norm_label": "plugin"
@@ -13524,8 +13524,8 @@
       "source_location": "L3",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "opencode_opencode",
-      "target": "opencode_opencode_plugin",
+      "source": "home_alexander_work_code_comptonsuite_opencode_opencode_json",
+      "target": "home_alexander_work_code_comptonsuite_opencode_opencode_plugin",
       "confidence_score": 1.0
     },
     {
@@ -13535,8 +13535,8 @@
       "source_location": "L2",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "opencode_opencode",
-      "target": "opencode_opencode_schema",
+      "source": "home_alexander_work_code_comptonsuite_opencode_opencode_json",
+      "target": "home_alexander_work_code_comptonsuite_opencode_opencode_schema",
       "confidence_score": 1.0
     },
     {
@@ -13547,7 +13547,7 @@
       "weight": 1.0,
       "context": "import",
       "_origin": "ast",
-      "source": "opencode_opencode_plugin",
+      "source": "home_alexander_work_code_comptonsuite_opencode_opencode_plugin",
       "target": "ref_opencode_plugins_graphify_js",
       "confidence_score": 1.0
     },
@@ -39062,5 +39062,5 @@
       "source_file": "docs/refactor/core-simulation-api.md"
     }
   ],
-  "built_at_commit": "c807a82465185296d64bb649187b1c0f2ba8721f"
+  "built_at_commit": "8d2d5f9fd10adb35a572bdee0163b8162e355a84"
 }
