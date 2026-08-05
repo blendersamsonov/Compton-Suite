@@ -20,13 +20,13 @@
     "semantic_hash": "3ea725724bc8ebe483c9f13d6aa1124f"
   },
   "AGENTS.md": {
-    "mtime": 1785945021.728547,
-    "ast_hash": "df1cf6396dbc10bdf6aae58dd730c755",
+    "mtime": 1785947682.4308817,
+    "ast_hash": "f2896d410c63201119e77c7beae9235b",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785945021.728547,
-    "ast_hash": "df1cf6396dbc10bdf6aae58dd730c755",
+    "mtime": 1785947682.4308817,
+    "ast_hash": "f2896d410c63201119e77c7beae9235b",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/gui/app.py": {
-    "mtime": 1785945165.6228065,
-    "ast_hash": "a808c558240dca98bdc4e858372baf12",
+    "mtime": 1785946971.0934289,
+    "ast_hash": "ae1e17128fd8c6fea6ca6d80aec13e49",
     "semantic_hash": ""
   },
   "src/gammaforge/io/__init__.py": {
@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/io/photons.py": {
-    "mtime": 1785931465.3457303,
-    "ast_hash": "ba77ff357d77e420586ed61d2fcf1608",
+    "mtime": 1785946907.369018,
+    "ast_hash": "de46e9003a0ede5eb01068c374626a1b",
     "semantic_hash": ""
   },
   "src/gammaforge/io/units.py": {
@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/adapter.py": {
-    "mtime": 1785931602.793596,
-    "ast_hash": "18f1c5e197cda07e6b529118596e87c6",
+    "mtime": 1785946943.7838843,
+    "ast_hash": "4a9d9b2acc8a7fe1784a737c00f6bbae",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/config.py": {
@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/spectrum_from_particles.py": {
-    "mtime": 1785944439.7611742,
-    "ast_hash": "38ee7ea44ce4e7e3a15bc73b6f1a0c50",
+    "mtime": 1785946700.3587263,
+    "ast_hash": "5c3458663c5d5c9f6e00b73acc6db0fa",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/tabulated_engine.py": {
@@ -365,8 +365,8 @@
     "semantic_hash": ""
   },
   "tests/test_angle_integrated_spectrum_chunking.py": {
-    "mtime": 1785944884.5142977,
-    "ast_hash": "27321d6f4098538a1f30bea963092f18",
+    "mtime": 1785946786.8076692,
+    "ast_hash": "a48c91d8487906f9dac66653d2350ac1",
     "semantic_hash": ""
   }
 }

@@ -30,6 +30,21 @@ _MAX_OOM_HALVINGS = 6
 # holds it.
 _BYTES_PER_PARTICLE_S_PAIR = 60
 
+# Hard ceiling on the s-chunk, independent of how much free memory is
+# reported: a clean, repeated benchmark (n_particles=5,000,000, n_s=1024,
+# warmed up, 3 reps, memory pool reset between trials) showed chunk=1 at
+# 9.99s, chunk=4 at 7.29s, chunk=8 at 7.25s, chunk=16 at 7.20s -- the
+# per-chunk-launch overhead this batches away is fully amortised by a
+# small chunk, and every doubling past ~8-16 buys nothing. Before this
+# cap, _estimate_s_chunk sized the chunk as a FRACTION of whatever memory
+# happened to be free -- on a well-provisioned machine (128GB RAM) that
+# grows the chunk to the hundreds for no speed benefit, using ~100GB for
+# a computation that runs equally fast at a few GB (a real user report).
+# The memory budget below still shrinks the chunk *below* this ceiling on
+# a constrained machine; it must never grow it past this ceiling on a
+# generous one.
+_MAX_S_CHUNK = 32
+
 
 def _xp_for(backend):
     """Resolves backend='numpy'|'cupy' to its array module. cupy is imported
@@ -63,13 +78,14 @@ def _estimate_s_chunk(n_particles, n_s, backend, safety_frac=None):
     exception the way a cupy OutOfMemoryError is) on a well-provisioned
     workstation. See available_ram_bytes' docstring.
 
-    Returns n_s unchanged (don't chunk) only if the relevant free-memory
-    query itself fails (no GPU/cupy usable for 'cupy'; unsupported
-    platform for 'numpy').
+    Returns min(n_s, _MAX_S_CHUNK) -- i.e. "don't chunk, up to the
+    performance ceiling" -- if the relevant free-memory query itself fails
+    (no GPU/cupy usable for 'cupy'; unsupported platform for 'numpy').
 
-    safety_frac: fraction of free memory to budget for. Defaults to 0.7 for
-    'cupy' (an OutOfMemoryError there is a contained, catchable failure)
-    and a more conservative 0.5 for 'numpy' (getting this wrong risks the
+    safety_frac: fraction of free memory to budget for, only relevant when
+    that budget is tighter than _MAX_S_CHUNK. Defaults to 0.7 for 'cupy'
+    (an OutOfMemoryError there is a contained, catchable failure) and a
+    more conservative 0.5 for 'numpy' (getting this wrong risks the
     OOM-killer/swapping failure mode above, a much larger blast radius).
     """
     if backend == 'cupy':
@@ -80,11 +96,12 @@ def _estimate_s_chunk(n_particles, n_s, backend, safety_frac=None):
         frac = 0.5 if safety_frac is None else safety_frac
     else:
         raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
+    ceiling = min(n_s, _MAX_S_CHUNK)
     if free_bytes is None:
-        return n_s
+        return ceiling
     budget = free_bytes * frac
     chunk = int(budget / (_BYTES_PER_PARTICLE_S_PAIR * max(n_particles, 1)))
-    return max(1, min(chunk, n_s))
+    return max(1, min(chunk, ceiling))
 
 
 def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy', chunk=None):
