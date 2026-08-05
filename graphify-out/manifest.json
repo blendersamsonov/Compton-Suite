@@ -20,13 +20,13 @@
     "semantic_hash": "3ea725724bc8ebe483c9f13d6aa1124f"
   },
   "AGENTS.md": {
-    "mtime": 1785932683.0926595,
-    "ast_hash": "3d6a3cd3d232cfe4ea945d58cffa5a94",
+    "mtime": 1785945021.728547,
+    "ast_hash": "df1cf6396dbc10bdf6aae58dd730c755",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785932683.0926595,
-    "ast_hash": "3d6a3cd3d232cfe4ea945d58cffa5a94",
+    "mtime": 1785945021.728547,
+    "ast_hash": "df1cf6396dbc10bdf6aae58dd730c755",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/gui/app.py": {
-    "mtime": 1785944563.898736,
-    "ast_hash": "3cf2103162c63204b3fe2f3230403db1",
+    "mtime": 1785945165.6228065,
+    "ast_hash": "a808c558240dca98bdc4e858372baf12",
     "semantic_hash": ""
   },
   "src/gammaforge/io/__init__.py": {
