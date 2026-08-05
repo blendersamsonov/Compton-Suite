@@ -20,13 +20,13 @@
     "semantic_hash": "3ea725724bc8ebe483c9f13d6aa1124f"
   },
   "AGENTS.md": {
-    "mtime": 1785931465.2747593,
-    "ast_hash": "8561530ec75f0dab638ff9762a151fae",
+    "mtime": 1785945021.728547,
+    "ast_hash": "df1cf6396dbc10bdf6aae58dd730c755",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785931465.2747593,
-    "ast_hash": "8561530ec75f0dab638ff9762a151fae",
+    "mtime": 1785945021.728547,
+    "ast_hash": "df1cf6396dbc10bdf6aae58dd730c755",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/gui/app.py": {
-    "mtime": 1785931465.343258,
-    "ast_hash": "9ebb547ae1c4b1f643c60d67a81a772c",
+    "mtime": 1785945165.6228065,
+    "ast_hash": "a808c558240dca98bdc4e858372baf12",
     "semantic_hash": ""
   },
   "src/gammaforge/io/__init__.py": {
@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/misc.py": {
-    "mtime": 1785931465.346152,
-    "ast_hash": "3ef29cb125e723b23f85a8292d373cb2",
+    "mtime": 1785944824.3509703,
+    "ast_hash": "57ea86bd6df09d616fd1b541ef16d493",
     "semantic_hash": ""
   },
   "src/gammaforge/models/__init__.py": {
@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/particles.py": {
-    "mtime": 1785931465.350044,
-    "ast_hash": "9caf7e67e958d6d892cc26a5f90daa77",
+    "mtime": 1785944484.5303824,
+    "ast_hash": "e07db734c07efc3c6a6505ee277b1dec",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/reference.py": {
@@ -285,8 +285,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/spectrum_from_particles.py": {
-    "mtime": 1785931580.4242067,
-    "ast_hash": "3bc63386238683e12dbb572793ffbf74",
+    "mtime": 1785944439.7611742,
+    "ast_hash": "38ee7ea44ce4e7e3a15bc73b6f1a0c50",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/tabulated_engine.py": {
@@ -360,13 +360,13 @@
     "semantic_hash": ""
   },
   "tests/test_xigma_chunking.py": {
-    "mtime": 1785931465.3560755,
-    "ast_hash": "b838ff2e396a4dd7a8efcb09b48b113f",
+    "mtime": 1785944911.9333477,
+    "ast_hash": "7b6504945b5eb8cff59f4921362d512d",
     "semantic_hash": ""
   },
   "tests/test_angle_integrated_spectrum_chunking.py": {
-    "mtime": 1785932463.2492552,
-    "ast_hash": "a2fd9b4ae2111394e7788e5223c6fb2b",
+    "mtime": 1785944884.5142977,
+    "ast_hash": "27321d6f4098538a1f30bea963092f18",
     "semantic_hash": ""
   }
 }

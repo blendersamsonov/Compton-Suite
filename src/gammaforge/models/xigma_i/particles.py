@@ -27,7 +27,7 @@ from dataclasses import dataclass
 
 from gammaforge.io.laser import GaussianParaxialLaser
 from gammaforge.io.bunch import ballistic_position_z0_reference, laser_overlap_time_window
-from gammaforge.misc import available_vram_bytes
+from gammaforge.misc import available_ram_bytes, available_vram_bytes
 
 from .config import GAUSS_WIDTH, LORENTZ_WIDTH
 
@@ -187,26 +187,50 @@ def _normalise_bunch(k0_las, N_e, macrobunch, xp):
     return x0, y0, z0, gamma, theta_x, theta_y, weight
 
 
-def estimate_chunk_size(n_particles, n_steps, backend, safety_frac=0.7):
-    """Auto-sized ``chunk`` for ``push_and_sample``'s cupy path, from
-    currently free VRAM (``gammaforge.misc.available_vram_bytes``), capped
-    at ``safety_frac`` of that headroom -- the "query VRAM, cap allocation
-    at ~70%" backlog item (docs/models/tasks.md).
+def estimate_chunk_size(n_particles, n_steps, backend, safety_frac=None):
+    """Auto-sized ``chunk`` for ``push_and_sample``, from currently free
+    memory on whichever backend is in play: VRAM (``backend='cupy'``, via
+    ``gammaforge.misc.available_vram_bytes``) or system RAM
+    (``backend='numpy'``, via ``gammaforge.misc.available_ram_bytes``) --
+    the "query VRAM, cap allocation at ~70%" backlog item
+    (docs/models/tasks.md), extended to numpy's own memory budget.
 
-    Returns ``n_particles`` unchanged (i.e. "don't chunk") for
-    ``backend != 'cupy'`` (the numpy/numba paths aren't the documented OOM
-    problem -- numba's own per-particle compiled loop already avoids the
-    O(n*n_steps) blowup, and plain numpy is bounded by system RAM, not the
-    much tighter VRAM budget this estimates) or if the VRAM query fails
-    (no GPU/cupy usable) -- the caller can still pass an explicit
-    ``chunk`` in that case.
+    ``backend='numba'`` is the one case that's never chunked: its own
+    per-particle compiled loop already avoids the O(n*n_steps) blowup this
+    function exists to bound, so there's nothing to chunk. ``'numpy'`` used
+    to get the same "don't chunk" treatment on the assumption that plain
+    numpy is bounded by system RAM, not the much tighter VRAM budget this
+    estimates -- wrong at large enough ``n_particles*n_steps`` (a user
+    report: 5,000,000 particles blew a 128GB machine's RAM in a related
+    unchunked broadcast, see spectrum_from_particles._estimate_s_chunk),
+    so ``'numpy'`` is now chunked against ``available_ram_bytes()`` the
+    same way ``'cupy'`` is chunked against ``available_vram_bytes()``.
+
+    Returns ``n_particles`` unchanged (i.e. "don't chunk") only if the
+    relevant free-memory query itself fails (no GPU/cupy usable for
+    ``'cupy'``; unsupported platform for ``'numpy'``) -- the caller can
+    still pass an explicit ``chunk`` in that case.
+
+    ``safety_frac``: fraction of free memory to budget for. Defaults to
+    0.7 for ``'cupy'`` (an OutOfMemoryError there is a contained,
+    catchable failure) and a more conservative 0.5 for ``'numpy'`` (an
+    oversized host allocation can trigger the kernel OOM-killer or heavy
+    swapping instead of a catchable exception -- a much larger blast
+    radius to get wrong).
     """
-    if backend != 'cupy':
+    if backend == 'numba':
         return n_particles
-    free_bytes = available_vram_bytes()
+    if backend == 'cupy':
+        free_bytes = available_vram_bytes()
+        frac = 0.7 if safety_frac is None else safety_frac
+    elif backend == 'numpy':
+        free_bytes = available_ram_bytes()
+        frac = 0.5 if safety_frac is None else safety_frac
+    else:
+        raise ValueError(f"backend must be 'numpy', 'numba', or 'cupy', got {backend!r}")
     if free_bytes is None:
         return n_particles
-    budget = free_bytes * safety_frac
+    budget = free_bytes * frac
     chunk = int(budget / (_BYTES_PER_PARTICLE_STEP * n_steps))
     return max(1, min(chunk, n_particles))
 
@@ -415,7 +439,11 @@ def _push_and_sample_vectorized(k0_las, beta_ff, sigma_lr0, sigma_lz, omega_las,
         spatial_edges = (xp.linspace(sx_lo, sx_hi, nsx + 1), xp.linspace(sy_lo, sy_hi, nsy + 1))
 
     is_cupy = xp is not np
-    oom_exc = xp.cuda.memory.OutOfMemoryError if is_cupy else ()
+    # MemoryError on the numpy path: same halve-and-retry safety net as
+    # cupy's OutOfMemoryError, secondary to estimate_chunk_size's proactive
+    # sizing above (Linux overcommit means a too-large host allocation can
+    # be killed by the OOM-killer before ever raising MemoryError).
+    oom_exc = xp.cuda.memory.OutOfMemoryError if is_cupy else MemoryError
 
     a0_parts, L_parts = [], []
     time_envelope_total = spatial_envelope_total = None

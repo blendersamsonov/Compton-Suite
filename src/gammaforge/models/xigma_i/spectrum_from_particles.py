@@ -12,11 +12,12 @@ brute-force table quadrature with no production caller.
 """
 import numpy as np
 
-from gammaforge.misc import available_vram_bytes
+from gammaforge.misc import available_ram_bytes, available_vram_bytes
 
 # angle_integrated_spectrum's OOM-retry bound, mirroring particles.py's
-# push_and_sample chunking: halve the remaining s-chunk on a cupy
-# OutOfMemoryError, up to this many times, before giving up and re-raising.
+# push_and_sample chunking: halve the remaining s-chunk on an
+# OutOfMemoryError (cupy) or MemoryError (numpy), up to this many times,
+# before giving up and re-raising.
 _MAX_OOM_HALVINGS = 6
 
 # Calibration for _estimate_s_chunk: the (n_particles, chunk)-shaped
@@ -24,7 +25,9 @@ _MAX_OOM_HALVINGS = 6
 # particle_weight*shape/gamma**2 product) keeps ~3 float64 temporaries of
 # that shape concurrently live; rounded up for headroom against other GPU
 # processes / cupy-version drift, same reasoning as particles.py's
-# _BYTES_PER_PARTICLE_STEP.
+# _BYTES_PER_PARTICLE_STEP. Used for both backends -- the broadcast shape
+# (and so the temporaries' byte cost) doesn't depend on which array module
+# holds it.
 _BYTES_PER_PARTICLE_S_PAIR = 60
 
 
@@ -42,21 +45,44 @@ def _xp_for(backend):
     raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
 
 
-def _estimate_s_chunk(n_particles, n_s, backend, safety_frac=0.7):
-    """Auto-sized s-axis chunk for angle_integrated_spectrum's cupy path,
-    from currently free VRAM -- the particle axis (n_particles, can be
-    several million) is never chunked (gamma/particle_weight are cheap, O(n)
-    1D arrays); only the (n_particles, chunk)-shaped broadcast temporaries
-    need bounding. Returns n_s unchanged (don't chunk) for backend !=
-    'cupy' or if the VRAM query fails, same convention as
-    particles.estimate_chunk_size.
+def _estimate_s_chunk(n_particles, n_s, backend, safety_frac=None):
+    """Auto-sized s-axis chunk for angle_integrated_spectrum, from currently
+    free memory on whichever backend is in play -- VRAM (cupy, via
+    gammaforge.misc.available_vram_bytes) or system RAM (numpy, via
+    gammaforge.misc.available_ram_bytes). The particle axis (n_particles,
+    can be several million) is never chunked (gamma/particle_weight are
+    cheap, O(n) 1D arrays); only the (n_particles, chunk)-shaped broadcast
+    temporaries need bounding.
+
+    Both backends are chunked, not just cupy: "plain numpy is bounded by
+    system RAM, so it doesn't need chunking" is only true if that RAM
+    budget is actually respected -- a 5,000,000-particle x 1,024-point
+    broadcast is over 100GB with this function's handful of live
+    temporaries, enough to exhaust RAM (and, via the Linux OOM-killer or
+    heavy swapping, crash the machine outright -- not a catchable
+    exception the way a cupy OutOfMemoryError is) on a well-provisioned
+    workstation. See available_ram_bytes' docstring.
+
+    Returns n_s unchanged (don't chunk) only if the relevant free-memory
+    query itself fails (no GPU/cupy usable for 'cupy'; unsupported
+    platform for 'numpy').
+
+    safety_frac: fraction of free memory to budget for. Defaults to 0.7 for
+    'cupy' (an OutOfMemoryError there is a contained, catchable failure)
+    and a more conservative 0.5 for 'numpy' (getting this wrong risks the
+    OOM-killer/swapping failure mode above, a much larger blast radius).
     """
-    if backend != 'cupy':
-        return n_s
-    free_bytes = available_vram_bytes()
+    if backend == 'cupy':
+        free_bytes = available_vram_bytes()
+        frac = 0.7 if safety_frac is None else safety_frac
+    elif backend == 'numpy':
+        free_bytes = available_ram_bytes()
+        frac = 0.5 if safety_frac is None else safety_frac
+    else:
+        raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
     if free_bytes is None:
         return n_s
-    budget = free_bytes * safety_frac
+    budget = free_bytes * frac
     chunk = int(budget / (_BYTES_PER_PARTICLE_S_PAIR * max(n_particles, 1)))
     return max(1, min(chunk, n_s))
 
@@ -80,13 +106,14 @@ def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy', chunk=
     broadcast runs on `chunk`-sized slices of `s` instead of all at once,
     writing into the matching slice of the output -- each s value's result
     depends on no other s value, so this is an exact repartition, not an
-    approximation. None (default) auto-sizes from free VRAM on
-    backend='cupy' via _estimate_s_chunk (no chunking on 'numpy' -- system
-    RAM, not the tight VRAM budget, bounds that path). Needed because unlike
-    push_and_sample's Stage 0 trajectory integration, this reduction has no
-    chunking of its own: n_particles can be several million while s is only
-    a few hundred points, so the naive (n_particles, len(s)) broadcast can
-    be tens of GB in one allocation (see CLAUDE.md CUDA-OOM notes).
+    approximation. None (default) auto-sizes from free VRAM (cupy) or free
+    system RAM (numpy) via _estimate_s_chunk -- both backends are chunked,
+    see that function's docstring for why 'numpy' is not exempt. Needed
+    because unlike push_and_sample's Stage 0 trajectory integration, this
+    reduction has no chunking of its own: n_particles can be several
+    million while s is only a few hundred points, so the naive
+    (n_particles, len(s)) broadcast can be tens to hundreds of GB in one
+    allocation (see CLAUDE.md CUDA/RAM-OOM notes).
     """
     xp = _xp_for(backend)
     gamma, particle_weight = xp.asarray(gamma), xp.asarray(particle_weight)
@@ -100,7 +127,12 @@ def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy', chunk=
     chunk = max(1, min(int(chunk), n_s))
 
     is_cupy = xp is not np
-    oom_exc = xp.cuda.memory.OutOfMemoryError if is_cupy else ()
+    # MemoryError on the numpy path is the same halve-and-retry safety net
+    # as cupy's OutOfMemoryError -- a secondary defense (Linux overcommit
+    # means a too-large host allocation can be killed by the OOM-killer
+    # before ever raising MemoryError, so _estimate_s_chunk's proactive
+    # sizing above is the primary one, not this).
+    oom_exc = xp.cuda.memory.OutOfMemoryError if is_cupy else MemoryError
 
     out = xp.empty(n_s, dtype=xp.float64)
     start = 0

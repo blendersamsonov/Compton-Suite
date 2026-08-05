@@ -1,16 +1,16 @@
 # Graph Report - xigma-oom-fix  (2026-08-05)
 
 ## Corpus Check
-- 74 files · ~82,354 words
+- 74 files · ~84,675 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1132 nodes · 2266 edges · 75 communities (51 shown, 24 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 181 edges (avg confidence: 0.57)
+- 1142 nodes · 2287 edges · 75 communities (51 shown, 24 thin omitted)
+- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 185 edges (avg confidence: 0.58)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c807a824`
+- Built from commit: `8300234f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -93,7 +93,7 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `GaussianElectronBeam` - 70 edges
-2. `ComptonGUIApp` - 56 edges
+2. `ComptonGUIApp` - 57 edges
 3. `GaussianParaxialLaser` - 51 edges
 4. `Bunch` - 50 edges
 5. `PhysicalQuantity` - 41 edges
@@ -149,16 +149,16 @@
 ## Communities (75 total, 24 thin omitted)
 
 ### Community 0 - "IO Core + Validation"
-Cohesion: 0.06
-Nodes (74): Job, OutputSpec, Model-agnostic output resolution specification.      Models receive this in thei, The single compiled-from-UI config object the GUI passes to     ``ModelAdapter.r, DirectAdapter, Shared comparison metric for the cross-model validation suite.  Promoted (moved, s, spec, spec_ref: 1D arrays of equal shape (same grid for both     spectra -- r, Linear-interpolate spec_src(s_src) onto s_ref, zero outside s_src's range. (+66 more)
+Cohesion: 0.07
+Nodes (71): OutputSpec, Model-agnostic output resolution specification.      Models receive this in thei, Shared comparison metric for the cross-model validation suite.  Promoted (moved, s, spec, spec_ref: 1D arrays of equal shape (same grid for both     spectra -- r, Linear-interpolate spec_src(s_src) onto s_ref, zero outside s_src's range., resample_to(), window_integrated_relative_error(), User-curated bank of additional cross-validation parameter sets.  Deliberately e (+63 more)
 
 ### Community 1 - "Bunch Sampling"
-Cohesion: 0.05
-Nodes (31): add_field_grid(), ComptonGUIApp, _float_or_none(), _native(), _pq(), Refresh electron and laser values derived from the current fields., Compute (wavelength_m, sigma0_l_m, sigma_par_L_m, pulse_energy_J,         focus_, Compile the current Electrons + Laser panel fields into the         analytic bea (+23 more)
+Cohesion: 0.08
+Nodes (16): add_field_grid(), ComptonGUIApp, Build the ``Job.extra`` dict for ``adapter`` from its own         ``model_params, Return (total_flux, collimated_flux, cmask_or_None) [ph/s].          cmask is on, Place (label, default, key) triples in an n_cols-wide grid inside a     coloured, Four (energy, angle) views of the same joint (AXIS_ENERGY,         AXIS_THETA_X,, Flip the Electron-panel entries to read-only and write the         parameters de, Show/hide the independent Y-waist-diameter entry -- unchecked         (default) (+8 more)
 
 ### Community 2 - "GUI App Layout"
-Cohesion: 0.07
-Nodes (52): Bunch, Macroparticle electron bunch. SI units, flat arrays.      ``x``/``y``/``z`` are, Total number of physical electrons., load_elegant_ele(), Elegant / SDDS ``.ele`` file I/O for :class:`gammaforge.io.bunch.Bunch`.  Reloca, Write a :class:`Bunch` in SDDS ASCII ``.ele`` format.      Mirrors :func:`load_e, Parse a 6-D electron-bunch ``.ele`` file in SDDS ASCII format.      Required col, save_elegant_ele() (+44 more)
+Cohesion: 0.09
+Nodes (43): Write a :class:`Bunch` in SDDS ASCII ``.ele`` format.      Mirrors :func:`load_e, save_elegant_ele(), KASCADE: Sequential multi-photon inverse-Compton Monte Carlo engine., beta_of(), build_lambda_grid(), Config, cos_collision(), doppler_D() (+35 more)
 
 ### Community 3 - "Laser Overlap"
 Cohesion: 0.13
@@ -169,8 +169,8 @@ Cohesion: 0.09
 Nodes (37): canonical variables (x, y, z, thx, thy, gamma), energy chirp (z-gamma correlation), dispersion (position-energy correlation), geometric emittance, KS test (fit quality), Mahalanobis distance (fit quality), mass-shell enforcement (pz derived, never sampled), Twiss parameters (alpha, beta, gamma) (+29 more)
 
 ### Community 5 - "Electron Beam Model"
-Cohesion: 0.20
-Nodes (13): get_xp(), Array module for ``device`` ('gpu' -> cupy, 'cpu' -> numpy) -- not a     unit co, Bring an array back to host (numpy) if it's on-device (cupy);     a no-op for CP, to_host(), find_slice_request(), Look up a requested slice by its exact axis-name set (order-independent).     Mi, ndarray, Results (+5 more)
+Cohesion: 0.15
+Nodes (15): get_xp(), Array module for ``device`` ('gpu' -> cupy, 'cpu' -> numpy) -- not a     unit co, Bring an array back to host (numpy) if it's on-device (cupy);     a no-op for CP, to_host(), find_slice_request(), Look up a requested slice by its exact axis-name set (order-independent).     Mi, ndarray, Results (+7 more)
 
 ### Community 6 - "Physics Concepts"
 Cohesion: 0.07
@@ -185,8 +185,8 @@ Cohesion: 0.18
 Nodes (20): cache_key(), clear_cache(), get_or_compute(), _git_head_hash(), _git_is_dirty(), list_cache_entries(), load(), _paths() (+12 more)
 
 ### Community 9 - "Project Documentation"
-Cohesion: 0.24
-Nodes (7): Validate a :class:`GaussianElectronBeam`.      Raises ``ValueError`` on hard req, validate(), Cross-checks for bunch.py's Bunch / GaussianElectronBeam / sample_gaussian_bunch, test_derived_quantities_are_sane(), test_sample_gaussian_bunch_matches_beam_moments(), test_validate_rejects_nonpositive_fields(), test_validate_warns_on_suspicious_emittance()
+Cohesion: 0.13
+Nodes (15): Save the current Electrons-panel fields as a         ``gaussian_6d_waist`` YAML, Save the current Laser-panel fields as a ``gaussian_paraxial``         YAML conf, Load a ``gaussian_paraxial`` YAML config and populate the         Laser-panel in, External-format I/O for gammaforge.io's bunch/laser representations., Elegant / SDDS ``.ele`` file I/O for :class:`gammaforge.io.bunch.Bunch`.  Reloca, load_electron_beam(), load_laser(), YAML I/O for the ``gaussian_6d_waist``/``gaussian_paraxial`` v0.1 formats define (+7 more)
 
 ### Community 10 - "Units & Conventions"
 Cohesion: 0.09
@@ -198,7 +198,7 @@ Nodes (11): _old_kascade_laser_density(), _old_xigma_n_ph_shape(), Cross-checks 
 
 ### Community 12 - "Canonical Sampling Tests"
 Cohesion: 0.20
-Nodes (6): Adapter, angle_integrated_spectrum(), ndarray, Results, Fast closed-form model: total yield, angle-integrated spectrum, and     an estim, dN/ds integrated over all emission solid angle, from the standard     angle-inde
+Nodes (8): InteractionParameters, One canonical (laser, electrons) pair -- the physics-parameter     bundle every, AngularRangeSpectrumResult, On-demand angle-integrated spectrum restricted to an arbitrary     ``(theta_x_ra, One requested phase-space slice: which axes, at what resolution,     over what r, SliceRequest, DirectAdapter, Evaluate direct_binning_spectrum at a grid of OBSERVATION angles         spannin
 
 ### Community 13 - "GUI Conventions"
 Cohesion: 0.17
@@ -213,28 +213,28 @@ Cohesion: 0.18
 Nodes (11): CLAUDE.md (repo conventions, convergence-testing tools), Compton-XIGMA GitHub repository, Crossing angle not supported architecturally (head-on only), Single-electron resonance replaced by delta-function, dfe5_compton_mc (MC-Kost alternative engine in same GUI), ИПФ РАН (responsible organization), Самсонов А. С. (code owner), Trust level C (unified physics-model rating) (+3 more)
 
 ### Community 16 - "cache.py"
-Cohesion: 0.25
-Nodes (12): _bunch(), _kwargs_for(), Coverage for particles.push_and_sample's chunk= streaming path (gammaforge.model, Regression test for CLAUDE.md's "CUDA OOM with large electron     bunches" open, A chunk sized too large to fit in memory (but < n_particles, so the     chunked/, Regression test for a review finding: the OOM-retry halving must     protect the, test_cupy_chunked_matches_numpy_unchunked(), test_cupy_chunking_fixes_documented_oom_case() (+4 more)
+Cohesion: 0.19
+Nodes (16): _bunch(), _kwargs_for(), Coverage for particles.push_and_sample's chunk= streaming path (gammaforge.model, Regression test for CLAUDE.md's "CUDA OOM with large electron     bunches" open, A chunk sized too large to fit in memory (but < n_particles, so the     chunked/, Regression test for a review finding: the OOM-retry halving must     protect the, numba's own per-particle compiled loop already avoids the     O(n*n_steps) blowu, Regression test for a follow-on user report: 'numpy' used to be     exempted fro (+8 more)
 
 ### Community 17 - "fit_gaussian"
-Cohesion: 0.24
-Nodes (7): calculate_angular_spectrum_4d(), _get_numba(), get_spectrum_kernel_4d_cpu(), CPU/numba equivalent of spectrum4d.py's GPU rawkernel (spectrum_kernel_4d), used, Lazily compiles and caches spectrum_kernel_4d_cpu (see module docstring)., Stage 2: `spectrum_kernel_4d`, the GPU kernel that turns a Stage 1 4D overlap ta, Host-side driver for spectrum_kernel_4d, the Stage-2 analogue of     Compton.cal
+Cohesion: 0.10
+Nodes (31): GUI tasks (pending), Model Tasks (Xigma-i, Analytical model, All models), All models: implement jitter and averaging over shots, Analytical model: collimated spectrum from total yield, collimation angle, spectrum width (convolution of single-electron spectrum with energy distribution and possibly a0), Analytical model: include foci displacement, Analytical model: consider closed-form total yield for non-round beams, Xigma-i: implement crossing angle (changes only polarization factor; geometric overlap uses photon density), Xigma-i: consider gamma-axis rescaling analogous to a0 rescaling (change mean energy without recomputing stages 0-1) (+23 more)
 
 ### Community 18 - "sample_gaussian_canonical"
-Cohesion: 0.09
-Nodes (12): Test chirp and dispersion correlations in sampling., Verify chirp creates measurable z-γ correlation., Verify chirp sign is respected., Verify mass-shell holds with chirp., Verify x-γ dispersion creates measurable correlation., Verify dispersion sign is respected., Verify mass-shell holds with dispersion., Verify chirp and dispersion work together. (+4 more)
+Cohesion: 0.10
+Nodes (11): Test chirp and dispersion correlations in sampling., Verify chirp sign is respected., Verify mass-shell holds with chirp., Verify x-γ dispersion creates measurable correlation., Verify dispersion sign is respected., Verify mass-shell holds with dispersion., Verify chirp and dispersion work together., Verify default (no chirp/dispersion) gives zero correlations. (+3 more)
 
 ### Community 19 - "test_bunch_improvements.py"
-Cohesion: 0.08
-Nodes (24): mildly_relativistic_beam(), _pq(), Tests for the improved electron bunch sampling, fitting, and evaluation.  This m, Test vacuum propagation., Test structured Gaussian fitting., Build a PhysicalQuantity for test fixtures., Test fit quality evaluation metrics., Verify non-Gaussian data produces high KS excess. (+16 more)
+Cohesion: 0.11
+Nodes (19): mildly_relativistic_beam(), _pq(), Tests for the improved electron bunch sampling, fitting, and evaluation.  This m, Build a PhysicalQuantity for test fixtures., Test fit quality evaluation metrics., Random number generator for reproducible tests., End-to-end integration tests., Ultra-relativistic beam (gamma >> 1) for testing.      Physical parameters: 500 (+11 more)
 
 ### Community 20 - "docs/gui/tasks.md — GUI task backlog"
 Cohesion: 0.07
 Nodes (43): tests/ — test_constants.py, test_conversions.py, test_bunch.py, test_laser.py, test_io_formats.py for compton_suite.io, extra_params() mechanism: ModelAdapter.extra_params() lets a model declare extra numeric fields (e.g. xigma-i's beta_ff/phi_pol) rendered in app.py's grey MODEL PARAMETERS panel, isinstance-vs-duck-typing bug: checking both model_api dataclasses via isinstance silently misses xigma-i's structurally-identical-but-different-class results, breaking validate_results() and app.py render methods; fixed by hasattr duck typing, Known gaps: xigma_i spatial-distribution normalization self-consistently rescaled (not first-principles); no automated Tkinter render test; Conventions-and-units.md now implemented as compton_suite.io, docs/gui/AGENTS.md — Compton-GUIde (compton_suite.gui), Task: abandon angular-range tab, Task: dropdown per-input unit selection (cm, m, mm, um) with automatic PhysicalQuantity-conserving conversion, works on read-only fields too, Task: grey out inputs after simulation done (except charge; XIGMA keeps pulse energy/gamma active), add a "release" button (+35 more)
 
 ### Community 21 - "XigmaAdapter"
-Cohesion: 0.11
-Nodes (19): _pq(), Shortcut to build a PhysicalQuantity., InteractionParameters, The shared "interaction parameters" bundle: one canonical (laser, electrons) pai, One canonical (laser, electrons) pair -- the physics-parameter     bundle every, Quantum recoil parameter ``q = 4 * gamma * hbar * omega / (m_e * c^2)``.      Di, recoil_parameter(), PhysicalQuantity (+11 more)
+Cohesion: 0.10
+Nodes (19): AmplitudeConvention, _const(), _convert(), convert_amplitude(), convert_time(), convert_width(), Quantity, Shared pint unit registry, physical constants, and the parameter- semantics/conv (+11 more)
 
 ### Community 22 - "core-simulation-api refactor (completed)"
 Cohesion: 0.13
@@ -245,8 +245,8 @@ Cohesion: 0.16
 Nodes (27): Rayleigh range, Normalized amplitude a0 (a0_focus, a0_interaction), derived not input, Beam size and intensity at the interaction point (paraxial defocus formula, sigma_x(z=0), sigma_y(z=0)), Recommended derived output parameters (waist radii, FWHM, Rayleigh lengths, peak power/intensity, a0), Temporal intensity duration definition (sigma_t; FWHM relation), Pulse energy, peak power and peak intensity (E_L, P_peak, I0_focus, I0_interaction), Minimal example input YAML (laser: model gaussian_paraxial, version 0.1), GaussianParaxialLaser model (gaussian_paraxial, version 0.1) (+19 more)
 
 ### Community 24 - "app.py"
-Cohesion: 0.47
-Nodes (4): main(), GammaForge GUI: Tkinter GUI for pluggable Compton-scattering physics models., GammaForge: unified package for inverse-Compton scattering simulation.  Subpacka, run_gui()
+Cohesion: 0.12
+Nodes (20): _float_or_none(), _native(), _pq(), Refresh electron and laser values derived from the current fields., Compute (wavelength_m, sigma0_l_m, sigma_par_L_m, pulse_energy_J,         focus_, Compile the current Electrons + Laser panel fields into the         analytic bea, Shortcut to build a PhysicalQuantity -- the GUI wraps its own raw     floats dir, Convert a raw field value from the GUI's own display unit     (``native_unit``, (+12 more)
 
 ### Community 25 - "TabulatedEngine"
 Cohesion: 0.22
@@ -265,84 +265,84 @@ Cohesion: 0.25
 Nodes (7): Files, KASCADE, No GPU dependency, Physical constants (`gammaforge.io`), Relationship to other components, Testing, Units and conventions
 
 ### Community 30 - "units.py"
-Cohesion: 0.09
-Nodes (36): Enum, Electron-bunch representations.  * :class:`Bunch` -- raw, engine-agnostic macrop, Transverse rms beam size [m] from normalised emittance, beta function,     and L, sigma_from_emittance(), Shared physical constants, pint unit registry, parameter-semantics vocabulary, a, External-format I/O for gammaforge.io's bunch/laser representations., load_electron_beam(), YAML I/O for the ``gaussian_6d_waist``/``gaussian_paraxial`` v0.1 formats define (+28 more)
+Cohesion: 0.13
+Nodes (24): Enum, _pq(), Electron-bunch representations.  * :class:`Bunch` -- raw, engine-agnostic macrop, Shortcut to build a PhysicalQuantity., Shared physical constants, pint unit registry, parameter-semantics vocabulary, a, The shared "interaction parameters" bundle: one canonical (laser, electrons) pai, Quantum recoil parameter ``q = 4 * gamma * hbar * omega / (m_e * c^2)``.      Di, recoil_parameter() (+16 more)
 
 ### Community 31 - "api.py"
-Cohesion: 0.19
-Nodes (10): Protocol, discover_models(), ModelAdapter, Results, Model-agnostic contract between app.py and physics-engine adapters.  This module, Model-specific parameters as (label, default, key) triples.          Default can, Optional: return a dict mapping parameter keys to allowed string         values, Populate the model registry with direct imports. kascade and     analytical have (+2 more)
+Cohesion: 0.13
+Nodes (17): Protocol, main(), GammaForge GUI: Tkinter GUI for pluggable Compton-scattering physics models., GammaForge: unified package for inverse-Compton scattering simulation.  Subpacka, run_gui(), Read the 0D slice every adapter is required to emit., What every model's ``run()`` returns.      ``photon_slices`` always includes a 0, Results (+9 more)
 
 ### Community 32 - "Electron Beam I/O Spec v0.1 (short)"
-Cohesion: 0.07
-Nodes (45): GUI tasks (pending), Electron Beam I/O Spec v0.1 (short), Longitudinal rms length sigma_z and peak electron density n_0, Derived output fields (bunch_charge_C/nC, num_electrons, gamma_mean, sigma_z_rms_um, peak_current_A, peak_density_cm3, etc.), Transverse n(x,y), temporal n(t), and energy f_E(delta_E) Gaussian distributions, Geometric rms emittance and divergence at focus (sigma_x'=epsilon_x/sigma_x0), Mean gamma_0/beta_0, charge Q, electron count N_e, peak current I_peak, gaussian_6d_waist model (6D Gaussian bunch, focus at interaction point) (+37 more)
+Cohesion: 0.25
+Nodes (14): Electron Beam I/O Spec v0.1 (short), Longitudinal rms length sigma_z and peak electron density n_0, Derived output fields (bunch_charge_C/nC, num_electrons, gamma_mean, sigma_z_rms_um, peak_current_A, peak_density_cm3, etc.), Transverse n(x,y), temporal n(t), and energy f_E(delta_E) Gaussian distributions, Geometric rms emittance and divergence at focus (sigma_x'=epsilon_x/sigma_x0), Mean gamma_0/beta_0, charge Q, electron count N_e, peak current I_peak, gaussian_6d_waist model (6D Gaussian bunch, focus at interaction point), Geometric convention: interaction point at origin, electrons along +z, alpha_x=alpha_y=0 at focus (+6 more)
 
 ### Community 33 - "deposition (Stage 1)"
 Cohesion: 0.22
 Nodes (13): compton_suite.io.bunch.sample_gaussian_bunch, reference.py (validation tool), ~2π systematic discrepancy: direct_binning_spectrum vs angle_integrated_spectrum, Trajectory-averaged effective a0 (ahat), 4D overlap table H[γ, θx, θy, a0], Narrow-angle/sparse-table variance noise in spectrum_kernel_4d (unresolved), retarget_a0 (cheap a0 rebinning of shape-profile table), Tabulated 4D phase-space overlap pipeline (Stage 0-2) (+5 more)
 
 ### Community 34 - "Bunch"
-Cohesion: 0.22
-Nodes (5): AngularRangeSpectrumResult, On-demand angle-integrated spectrum restricted to an arbitrary     ``(theta_x_ra, Fresh, on-demand spectrum over an arbitrary user-picked angular         sub-rang, Evaluate direct_binning_spectrum at a grid of OBSERVATION angles         spannin, XigmaAdapter
+Cohesion: 0.13
+Nodes (14): Adapter, angle_integrated_spectrum(), estimate_spectrum_width(), estimate_yield(), ndarray, Results, Fast, closed-form Compton-source physics: total yield, angle-integrated spectrum, Fast closed-form model: total yield, angle-integrated spectrum, and     an estim (+6 more)
 
 ### Community 35 - "drift"
-Cohesion: 0.10
-Nodes (14): drift(), Draw macroparticles from a :class:`GaussianElectronBeam` using     canonical var, Ballistically propagate a bunch by a longitudinal distance ``L`` (SI     metres,, sample_gaussian_canonical(), Verify pz > 1 for all particles (physical constraint)., Verify sampled statistics match input parameters., Verify gamma is correctly calculated from momenta., Verify x -> x + x' * L. (+6 more)
+Cohesion: 0.12
+Nodes (12): Draw macroparticles from a :class:`GaussianElectronBeam` using     canonical var, sample_gaussian_canonical(), Verify pz > 1 for all particles (physical constraint)., Verify sampled statistics match input parameters., Verify gamma is correctly calculated from momenta., Test structured Gaussian fitting., Verify fitted parameters match input beam., Verify fitting works correctly with drifted beam. (+4 more)
 
 ### Community 36 - "ValueError"
 Cohesion: 0.09
-Nodes (10): GaussianElectronBeam, Quantity, The ``gaussian_6d_waist`` v0.1 I/O contract.      A 6D factorized Gaussian defin, Bunch population (charge / e). A pure count has no unit to be         agnostic a, Absolute RMS dispersion for longitudinal momentum (normalized to mc)., Correlation coefficient ρ_zγ = chirp_h · σ_z / σ_γ., Correlation coefficient ρ_xγ = D_x · σ_γ / σ_x., Correlation coefficient ρ_yγ = D_y · σ_γ / σ_y. (+2 more)
+Nodes (8): GaussianElectronBeam, Quantity, The ``gaussian_6d_waist`` v0.1 I/O contract.      A 6D factorized Gaussian defin, Bunch population (charge / e). A pure count has no unit to be         agnostic a, Absolute RMS dispersion for longitudinal momentum (normalized to mc)., Correlation coefficient ρ_zγ = chirp_h · σ_z / σ_γ., Correlation coefficient ρ_xγ = D_x · σ_γ / σ_x., Correlation coefficient ρ_yγ = D_y · σ_γ / σ_y.
 
 ### Community 37 - "test_laser.py"
-Cohesion: 0.18
-Nodes (6): Quantity, Rayleigh range for the x waist: ``pi * w0^2 / lambda`` with         ``w0 = 2 * w, RMS intensity-profile width in x at absolute position ``z_m``         (SI metres, Angular frequency, ``2*pi*c/wavelength``., Peak power at the pulse's temporal center, at focus:         ``E / (sqrt(2*pi) *, On-axis, peak-in-time intensity at absolute position ``z_m`` (SI         metres)
+Cohesion: 0.08
+Nodes (18): GaussianParaxialLaser, Quantity, Rayleigh range for the x waist: ``pi * w0^2 / lambda`` with         ``w0 = 2 * w, RMS intensity-profile width in x at absolute position ``z_m``         (SI metres, Angular frequency, ``2*pi*c/wavelength``., Photon count in the pulse: N_L = pulse_energy / (hbar*omega0). A         pure co, Peak power at the pulse's temporal center, at focus:         ``E / (sqrt(2*pi) *, On-axis, peak-in-time intensity at absolute position ``z_m`` (SI         metres) (+10 more)
 
 ### Community 38 - "DirectAdapter"
-Cohesion: 0.50
-Nodes (3): _const(), Quantity, A CODATA constant from pint's own table, as a plain float in SI base     units -
+Cohesion: 0.16
+Nodes (9): drift(), Ballistically propagate a bunch by a longitudinal distance ``L`` (SI     metres,, Test vacuum propagation., Verify x -> x + x' * L., Verify z, thx, thy, gamma unchanged by drift., Verify Twiss alpha emerges from waist + drift., Verify drift() analytically propagates bunch.gaussian_fit's alpha         in loc, Test complete pipeline: sample -> drift -> fit -> evaluate. (+1 more)
 
 ### Community 42 - "gui_adapter.py (bridge into compton_gui as pluggable ModelAdapter)"
 Cohesion: 0.29
 Nodes (11): XIGMA four-stage pipeline (Stage 0-2 + validation), tabulated overlap table H[gamma, theta_x, theta_y, a0], GUI integration section: gui_adapter.py as the sole bridge from xigma_i into compton_gui, Lazy-import pattern: cupy/config/tabulated_engine imported only inside available()/run_simulation()/spectrum_in_angular_range(), never at module scope, so import degrades gracefully without cupy/CUDA, Pluggable ModelAdapter pattern (xigma-i is one of several: kascade, delta, analytical), XIGMA-I passport (v0.1), gui/ (Tkinter desktop GUI), models/analytical (analytical ModelAdapter) (+3 more)
 
 ### Community 44 - "TestFitQuality"
-Cohesion: 0.29
-Nodes (5): evaluate_fit_quality(), ndarray, Evaluate Gaussian fit quality with sampling-noise baseline.      Compares the re, Verify Gaussian data produces low KS excess., Verify log-likelihood comparison between real and synthetic.
+Cohesion: 0.22
+Nodes (6): evaluate_fit_quality(), ndarray, Evaluate Gaussian fit quality with sampling-noise baseline.      Compares the re, Verify Gaussian data produces low KS excess., Verify non-Gaussian data produces high KS excess., Verify log-likelihood comparison between real and synthetic.
 
 ### Community 45 - "units.py"
-Cohesion: 0.22
-Nodes (7): make_slice(), PhasespaceSlice, ndarray, Histogram per-macroparticle samples (with a uniform weight) into a     :class:`P, Density over <=4 axes of the 6D photon phase space (time, space,     angle, ener, KascadeAdapter, Results
+Cohesion: 0.14
+Nodes (14): Bunch, Macroparticle electron bunch. SI units, flat arrays.      ``x``/``y``/``z`` are, Total number of physical electrons., make_slice(), PhasespaceSlice, ndarray, Output-side observable representations: the phase-space-slice contract every mod, Histogram per-macroparticle samples (with a uniform weight) into a     :class:`P (+6 more)
 
 ### Community 46 - "OutputSpec"
-Cohesion: 0.21
-Nodes (11): angle_integrated_spectrum(), direct_binning_spectrum(), _estimate_s_chunk(), Table-free spectrum paths computed directly from Stage 0/1 macroparticles -- no, `delta`'s actual computation: for each real macroparticle,     compute the photo, Resolves backend='numpy'|'cupy' to its array module. cupy is imported     lazily, Auto-sized s-axis chunk for angle_integrated_spectrum's cupy path,     from curr, dN/ds integrated over all emission solid angle, from real Stage 0/1     macropar (+3 more)
+Cohesion: 0.32
+Nodes (7): angle_integrated_spectrum(), direct_binning_spectrum(), Table-free spectrum paths computed directly from Stage 0/1 macroparticles -- no, `delta`'s actual computation: for each real macroparticle,     compute the photo, Resolves backend='numpy'|'cupy' to its array module. cupy is imported     lazily, dN/ds integrated over all emission solid angle, from real Stage 0/1     macropar, _xp_for()
 
 ### Community 47 - "PhysicalQuantity"
-Cohesion: 0.31
-Nodes (9): _gamma_weight(), Coverage for spectrum_from_particles.angle_integrated_spectrum's chunk= streamin, Regression test for the reported bug: XigmaAdapter OOM'd allocating     a 5,000,, A chunk sized too large to fit in memory (but < len(s), so the     chunked/retry, test_cupy_auto_chunk_avoids_oom_at_reported_scale(), test_cupy_chunked_matches_numpy_unchunked(), test_cupy_oom_retry_halves_chunk_and_succeeds(), test_numpy_chunked_matches_unchunked_exactly() (+1 more)
+Cohesion: 0.18
+Nodes (15): _estimate_s_chunk(), Auto-sized s-axis chunk for angle_integrated_spectrum, from currently     free m, _gamma_weight(), Coverage for spectrum_from_particles.angle_integrated_spectrum's chunk= streamin, Regression test for the reported bug: XigmaAdapter OOM'd allocating     a 5,000,, A chunk sized too large to fit in memory (but < len(s), so the     chunked/retry, Regression test for the follow-on report: 5,000,000 particles x     1,024 energy, test_cupy_auto_chunk_avoids_oom_at_reported_scale() (+7 more)
 
 ### Community 48 - "build_params (CGS CollisionParams)"
 Cohesion: 0.28
 Nodes (9): CUDA OOM with large electron bunches, a0_shape (trajectory-averaged a0), deposition (Stage 1), push_and_sample (Stage 0), PushDiagnostics, retarget_a0, Table (4D overlap table H), TabulatedEngine (+1 more)
 
 ### Community 49 - "Model Tasks (Xigma-i, Analytical model, All models)"
-Cohesion: 0.25
-Nodes (7): available_vram_bytes(), detect_device(), Auto-detect which backend to use: a real CUDA GPU via cupy if     available, els, Free GPU memory in bytes via cupy, or None if no GPU/cupy usable --     the one, Physics constants and GPU kernel sizing constants for this pipeline (particles.p, estimate_chunk_size(), Auto-sized ``chunk`` for ``push_and_sample``'s cupy path, from     currently fre
+Cohesion: 0.18
+Nodes (11): fit_gaussian(), Fit a :class:`GaussianElectronBeam` from raw macroparticles: a full     covarian, Draw macroparticles from ``beam``. Delegates to     :func:`sample_gaussian_canon, sample_gaussian_bunch(), test_fit_gaussian_recovers_waist_after_drift(), test_fit_gaussian_round_trips_at_the_waist(), test_sdds_round_trip_preserves_bunch_statistics(), test_propagate_recovers_waist_after_drift() (+3 more)
 
 ### Community 50 - "yaml_spec.py"
-Cohesion: 0.29
-Nodes (7): Output-side observable representations: the phase-space-slice contract every mod, Read the 0D slice every adapter is required to emit., What every model's ``run()`` returns.      ``photon_slices`` always includes a 0, Results, total_yield(), One requested phase-space slice: which axes, at what resolution,     over what r, SliceRequest
+Cohesion: 0.20
+Nodes (10): available_ram_bytes(), available_vram_bytes(), detect_device(), Auto-detect which backend to use: a real CUDA GPU via cupy if     available, els, Free GPU memory in bytes via cupy, or None if no GPU/cupy usable --     the one, Available system RAM in bytes (POSIX sysconf), or None if the query     isn't su, Physics constants and GPU kernel sizing constants for this pipeline (particles.p, estimate_chunk_size() (+2 more)
 
 ### Community 52 - "TestEdgeCases"
-Cohesion: 0.13
-Nodes (13): fit_gaussian(), Fit a :class:`GaussianElectronBeam` from raw macroparticles: a full     covarian, Draw macroparticles from ``beam``. Delegates to     :func:`sample_gaussian_canon, sample_gaussian_bunch(), test_fit_gaussian_recovers_waist_after_drift(), test_fit_gaussian_round_trips_at_the_waist(), test_sdds_round_trip_preserves_bunch_statistics(), test_propagate_recovers_waist_after_drift() (+5 more)
+Cohesion: 0.24
+Nodes (7): Validate a :class:`GaussianElectronBeam`.      Raises ``ValueError`` on hard req, validate(), Cross-checks for bunch.py's Bunch / GaussianElectronBeam / sample_gaussian_bunch, test_derived_quantities_are_sane(), test_sample_gaussian_bunch_matches_beam_moments(), test_validate_rejects_nonpositive_fields(), test_validate_warns_on_suspicious_emittance()
 
 ### Community 53 - "Job dataclass"
 Cohesion: 0.29
 Nodes (7): Bunch (flat arrays), drift (ballistic propagation), InteractionParameters, recoil_parameter, Job dataclass, OutputSpec dataclass, run_cross_validation.py
 
 ### Community 54 - "test_laser.py"
-Cohesion: 0.10
-Nodes (18): load_laser(), save_laser(), GaussianParaxialLaser, Photon count in the pulse: N_L = pulse_energy / (hbar*omega0). A         pure co, Normalized vector potential at absolute position ``z_m`` (SI         metres), fr, ``a0_at(z_m)**2`` -- the mean-square amplitude.          Consumers that only eve, Validate a :class:`GaussianParaxialLaser`.      Raises ``ValueError`` on hard re, Only a paraxial Gaussian laser pulse *for now*.      Every field is a :class:`Ph (+10 more)
+Cohesion: 0.24
+Nodes (7): calculate_angular_spectrum_4d(), _get_numba(), get_spectrum_kernel_4d_cpu(), CPU/numba equivalent of spectrum4d.py's GPU rawkernel (spectrum_kernel_4d), used, Lazily compiles and caches spectrum_kernel_4d_cpu (see module docstring)., Stage 2: `spectrum_kernel_4d`, the GPU kernel that turns a Stage 1 4D overlap ta, Host-side driver for spectrum_kernel_4d, the Stage-2 analogue of     Compton.cal
 
 ### Community 57 - "ballistic_position_z0_reference"
 Cohesion: 0.29
@@ -366,12 +366,12 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `Geometric Convention (interaction point at origin, e- along +z, focus at IP, alpha=0)` and `Laser Pulse I/O Specification v0.1 (companion spec referenced by name, exact path inferred)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `XigmaAdapter` connect `Electron Beam I/O Spec v0.1 (short)` to `build_params (CGS CollisionParams)`?**
-  _High betweenness centrality (0.141) - this node is a cross-community bridge._
-- **Why does `TabulatedEngine` connect `build_params (CGS CollisionParams)` to `Electron Beam I/O Spec v0.1 (short)`, `TabulatedEngine`, `core-simulation-api refactor (completed)`?**
-  _High betweenness centrality (0.119) - this node is a cross-community bridge._
-- **Why does `GaussianParaxialLaser` connect `test_laser.py` to `IO Core + Validation`, `Bunch Sampling`, `GUI App Layout`, `Laser Overlap`, `ValueError`, `test_laser.py`, `Canonical Sampling Tests`, `GUI Model Selection`, `XigmaAdapter`, `ballistic_position_z0_reference`, `units.py`?**
-  _High betweenness centrality (0.108) - this node is a cross-community bridge._
+- **Why does `XigmaAdapter` connect `fit_gaussian` to `build_params (CGS CollisionParams)`?**
+  _High betweenness centrality (0.148) - this node is a cross-community bridge._
+- **Why does `TabulatedEngine` connect `build_params (CGS CollisionParams)` to `fit_gaussian`, `TabulatedEngine`, `core-simulation-api refactor (completed)`?**
+  _High betweenness centrality (0.118) - this node is a cross-community bridge._
+- **Why does `GaussianParaxialLaser` connect `test_laser.py` to `IO Core + Validation`, `Bunch Sampling`, `Bunch`, `GUI App Layout`, `Laser Overlap`, `Project Documentation`, `Canonical Sampling Tests`, `GUI Model Selection`, `XigmaAdapter`, `app.py`, `ballistic_position_z0_reference`, `units.py`?**
+  _High betweenness centrality (0.116) - this node is a cross-community bridge._
 - **Are the 16 inferred relationships involving `GaussianElectronBeam` (e.g. with `ComptonGUIApp` and `NoConvention`) actually correct?**
   _`GaussianElectronBeam` has 16 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 12 inferred relationships involving `ComptonGUIApp` (e.g. with `GaussianElectronBeam` and `InteractionParameters`) actually correct?**

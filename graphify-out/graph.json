@@ -453,8 +453,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scripts_headless_test",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "headless_test.py"
     },
     {
@@ -464,8 +464,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "scripts_headless_test_check",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "check()"
     },
     {
@@ -475,8 +475,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "scripts_headless_test_test_model",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "test_model()"
     },
     {
@@ -486,8 +486,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "scripts_headless_test_test_chunk_override",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "test_chunk_override()"
     },
     {
@@ -497,8 +497,8 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "scripts_headless_test_test_preview_alongside",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "test_preview_alongside()"
     },
     {
@@ -508,8 +508,8 @@
       "source_location": "L215",
       "_origin": "ast",
       "id": "scripts_headless_test_main",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "main()"
     },
     {
@@ -519,8 +519,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "scripts_headless_test_rationale_144",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "xigma-i/delta only: model_params() must expose a 'chunk' key (the     \"query vra"
     },
     {
@@ -530,8 +530,8 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "scripts_headless_test_rationale_181",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "mirrors app.py's on_start(): the always-on analytical preview runs     alongside"
     },
     {
@@ -541,8 +541,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scripts_run_gui",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "run_gui.py"
     },
     {
@@ -552,8 +552,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_init",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "gammaforge/__init__.py"
     },
     {
@@ -563,8 +563,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "src_gammaforge_init_run_gui",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "run_gui()"
     },
     {
@@ -574,8 +574,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_init_rationale_1",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "gammaforge: unified package for inverse-compton scattering simulation.  subpacka"
     },
     {
@@ -585,8 +585,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_gui_init",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "gui/__init__.py"
     },
     {
@@ -596,8 +596,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_gui_init_rationale_1",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "gammaforge gui: tkinter gui for pluggable compton-scattering physics models."
     },
     {
@@ -607,8 +607,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "app.py"
     },
     {
@@ -618,8 +618,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_float_or_none",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "_float_or_none()"
     },
     {
@@ -640,8 +640,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_pq",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "_pq()"
     },
     {
@@ -651,8 +651,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_native",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "_native()"
     },
     {
@@ -739,8 +739,8 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_save_beam_config",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "._save_beam_config()"
     },
     {
@@ -750,8 +750,8 @@
       "source_location": "L315",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_load_beam_config",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "._load_beam_config()"
     },
     {
@@ -761,8 +761,8 @@
       "source_location": "L366",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_save_laser_config",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "._save_laser_config()"
     },
     {
@@ -772,8 +772,8 @@
       "source_location": "L379",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_load_laser_config",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "._load_laser_config()"
     },
     {
@@ -783,8 +783,8 @@
       "source_location": "L416",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_load_ele",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "._load_ele()"
     },
     {
@@ -794,8 +794,8 @@
       "source_location": "L473",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_clear_loaded_ele",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "._clear_loaded_ele()"
     },
     {
@@ -816,8 +816,8 @@
       "source_location": "L516",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_set_electron_panel_input",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "._set_electron_panel_input()"
     },
     {
@@ -945,7 +945,7 @@
       "label": "._render_placeholder()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L968",
+      "source_location": "L980",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_render_placeholder",
       "community": 1,
@@ -956,7 +956,7 @@
       "label": "._wire_live_updates()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L987",
+      "source_location": "L1009",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_wire_live_updates",
       "community": 1,
@@ -967,40 +967,40 @@
       "label": "._update_derived()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1006",
+      "source_location": "L1028",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_update_derived",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "._update_derived()"
     },
     {
       "label": "._laser_fields_si()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1077",
+      "source_location": "L1099",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_laser_fields_si",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "._laser_fields_si()"
     },
     {
       "label": "._build_beam_and_laser()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1140",
+      "source_location": "L1162",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "._build_beam_and_laser()"
     },
     {
       "label": "._model_extra_fields()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1212",
+      "source_location": "L1234",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_model_extra_fields",
       "community": 1,
@@ -1011,18 +1011,18 @@
       "label": ".on_start()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1228",
+      "source_location": "L1250",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_on_start",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": ".on_start()"
     },
     {
       "label": "._poll_queue()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1301",
+      "source_location": "L1323",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_poll_queue",
       "community": 1,
@@ -1033,7 +1033,7 @@
       "label": "._collimation_rad()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1320",
+      "source_location": "L1342",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_collimation_rad",
       "community": 1,
@@ -1044,7 +1044,7 @@
       "label": "._update_outputs()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1327",
+      "source_location": "L1349",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_update_outputs",
       "community": 1,
@@ -1055,7 +1055,7 @@
       "label": "._photon_fluxes()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1355",
+      "source_location": "L1377",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_photon_fluxes",
       "community": 1,
@@ -1066,7 +1066,7 @@
       "label": "._render_plots()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1398",
+      "source_location": "L1422",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_render_plots",
       "community": 1,
@@ -1077,7 +1077,7 @@
       "label": "._render_spectrum()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1418",
+      "source_location": "L1443",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_render_spectrum",
       "community": 1,
@@ -1088,7 +1088,7 @@
       "label": "._render_electron_state()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1462",
+      "source_location": "L1492",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_render_electron_state",
       "community": 1,
@@ -1099,7 +1099,7 @@
       "label": "._render_unavailable()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1477",
+      "source_location": "L1507",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_render_unavailable",
       "community": 1,
@@ -1110,7 +1110,7 @@
       "label": "._render_temporal_envelope()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1485",
+      "source_location": "L1515",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_render_temporal_envelope",
       "community": 1,
@@ -1121,7 +1121,7 @@
       "label": "._render_spatial_distribution()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1500",
+      "source_location": "L1530",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_render_spatial_distribution",
       "community": 1,
@@ -1132,7 +1132,7 @@
       "label": "._render_angular_distribution()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1516",
+      "source_location": "L1546",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_comptonguiapp_render_angular_distribution",
       "community": 1,
@@ -1140,14 +1140,25 @@
       "norm_label": "._render_angular_distribution()"
     },
     {
+      "label": "._render_angle_resolved_spectra()",
+      "file_type": "code",
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1578",
+      "_origin": "ast",
+      "id": "src_gammaforge_gui_app_comptonguiapp_render_angle_resolved_spectra",
+      "community": 1,
+      "community_name": "Bunch Sampling",
+      "norm_label": "._render_angle_resolved_spectra()"
+    },
+    {
       "label": "main()",
       "file_type": "code",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1549",
+      "source_location": "L1647",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_main",
-      "community": 24,
-      "community_name": "app.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "main()"
     },
     {
@@ -1157,8 +1168,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_120",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "shortcut to build a physicalquantity -- the gui wraps its own raw     floats dir"
     },
     {
@@ -1168,8 +1179,8 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_127",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "convert a raw field value from the gui's own display unit     (``native_unit``,"
     },
     {
@@ -1190,8 +1201,8 @@
       "source_location": "L303",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_303",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "save the current electrons-panel fields as a         ``gaussian_6d_waist`` yaml"
     },
     {
@@ -1201,8 +1212,8 @@
       "source_location": "L316",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_316",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "load a ``gaussian_6d_waist`` yaml config and populate the         electrons-pane"
     },
     {
@@ -1212,8 +1223,8 @@
       "source_location": "L367",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_367",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "save the current laser-panel fields as a ``gaussian_paraxial``         yaml conf"
     },
     {
@@ -1223,8 +1234,8 @@
       "source_location": "L380",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_380",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "load a ``gaussian_paraxial`` yaml config and populate the         laser-panel in"
     },
     {
@@ -1234,8 +1245,8 @@
       "source_location": "L417",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_417",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "load a 6-d electron bunch from an sdds ``.ele`` file and turn the         electr"
     },
     {
@@ -1245,8 +1256,8 @@
       "source_location": "L474",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_474",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "drop the loaded ``.ele`` bunch and restore the electrons panel         to its no"
     },
     {
@@ -1267,8 +1278,8 @@
       "source_location": "L517",
       "_origin": "ast",
       "id": "src_gammaforge_gui_app_rationale_517",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "restore the electron-panel entries to editable input mode and         re-attach"
     },
     {
@@ -1341,42 +1352,42 @@
       "label": "Refresh electron and laser values derived from the current fields.",
       "file_type": "rationale",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1007",
+      "source_location": "L1029",
       "_origin": "ast",
-      "id": "src_gammaforge_gui_app_rationale_1007",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "id": "src_gammaforge_gui_app_rationale_1029",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "refresh electron and laser values derived from the current fields."
     },
     {
       "label": "Compute (wavelength_m, sigma0_l_m, sigma_par_L_m, pulse_energy_J,         focus_",
       "file_type": "rationale",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1078",
+      "source_location": "L1100",
       "_origin": "ast",
-      "id": "src_gammaforge_gui_app_rationale_1078",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "id": "src_gammaforge_gui_app_rationale_1100",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "compute (wavelength_m, sigma0_l_m, sigma_par_l_m, pulse_energy_j,         focus_"
     },
     {
       "label": "Compile the current Electrons + Laser panel fields into the         analytic bea",
       "file_type": "rationale",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1141",
+      "source_location": "L1163",
       "_origin": "ast",
-      "id": "src_gammaforge_gui_app_rationale_1141",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "id": "src_gammaforge_gui_app_rationale_1163",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "compile the current electrons + laser panel fields into the         analytic bea"
     },
     {
       "label": "Build the ``Job.extra`` dict for ``adapter`` from its own         ``model_params",
       "file_type": "rationale",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1213",
+      "source_location": "L1235",
       "_origin": "ast",
-      "id": "src_gammaforge_gui_app_rationale_1213",
+      "id": "src_gammaforge_gui_app_rationale_1235",
       "community": 1,
       "community_name": "Bunch Sampling",
       "norm_label": "build the ``job.extra`` dict for ``adapter`` from its own         ``model_params"
@@ -1385,12 +1396,23 @@
       "label": "Return (total_flux, collimated_flux, cmask_or_None) [ph/s].          cmask is on",
       "file_type": "rationale",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1356",
+      "source_location": "L1378",
       "_origin": "ast",
-      "id": "src_gammaforge_gui_app_rationale_1356",
+      "id": "src_gammaforge_gui_app_rationale_1378",
       "community": 1,
       "community_name": "Bunch Sampling",
       "norm_label": "return (total_flux, collimated_flux, cmask_or_none) [ph/s].          cmask is on"
+    },
+    {
+      "label": "Four (energy, angle) views of the same joint (AXIS_ENERGY,         AXIS_THETA_X,",
+      "file_type": "rationale",
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1579",
+      "_origin": "ast",
+      "id": "src_gammaforge_gui_app_rationale_1579",
+      "community": 1,
+      "community_name": "Bunch Sampling",
+      "norm_label": "four (energy, angle) views of the same joint (axis_energy,         axis_theta_x,"
     },
     {
       "label": "io/__init__.py",
@@ -1432,8 +1454,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_pq",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "_pq()"
     },
     {
@@ -1443,8 +1465,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_sigma_from_emittance",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "sigma_from_emittance()"
     },
     {
@@ -1454,8 +1476,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_bunch",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "bunch"
     },
     {
@@ -1465,8 +1487,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_bunch_n_particles",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": ".n_particles()"
     },
     {
@@ -1476,8 +1498,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_bunch_n_electrons",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": ".n_electrons()"
     },
     {
@@ -1729,8 +1751,8 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_validate",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "validate()"
     },
     {
@@ -1762,8 +1784,8 @@
       "source_location": "L457",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_fit_gaussian",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "fit_gaussian()"
     },
     {
@@ -1784,8 +1806,8 @@
       "source_location": "L614",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_sample_gaussian_bunch",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "sample_gaussian_bunch()"
     },
     {
@@ -1806,8 +1828,8 @@
       "source_location": "L642",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_drift",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "drift()"
     },
     {
@@ -1872,8 +1894,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_91",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "shortcut to build a physicalquantity."
     },
     {
@@ -1883,8 +1905,8 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_96",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "transverse rms beam size [m] from normalised emittance, beta function,     and l"
     },
     {
@@ -1894,8 +1916,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_119",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "macroparticle electron bunch. si units, flat arrays.      ``x``/``y``/``z`` are"
     },
     {
@@ -1905,8 +1927,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_144",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "total number of physical electrons."
     },
     {
@@ -1982,8 +2004,8 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_312",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "validate a :class:`gaussianelectronbeam`.      raises ``valueerror`` on hard req"
     },
     {
@@ -2004,8 +2026,8 @@
       "source_location": "L458",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_458",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "fit a :class:`gaussianelectronbeam` from raw macroparticles: a full     covarian"
     },
     {
@@ -2026,8 +2048,8 @@
       "source_location": "L615",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_615",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "draw macroparticles from ``beam``. delegates to     :func:`sample_gaussian_canon"
     },
     {
@@ -2048,8 +2070,8 @@
       "source_location": "L643",
       "_origin": "ast",
       "id": "src_gammaforge_io_bunch_rationale_643",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "ballistically propagate a bunch by a longitudinal distance ``l`` (si     metres,"
     },
     {
@@ -2103,8 +2125,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "interaction.py"
     },
     {
@@ -2114,8 +2136,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_interactionparameters",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": "interactionparameters"
     },
     {
@@ -2125,8 +2147,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_recoil_parameter",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "recoil_parameter()"
     },
     {
@@ -2136,8 +2158,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_rationale_1",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "the shared \"interaction parameters\" bundle: one canonical (laser, electrons) pai"
     },
     {
@@ -2147,8 +2169,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_rationale_46",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": "one canonical (laser, electrons) pair -- the physics-parameter     bundle every"
     },
     {
@@ -2158,8 +2180,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "src_gammaforge_io_interaction_rationale_55",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "quantum recoil parameter ``q = 4 * gamma * hbar * omega / (m_e * c^2)``.      di"
     },
     {
@@ -2169,8 +2191,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_init",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "io_formats/__init__.py"
     },
     {
@@ -2180,8 +2202,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_init_rationale_1",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "external-format i/o for gammaforge.io's bunch/laser representations."
     },
     {
@@ -2191,8 +2213,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "sdds.py"
     },
     {
@@ -2202,8 +2224,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds_load_elegant_ele",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "load_elegant_ele()"
     },
     {
@@ -2224,8 +2246,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds_rationale_1",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "elegant / sdds ``.ele`` file i/o for :class:`gammaforge.io.bunch.bunch`.  reloca"
     },
     {
@@ -2235,8 +2257,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_sdds_rationale_38",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "parse a 6-d electron-bunch ``.ele`` file in sdds ascii format.      required col"
     },
     {
@@ -2257,8 +2279,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "yaml_spec.py"
     },
     {
@@ -2268,8 +2290,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_load_electron_beam",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "load_electron_beam()"
     },
     {
@@ -2279,8 +2301,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_save_electron_beam",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "save_electron_beam()"
     },
     {
@@ -2290,8 +2312,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_load_laser",
-      "community": 54,
-      "community_name": "test_laser.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "load_laser()"
     },
     {
@@ -2301,8 +2323,8 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_save_laser",
-      "community": 54,
-      "community_name": "test_laser.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "save_laser()"
     },
     {
@@ -2312,8 +2334,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_io_formats_yaml_spec_rationale_1",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "yaml i/o for the ``gaussian_6d_waist``/``gaussian_paraxial`` v0.1 formats define"
     },
     {
@@ -2345,7 +2367,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "gaussianparaxiallaser"
     },
@@ -2422,7 +2444,7 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser_n_photons",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": ".n_photons()"
     },
@@ -2466,7 +2488,7 @@
       "source_location": "L169",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser_a0_at",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": ".a0_at()"
     },
@@ -2477,7 +2499,7 @@
       "source_location": "L192",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser_a0_focus",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": ".a0_focus()"
     },
@@ -2488,7 +2510,7 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser_a0_interaction",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": ".a0_interaction()"
     },
@@ -2499,7 +2521,7 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser_a0sq_at",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": ".a0sq_at()"
     },
@@ -2510,7 +2532,7 @@
       "source_location": "L211",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser_a0sq_focus",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": ".a0sq_focus()"
     },
@@ -2521,7 +2543,7 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_gaussianparaxiallaser_a0sq_interaction",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": ".a0sq_interaction()"
     },
@@ -2543,7 +2565,7 @@
       "source_location": "L301",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_validate",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "validate()"
     },
@@ -2576,7 +2598,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_rationale_68",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "only a paraxial gaussian laser pulse *for now*.      every field is a :class:`ph"
     },
@@ -2620,7 +2642,7 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_rationale_142",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "photon count in the pulse: n_l = pulse_energy / (hbar*omega0). a         pure co"
     },
@@ -2653,7 +2675,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_rationale_170",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "normalized vector potential at absolute position ``z_m`` (si         metres), fr"
     },
@@ -2664,7 +2686,7 @@
       "source_location": "L201",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_rationale_201",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "``a0_at(z_m)**2`` -- the mean-square amplitude.          consumers that only eve"
     },
@@ -2686,7 +2708,7 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "src_gammaforge_io_laser_rationale_302",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "validate a :class:`gaussianparaxiallaser`.      raises ``valueerror`` on hard re"
     },
@@ -2697,8 +2719,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "photons.py"
     },
     {
@@ -2719,8 +2741,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_angularrangespectrumresult",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": "angularrangespectrumresult"
     },
     {
@@ -2730,8 +2752,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_results",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "results"
     },
     {
@@ -2752,8 +2774,8 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_total_yield",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "total_yield()"
     },
     {
@@ -2785,8 +2807,8 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_validate_results",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "validate_results()"
     },
     {
@@ -2796,8 +2818,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_py_any",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "any"
     },
     {
@@ -2807,8 +2829,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_rationale_1",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "output-side observable representations: the phase-space-slice contract every mod"
     },
     {
@@ -2829,8 +2851,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_rationale_80",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": "on-demand angle-integrated spectrum restricted to an arbitrary     ``(theta_x_ra"
     },
     {
@@ -2840,8 +2862,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_rationale_95",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "what every model's ``run()`` returns.      ``photon_slices`` always includes a 0"
     },
     {
@@ -2862,8 +2884,8 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_rationale_128",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 31,
+      "community_name": "api.py",
       "norm_label": "read the 0d slice every adapter is required to emit."
     },
     {
@@ -2884,8 +2906,8 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "src_gammaforge_io_photons_rationale_181",
-      "community": 32,
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community": 17,
+      "community_name": "fit_gaussian",
       "norm_label": "defensive sanity check, run right after a model's ``run()``     returns.      re"
     },
     {
@@ -2895,8 +2917,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_units",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "units.py"
     },
     {
@@ -2906,8 +2928,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_const",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "_const()"
     },
     {
@@ -2972,8 +2994,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_amplitudeconvention",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "amplitudeconvention"
     },
     {
@@ -2983,8 +3005,8 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_fwhm_to_sigma_intensity",
-      "community": 1,
-      "community_name": "Bunch Sampling",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "fwhm_to_sigma_intensity()"
     },
     {
@@ -2994,8 +3016,8 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_sigma_intensity_to_fwhm",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "sigma_intensity_to_fwhm()"
     },
     {
@@ -3005,8 +3027,8 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_sigma_field_to_sigma_intensity",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "sigma_field_to_sigma_intensity()"
     },
     {
@@ -3016,8 +3038,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_sigma_intensity_to_sigma_field",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "sigma_intensity_to_sigma_field()"
     },
     {
@@ -3027,8 +3049,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_w0_to_sigma_intensity",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "w0_to_sigma_intensity()"
     },
     {
@@ -3038,8 +3060,8 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_sigma_intensity_to_w0",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 24,
+      "community_name": "app.py",
       "norm_label": "sigma_intensity_to_w0()"
     },
     {
@@ -3049,8 +3071,8 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_a0_peak_to_a0_rms",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "a0_peak_to_a0_rms()"
     },
     {
@@ -3060,8 +3082,8 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_a0_rms_to_a0_peak",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "a0_rms_to_a0_peak()"
     },
     {
@@ -3071,8 +3093,8 @@
       "source_location": "L259",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_unknownconversionerror",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "unknownconversionerror"
     },
     {
@@ -3093,8 +3115,8 @@
       "source_location": "L263",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_convert",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "_convert()"
     },
     {
@@ -3104,8 +3126,8 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_convert_width",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "convert_width()"
     },
     {
@@ -3115,8 +3137,8 @@
       "source_location": "L279",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_convert_time",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "convert_time()"
     },
     {
@@ -3126,8 +3148,8 @@
       "source_location": "L283",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_convert_amplitude",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "convert_amplitude()"
     },
     {
@@ -3137,8 +3159,8 @@
       "source_location": "L291",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_physicalquantity",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "physicalquantity"
     },
     {
@@ -3148,8 +3170,8 @@
       "source_location": "L298",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_physicalquantity_quantity",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": ".quantity()"
     },
     {
@@ -3159,8 +3181,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_py_quantity",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "quantity"
     },
     {
@@ -3170,8 +3192,8 @@
       "source_location": "L301",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_physicalquantity_to_unit",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": ".to_unit()"
     },
     {
@@ -3181,8 +3203,8 @@
       "source_location": "L312",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_physicalquantity_si_magnitude",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": ".si_magnitude()"
     },
     {
@@ -3192,8 +3214,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_1",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "shared pint unit registry, physical constants, and the parameter- semantics/conv"
     },
     {
@@ -3203,8 +3225,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_59",
-      "community": 38,
-      "community_name": "DirectAdapter",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "a codata constant from pint's own table, as a plain float in si base     units -"
     },
     {
@@ -3247,8 +3269,8 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_174",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "definitions of a laser normalised-vector-potential amplitude     (linear polaris"
     },
     {
@@ -3258,8 +3280,8 @@
       "source_location": "L260",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_260",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "raised when a convention has no registered conversion in its family."
     },
     {
@@ -3269,8 +3291,8 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_302",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "pure unit conversion (metres <-> centimetres, ps <-> s, ...).         never chan"
     },
     {
@@ -3280,8 +3302,8 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "src_gammaforge_io_units_rationale_313",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "convenience: magnitude in the si base unit for this quantity's         dimension"
     },
     {
@@ -3291,26 +3313,26 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_misc",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
+      "community": 50,
+      "community_name": "yaml_spec.py",
       "norm_label": "misc.py"
     },
     {
       "label": "detect_device()",
       "file_type": "code",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L11",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "src_gammaforge_misc_detect_device",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
+      "community": 50,
+      "community_name": "yaml_spec.py",
       "norm_label": "detect_device()"
     },
     {
       "label": "get_xp()",
       "file_type": "code",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L34",
+      "source_location": "L36",
       "_origin": "ast",
       "id": "src_gammaforge_misc_get_xp",
       "community": 5,
@@ -3321,7 +3343,7 @@
       "label": "to_host()",
       "file_type": "code",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L42",
+      "source_location": "L44",
       "_origin": "ast",
       "id": "src_gammaforge_misc_to_host",
       "community": 5,
@@ -3332,31 +3354,42 @@
       "label": "available_vram_bytes()",
       "file_type": "code",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L48",
+      "source_location": "L50",
       "_origin": "ast",
       "id": "src_gammaforge_misc_available_vram_bytes",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
+      "community": 50,
+      "community_name": "yaml_spec.py",
       "norm_label": "available_vram_bytes()"
+    },
+    {
+      "label": "available_ram_bytes()",
+      "file_type": "code",
+      "source_file": "src/gammaforge/misc.py",
+      "source_location": "L62",
+      "_origin": "ast",
+      "id": "src_gammaforge_misc_available_ram_bytes",
+      "community": 50,
+      "community_name": "yaml_spec.py",
+      "norm_label": "available_ram_bytes()"
     },
     {
       "label": "Auto-detect which backend to use: a real CUDA GPU via cupy if     available, els",
       "file_type": "rationale",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L12",
+      "source_location": "L14",
       "_origin": "ast",
-      "id": "src_gammaforge_misc_rationale_12",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
+      "id": "src_gammaforge_misc_rationale_14",
+      "community": 50,
+      "community_name": "yaml_spec.py",
       "norm_label": "auto-detect which backend to use: a real cuda gpu via cupy if     available, els"
     },
     {
       "label": "Array module for ``device`` ('gpu' -> cupy, 'cpu' -> numpy) -- not a     unit co",
       "file_type": "rationale",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L35",
+      "source_location": "L37",
       "_origin": "ast",
-      "id": "src_gammaforge_misc_rationale_35",
+      "id": "src_gammaforge_misc_rationale_37",
       "community": 5,
       "community_name": "Electron Beam Model",
       "norm_label": "array module for ``device`` ('gpu' -> cupy, 'cpu' -> numpy) -- not a     unit co"
@@ -3365,9 +3398,9 @@
       "label": "Bring an array back to host (numpy) if it's on-device (cupy);     a no-op for CP",
       "file_type": "rationale",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L43",
+      "source_location": "L45",
       "_origin": "ast",
-      "id": "src_gammaforge_misc_rationale_43",
+      "id": "src_gammaforge_misc_rationale_45",
       "community": 5,
       "community_name": "Electron Beam Model",
       "norm_label": "bring an array back to host (numpy) if it's on-device (cupy);     a no-op for cp"
@@ -3376,12 +3409,23 @@
       "label": "Free GPU memory in bytes via cupy, or None if no GPU/cupy usable --     the one",
       "file_type": "rationale",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L49",
+      "source_location": "L51",
       "_origin": "ast",
-      "id": "src_gammaforge_misc_rationale_49",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
+      "id": "src_gammaforge_misc_rationale_51",
+      "community": 50,
+      "community_name": "yaml_spec.py",
       "norm_label": "free gpu memory in bytes via cupy, or none if no gpu/cupy usable --     the one"
+    },
+    {
+      "label": "Available system RAM in bytes (POSIX sysconf), or None if the query     isn't su",
+      "file_type": "rationale",
+      "source_file": "src/gammaforge/misc.py",
+      "source_location": "L63",
+      "_origin": "ast",
+      "id": "src_gammaforge_misc_rationale_63",
+      "community": 50,
+      "community_name": "yaml_spec.py",
+      "norm_label": "available system ram in bytes (posix sysconf), or none if the query     isn't su"
     },
     {
       "label": "models/__init__.py",
@@ -3412,8 +3456,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "analytical.py"
     },
     {
@@ -3423,8 +3467,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_estimate_yield",
-      "community": 36,
-      "community_name": "ValueError",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "estimate_yield()"
     },
     {
@@ -3434,8 +3478,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_estimate_spectrum_width",
-      "community": 54,
-      "community_name": "test_laser.py",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "estimate_spectrum_width()"
     },
     {
@@ -3445,8 +3489,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_angle_integrated_spectrum",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "angle_integrated_spectrum()"
     },
     {
@@ -3456,8 +3500,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_py_ndarray",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "ndarray"
     },
     {
@@ -3467,8 +3511,8 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "adapter"
     },
     {
@@ -3478,8 +3522,8 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter_init",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": ".__init__()"
     },
     {
@@ -3489,8 +3533,8 @@
       "source_location": "L127",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter_model_params",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": ".model_params()"
     },
     {
@@ -3500,8 +3544,8 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter_model_choices",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": ".model_choices()"
     },
     {
@@ -3511,8 +3555,8 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_adapter_run",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": ".run()"
     },
     {
@@ -3522,8 +3566,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_py_results",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "results"
     },
     {
@@ -3533,8 +3577,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_1",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "fast, closed-form compton-source physics: total yield, angle-integrated spectrum"
     },
     {
@@ -3544,8 +3588,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_46",
-      "community": 36,
-      "community_name": "ValueError",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "cheap analytic total-photon-yield estimate from an overlap integral     between"
     },
     {
@@ -3555,8 +3599,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_77",
-      "community": 54,
-      "community_name": "test_laser.py",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "cheap analytic estimate of the collimated-spectrum fwhm (in units of     the com"
     },
     {
@@ -3566,8 +3610,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_95",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "dn/ds integrated over all emission solid angle, from the standard     angle-inde"
     },
     {
@@ -3577,8 +3621,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "src_gammaforge_models_analytical_rationale_115",
-      "community": 12,
-      "community_name": "Canonical Sampling Tests",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "fast closed-form model: total yield, angle-integrated spectrum, and     an estim"
     },
     {
@@ -3610,8 +3654,8 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_slicerequest",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": "slicerequest"
     },
     {
@@ -3632,8 +3676,8 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_job",
-      "community": 0,
-      "community_name": "IO Core + Validation",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "job"
     },
     {
@@ -3687,8 +3731,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_modeladapter_run",
-      "community": 31,
-      "community_name": "api.py",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": ".run()"
     },
     {
@@ -3698,8 +3742,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_py_results",
-      "community": 31,
-      "community_name": "api.py",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "results"
     },
     {
@@ -3764,8 +3808,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_rationale_98",
-      "community": 50,
-      "community_name": "yaml_spec.py",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": "one requested phase-space slice: which axes, at what resolution,     over what r"
     },
     {
@@ -3786,8 +3830,8 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "src_gammaforge_models_api_rationale_130",
-      "community": 0,
-      "community_name": "IO Core + Validation",
+      "community": 34,
+      "community_name": "Bunch",
       "norm_label": "the single compiled-from-ui config object the gui passes to     ``modeladapter.r"
     },
     {
@@ -4303,8 +4347,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_kascade_kascade_adapter",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "kascade_adapter.py"
     },
     {
@@ -4314,8 +4358,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "src_gammaforge_models_kascade_kascade_adapter_bunch_to_kascade_electrons",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "_bunch_to_kascade_electrons()"
     },
     {
@@ -4391,8 +4435,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_kascade_kascade_adapter_rationale_1",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "modeladapter wrapping the existing kascade engine.  moves today's ``config``/``r"
     },
     {
@@ -4402,8 +4446,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "src_gammaforge_models_kascade_kascade_adapter_rationale_30",
-      "community": 2,
-      "community_name": "GUI App Layout",
+      "community": 45,
+      "community_name": "units.py",
       "norm_label": "convert a bunch into the plain dict kascade.run_simulation's     ``electrons`` p"
     },
     {
@@ -4457,8 +4501,8 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_xigmaadapter",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 5,
+      "community_name": "Electron Beam Model",
       "norm_label": "xigmaadapter"
     },
     {
@@ -4468,8 +4512,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_xigmaadapter_init",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 5,
+      "community_name": "Electron Beam Model",
       "norm_label": ".__init__()"
     },
     {
@@ -4479,8 +4523,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_xigmaadapter_model_params",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 5,
+      "community_name": "Electron Beam Model",
       "norm_label": ".model_params()"
     },
     {
@@ -4490,8 +4534,8 @@
       "source_location": "L137",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_xigmaadapter_model_choices",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 5,
+      "community_name": "Electron Beam Model",
       "norm_label": ".model_choices()"
     },
     {
@@ -4523,8 +4567,8 @@
       "source_location": "L292",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_xigmaadapter_spectrum_in_angular_range",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 5,
+      "community_name": "Electron Beam Model",
       "norm_label": ".spectrum_in_angular_range()"
     },
     {
@@ -4534,8 +4578,8 @@
       "source_location": "L339",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_directadapter",
-      "community": 0,
-      "community_name": "IO Core + Validation",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": "directadapter"
     },
     {
@@ -4545,8 +4589,8 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_directadapter_init",
-      "community": 0,
-      "community_name": "IO Core + Validation",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": ".__init__()"
     },
     {
@@ -4556,8 +4600,8 @@
       "source_location": "L361",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_directadapter_model_params",
-      "community": 0,
-      "community_name": "IO Core + Validation",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": ".model_params()"
     },
     {
@@ -4567,8 +4611,8 @@
       "source_location": "L369",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_directadapter_model_choices",
-      "community": 0,
-      "community_name": "IO Core + Validation",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": ".model_choices()"
     },
     {
@@ -4589,8 +4633,8 @@
       "source_location": "L545",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_directadapter_spectrum_in_angular_range",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": ".spectrum_in_angular_range()"
     },
     {
@@ -4622,8 +4666,8 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_rationale_295",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 5,
+      "community_name": "Electron Beam Model",
       "norm_label": "fresh, on-demand spectrum over an arbitrary user-picked angular         sub-rang"
     },
     {
@@ -4644,8 +4688,8 @@
       "source_location": "L548",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_adapter_rationale_548",
-      "community": 34,
-      "community_name": "Bunch",
+      "community": 12,
+      "community_name": "Canonical Sampling Tests",
       "norm_label": "evaluate direct_binning_spectrum at a grid of observation angles         spannin"
     },
     {
@@ -4655,8 +4699,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_config",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
+      "community": 50,
+      "community_name": "yaml_spec.py",
       "norm_label": "config.py"
     },
     {
@@ -4666,8 +4710,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_config_rationale_1",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
+      "community": 50,
+      "community_name": "yaml_spec.py",
       "norm_label": "physics constants and gpu kernel sizing constants for this pipeline (particles.p"
     },
     {
@@ -5172,15 +5216,15 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_estimate_chunk_size",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
+      "community": 50,
+      "community_name": "yaml_spec.py",
       "norm_label": "estimate_chunk_size()"
     },
     {
       "label": "push_and_sample()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L214",
+      "source_location": "L238",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_push_and_sample",
       "community": 3,
@@ -5191,7 +5235,7 @@
       "label": "_integrate_trajectory_core()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L305",
+      "source_location": "L329",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_integrate_trajectory_core",
       "community": 57,
@@ -5202,7 +5246,7 @@
       "label": "_push_and_sample_vectorized()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L360",
+      "source_location": "L384",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
       "community": 3,
@@ -5213,7 +5257,7 @@
       "label": "_get_numba_kernel()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L495",
+      "source_location": "L523",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_get_numba_kernel",
       "community": 3,
@@ -5224,7 +5268,7 @@
       "label": "_push_and_sample_numba()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L572",
+      "source_location": "L600",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
       "community": 3,
@@ -5320,23 +5364,23 @@
       "norm_label": "convert a ``gammaforge.io.bunch.macrobunch`` (si, external/engine-     agnostic)"
     },
     {
-      "label": "Auto-sized ``chunk`` for ``push_and_sample``'s cupy path, from     currently fre",
+      "label": "Auto-sized ``chunk`` for ``push_and_sample``, from currently free     memory on",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
       "source_location": "L191",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_particles_rationale_191",
-      "community": 49,
-      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
-      "norm_label": "auto-sized ``chunk`` for ``push_and_sample``'s cupy path, from     currently fre"
+      "community": 50,
+      "community_name": "yaml_spec.py",
+      "norm_label": "auto-sized ``chunk`` for ``push_and_sample``, from currently free     memory on"
     },
     {
       "label": "Ballistically push each macroparticle and emit one sample per particle.      Eve",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L220",
+      "source_location": "L244",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_particles_rationale_220",
+      "id": "src_gammaforge_models_xigma_i_particles_rationale_244",
       "community": 3,
       "community_name": "Laser Overlap",
       "norm_label": "ballistically push each macroparticle and emit one sample per particle.      eve"
@@ -5345,9 +5389,9 @@
       "label": "The O(n_particles * n_steps) trajectory-integration math shared by     both the",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L307",
+      "source_location": "L331",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_particles_rationale_307",
+      "id": "src_gammaforge_models_xigma_i_particles_rationale_331",
       "community": 57,
       "community_name": "ballistic_position_z0_reference",
       "norm_label": "the o(n_particles * n_steps) trajectory-integration math shared by     both the"
@@ -5356,9 +5400,9 @@
       "label": "MUST USE io/bunch.py stream function!!",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L365",
+      "source_location": "L389",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_particles_rationale_365",
+      "id": "src_gammaforge_models_xigma_i_particles_rationale_389",
       "community": 3,
       "community_name": "Laser Overlap",
       "norm_label": "must use io/bunch.py stream function!!"
@@ -5367,9 +5411,9 @@
       "label": "Lazily compiles and caches the numba kernel so importing particles.py     doesn'",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L496",
+      "source_location": "L524",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_particles_rationale_496",
+      "id": "src_gammaforge_models_xigma_i_particles_rationale_524",
       "community": 3,
       "community_name": "Laser Overlap",
       "norm_label": "lazily compiles and caches the numba kernel so importing particles.py     doesn'"
@@ -5378,9 +5422,9 @@
       "label": "Per-particle @numba.njit(parallel=True) form of push_and_sample: same     physic",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L573",
+      "source_location": "L601",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_particles_rationale_573",
+      "id": "src_gammaforge_models_xigma_i_particles_rationale_601",
       "community": 3,
       "community_name": "Laser Overlap",
       "norm_label": "per-particle @numba.njit(parallel=true) form of push_and_sample: same     physic"
@@ -5491,8 +5535,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "spectrum4d.py"
     },
     {
@@ -5502,8 +5546,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_spectrum_kernel_4d_impl",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "_spectrum_kernel_4d_impl()"
     },
     {
@@ -5513,8 +5557,8 @@
       "source_location": "L452",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_calculate_angular_spectrum_4d",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "calculate_angular_spectrum_4d()"
     },
     {
@@ -5524,8 +5568,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_rationale_1",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "stage 2: `spectrum_kernel_4d`, the gpu kernel that turns a stage 1 4d overlap ta"
     },
     {
@@ -5535,8 +5579,8 @@
       "source_location": "L454",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_rationale_454",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "host-side driver for spectrum_kernel_4d, the stage-2 analogue of     compton.cal"
     },
     {
@@ -5546,8 +5590,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_cpu",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "spectrum4d_cpu.py"
     },
     {
@@ -5557,8 +5601,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_cpu_get_numba",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "_get_numba()"
     },
     {
@@ -5568,8 +5612,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_cpu_get_spectrum_kernel_4d_cpu",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "get_spectrum_kernel_4d_cpu()"
     },
     {
@@ -5579,8 +5623,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_cpu_rationale_1",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "cpu/numba equivalent of spectrum4d.py's gpu rawkernel (spectrum_kernel_4d), used"
     },
     {
@@ -5590,8 +5634,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum4d_cpu_rationale_65",
-      "community": 17,
-      "community_name": "fit_gaussian",
+      "community": 54,
+      "community_name": "test_laser.py",
       "norm_label": "lazily compiles and caches spectrum_kernel_4d_cpu (see module docstring)."
     },
     {
@@ -5609,7 +5653,7 @@
       "label": "_xp_for()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L31",
+      "source_location": "L34",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_xp_for",
       "community": 46,
@@ -5620,18 +5664,18 @@
       "label": "_estimate_s_chunk()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L45",
+      "source_location": "L48",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_estimate_s_chunk",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 47,
+      "community_name": "PhysicalQuantity",
       "norm_label": "_estimate_s_chunk()"
     },
     {
       "label": "angle_integrated_spectrum()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L64",
+      "source_location": "L90",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_angle_integrated_spectrum",
       "community": 46,
@@ -5642,7 +5686,7 @@
       "label": "direct_binning_spectrum()",
       "file_type": "code",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L131",
+      "source_location": "L163",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_direct_binning_spectrum",
       "community": 46,
@@ -5664,31 +5708,31 @@
       "label": "Resolves backend='numpy'|'cupy' to its array module. cupy is imported     lazily",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L32",
+      "source_location": "L35",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_32",
+      "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_35",
       "community": 46,
       "community_name": "OutputSpec",
       "norm_label": "resolves backend='numpy'|'cupy' to its array module. cupy is imported     lazily"
     },
     {
-      "label": "Auto-sized s-axis chunk for angle_integrated_spectrum's cupy path,     from curr",
+      "label": "Auto-sized s-axis chunk for angle_integrated_spectrum, from currently     free m",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L46",
+      "source_location": "L49",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_46",
-      "community": 46,
-      "community_name": "OutputSpec",
-      "norm_label": "auto-sized s-axis chunk for angle_integrated_spectrum's cupy path,     from curr"
+      "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_49",
+      "community": 47,
+      "community_name": "PhysicalQuantity",
+      "norm_label": "auto-sized s-axis chunk for angle_integrated_spectrum, from currently     free m"
     },
     {
       "label": "dN/ds integrated over all emission solid angle, from real Stage 0/1     macropar",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L65",
+      "source_location": "L91",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_65",
+      "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_91",
       "community": 46,
       "community_name": "OutputSpec",
       "norm_label": "dn/ds integrated over all emission solid angle, from real stage 0/1     macropar"
@@ -5697,9 +5741,9 @@
       "label": "`delta`'s actual computation: for each real macroparticle,     compute the photo",
       "file_type": "rationale",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L133",
+      "source_location": "L165",
       "_origin": "ast",
-      "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_133",
+      "id": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_165",
       "community": 46,
       "community_name": "OutputSpec",
       "norm_label": "`delta`'s actual computation: for each real macroparticle,     compute the photo"
@@ -5711,8 +5755,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_tabulated_engine",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "tabulated_engine.py"
     },
     {
@@ -5799,8 +5843,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_models_xigma_i_tabulated_engine_rationale_1",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 21,
+      "community_name": "XigmaAdapter",
       "norm_label": "engine on the tabulated-energy pipeline (particles.py/deposition.py/ spectrum4d."
     },
     {
@@ -6415,8 +6459,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_validation_scenarios",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "scenarios.py"
     },
     {
@@ -6437,8 +6481,8 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "src_gammaforge_validation_scenarios_baseline",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "_baseline()"
     },
     {
@@ -6448,8 +6492,8 @@
       "source_location": "L136",
       "_origin": "ast",
       "id": "src_gammaforge_validation_scenarios_scaled",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "_scaled()"
     },
     {
@@ -6481,8 +6525,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_gammaforge_validation_scenarios_rationale_1",
-      "community": 21,
-      "community_name": "XigmaAdapter",
+      "community": 30,
+      "community_name": "units.py",
       "norm_label": "shared physical scenarios for the cross-model validation suite.  only kascade ha"
     },
     {
@@ -7031,8 +7075,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "test_bunch.py"
     },
     {
@@ -7042,8 +7086,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_derived_quantities_are_sane",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "test_derived_quantities_are_sane()"
     },
     {
@@ -7053,8 +7097,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_sample_gaussian_bunch_matches_beam_moments",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "test_sample_gaussian_bunch_matches_beam_moments()"
     },
     {
@@ -7064,8 +7108,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_fit_gaussian_round_trips_at_the_waist",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "test_fit_gaussian_round_trips_at_the_waist()"
     },
     {
@@ -7075,8 +7119,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_fit_gaussian_recovers_waist_after_drift",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "test_fit_gaussian_recovers_waist_after_drift()"
     },
     {
@@ -7086,8 +7130,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_sample_gaussian_bunch_chirp_correlates_energy_with_z",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "test_sample_gaussian_bunch_chirp_correlates_energy_with_z()"
     },
     {
@@ -7097,8 +7141,8 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_sample_gaussian_bunch_angle_energy_corr",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "test_sample_gaussian_bunch_angle_energy_corr()"
     },
     {
@@ -7108,8 +7152,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_validate_rejects_nonpositive_fields",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "test_validate_rejects_nonpositive_fields()"
     },
     {
@@ -7119,8 +7163,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_test_validate_warns_on_suspicious_emittance",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "test_validate_warns_on_suspicious_emittance()"
     },
     {
@@ -7130,8 +7174,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_io_tests_test_bunch_rationale_1",
-      "community": 9,
-      "community_name": "Project Documentation",
+      "community": 52,
+      "community_name": "TestEdgeCases",
       "norm_label": "cross-checks for bunch.py's bunch / gaussianelectronbeam / sample_gaussian_bunch"
     },
     {
@@ -7295,8 +7339,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "test_io_formats.py"
     },
     {
@@ -7306,8 +7350,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_test_sdds_round_trip_preserves_bunch_statistics",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "test_sdds_round_trip_preserves_bunch_statistics()"
     },
     {
@@ -7317,8 +7361,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_test_spec_example_electron_beam_yaml_round_trips",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "test_spec_example_electron_beam_yaml_round_trips()"
     },
     {
@@ -7328,8 +7372,8 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_test_electron_beam_yaml_round_trips_chirp_dispersion_alpha",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "test_electron_beam_yaml_round_trips_chirp_dispersion_alpha()"
     },
     {
@@ -7339,8 +7383,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_test_spec_example_laser_yaml_round_trips",
-      "community": 54,
-      "community_name": "test_laser.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "test_spec_example_laser_yaml_round_trips()"
     },
     {
@@ -7350,8 +7394,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_test_laser_yaml_round_trips_beta_ff_phi_pol_ellipticity_crossing_angle",
-      "community": 54,
-      "community_name": "test_laser.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "test_laser_yaml_round_trips_beta_ff_phi_pol_ellipticity_crossing_angle()"
     },
     {
@@ -7361,8 +7405,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_io_tests_test_io_formats_rationale_1",
-      "community": 30,
-      "community_name": "units.py",
+      "community": 9,
+      "community_name": "Project Documentation",
       "norm_label": "cross-checks for io_formats/sdds.py and io_formats/yaml_spec.py.  no cupy/gpu/tk"
     },
     {
@@ -7372,7 +7416,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_laser.py"
     },
@@ -7383,7 +7427,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_test_derived_quantities_are_sane",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_derived_quantities_are_sane()"
     },
@@ -7394,7 +7438,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_test_a0_focus_equals_a0_interaction_when_focused_at_ip",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_a0_focus_equals_a0_interaction_when_focused_at_ip()"
     },
@@ -7405,7 +7449,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_test_a0_matches_practical_approximation",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_a0_matches_practical_approximation()"
     },
@@ -7416,7 +7460,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_test_a0sq_is_a0_squared",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_a0sq_is_a0_squared()"
     },
@@ -7427,7 +7471,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_test_defocused_interaction_intensity_is_lower",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_defocused_interaction_intensity_is_lower()"
     },
@@ -7438,7 +7482,7 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_test_validate_rejects_nonpositive_fields",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_validate_rejects_nonpositive_fields()"
     },
@@ -7449,7 +7493,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_test_beta_ff_phi_pol_ellipticity_default_to_zero",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_beta_ff_phi_pol_ellipticity_default_to_zero()"
     },
@@ -7460,7 +7504,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_test_validate_warns_on_astigmatism",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "test_validate_warns_on_astigmatism()"
     },
@@ -7471,7 +7515,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "tests_io_tests_test_laser_rationale_1",
-      "community": 54,
+      "community": 37,
       "community_name": "test_laser.py",
       "norm_label": "cross-checks for laser.py's gaussianparaxiallaser.  no cupy/gpu/tkinter needed."
     },
@@ -7669,8 +7713,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "tests_io_tests_test_propagation_test_propagate_recovers_waist_after_drift",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "test_propagate_recovers_waist_after_drift()"
     },
     {
@@ -7787,7 +7831,7 @@
       "label": "_gamma_weight()",
       "file_type": "code",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L29",
+      "source_location": "L39",
       "_origin": "ast",
       "id": "tests_test_angle_integrated_spectrum_chunking_gamma_weight",
       "community": 47,
@@ -7798,7 +7842,7 @@
       "label": "test_numpy_chunked_matches_unchunked_exactly()",
       "file_type": "code",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L36",
+      "source_location": "L46",
       "_origin": "ast",
       "id": "tests_test_angle_integrated_spectrum_chunking_test_numpy_chunked_matches_unchunked_exactly",
       "community": 47,
@@ -7809,7 +7853,7 @@
       "label": "test_scalar_s_still_returns_scalar()",
       "file_type": "code",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L46",
+      "source_location": "L56",
       "_origin": "ast",
       "id": "tests_test_angle_integrated_spectrum_chunking_test_scalar_s_still_returns_scalar",
       "community": 47,
@@ -7817,32 +7861,43 @@
       "norm_label": "test_scalar_s_still_returns_scalar()"
     },
     {
-      "label": "test_estimate_s_chunk_numpy_returns_n_s_unchanged()",
+      "label": "test_estimate_s_chunk_numpy_bounded_by_n_s()",
       "file_type": "code",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L52",
+      "source_location": "L63",
       "_origin": "ast",
-      "id": "tests_test_angle_integrated_spectrum_chunking_test_estimate_s_chunk_numpy_returns_n_s_unchanged",
-      "community": 46,
-      "community_name": "OutputSpec",
-      "norm_label": "test_estimate_s_chunk_numpy_returns_n_s_unchanged()"
+      "id": "tests_test_angle_integrated_spectrum_chunking_test_estimate_s_chunk_numpy_bounded_by_n_s",
+      "community": 47,
+      "community_name": "PhysicalQuantity",
+      "norm_label": "test_estimate_s_chunk_numpy_bounded_by_n_s()"
     },
     {
       "label": "test_estimate_s_chunk_cupy_bounded_by_n_s()",
       "file_type": "code",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L57",
+      "source_location": "L69",
       "_origin": "ast",
       "id": "tests_test_angle_integrated_spectrum_chunking_test_estimate_s_chunk_cupy_bounded_by_n_s",
-      "community": 46,
-      "community_name": "OutputSpec",
+      "community": 47,
+      "community_name": "PhysicalQuantity",
       "norm_label": "test_estimate_s_chunk_cupy_bounded_by_n_s()"
+    },
+    {
+      "label": "test_numpy_auto_chunk_avoids_ram_blowup_at_reported_scale()",
+      "file_type": "code",
+      "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
+      "source_location": "L75",
+      "_origin": "ast",
+      "id": "tests_test_angle_integrated_spectrum_chunking_test_numpy_auto_chunk_avoids_ram_blowup_at_reported_scale",
+      "community": 47,
+      "community_name": "PhysicalQuantity",
+      "norm_label": "test_numpy_auto_chunk_avoids_ram_blowup_at_reported_scale()"
     },
     {
       "label": "test_cupy_chunked_matches_numpy_unchunked()",
       "file_type": "code",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L63",
+      "source_location": "L90",
       "_origin": "ast",
       "id": "tests_test_angle_integrated_spectrum_chunking_test_cupy_chunked_matches_numpy_unchunked",
       "community": 47,
@@ -7853,7 +7908,7 @@
       "label": "test_cupy_auto_chunk_avoids_oom_at_reported_scale()",
       "file_type": "code",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L74",
+      "source_location": "L101",
       "_origin": "ast",
       "id": "tests_test_angle_integrated_spectrum_chunking_test_cupy_auto_chunk_avoids_oom_at_reported_scale",
       "community": 47,
@@ -7864,12 +7919,23 @@
       "label": "test_cupy_oom_retry_halves_chunk_and_succeeds()",
       "file_type": "code",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L96",
+      "source_location": "L123",
       "_origin": "ast",
       "id": "tests_test_angle_integrated_spectrum_chunking_test_cupy_oom_retry_halves_chunk_and_succeeds",
       "community": 47,
       "community_name": "PhysicalQuantity",
       "norm_label": "test_cupy_oom_retry_halves_chunk_and_succeeds()"
+    },
+    {
+      "label": "test_available_ram_bytes_returns_positive_int()",
+      "file_type": "code",
+      "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
+      "source_location": "L137",
+      "_origin": "ast",
+      "id": "tests_test_angle_integrated_spectrum_chunking_test_available_ram_bytes_returns_positive_int",
+      "community": 50,
+      "community_name": "yaml_spec.py",
+      "norm_label": "test_available_ram_bytes_returns_positive_int()"
     },
     {
       "label": "Coverage for spectrum_from_particles.angle_integrated_spectrum's chunk= streamin",
@@ -7883,12 +7949,23 @@
       "norm_label": "coverage for spectrum_from_particles.angle_integrated_spectrum's chunk= streamin"
     },
     {
+      "label": "Regression test for the follow-on report: 5,000,000 particles x     1,024 energy",
+      "file_type": "rationale",
+      "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
+      "source_location": "L76",
+      "_origin": "ast",
+      "id": "tests_test_angle_integrated_spectrum_chunking_rationale_76",
+      "community": 47,
+      "community_name": "PhysicalQuantity",
+      "norm_label": "regression test for the follow-on report: 5,000,000 particles x     1,024 energy"
+    },
+    {
       "label": "Regression test for the reported bug: XigmaAdapter OOM'd allocating     a 5,000,",
       "file_type": "rationale",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L75",
+      "source_location": "L102",
       "_origin": "ast",
-      "id": "tests_test_angle_integrated_spectrum_chunking_rationale_75",
+      "id": "tests_test_angle_integrated_spectrum_chunking_rationale_102",
       "community": 47,
       "community_name": "PhysicalQuantity",
       "norm_label": "regression test for the reported bug: xigmaadapter oom'd allocating     a 5,000,"
@@ -7897,9 +7974,9 @@
       "label": "A chunk sized too large to fit in memory (but < len(s), so the     chunked/retry",
       "file_type": "rationale",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L97",
+      "source_location": "L124",
       "_origin": "ast",
-      "id": "tests_test_angle_integrated_spectrum_chunking_rationale_97",
+      "id": "tests_test_angle_integrated_spectrum_chunking_rationale_124",
       "community": 47,
       "community_name": "PhysicalQuantity",
       "norm_label": "a chunk sized too large to fit in memory (but < len(s), so the     chunked/retry"
@@ -8021,8 +8098,8 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testdrift",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "testdrift"
     },
     {
@@ -8032,8 +8109,8 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testdrift_test_position_propagation",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": ".test_position_propagation()"
     },
     {
@@ -8043,8 +8120,8 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testdrift_test_unchanged_quantities",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": ".test_unchanged_quantities()"
     },
     {
@@ -8054,8 +8131,8 @@
       "source_location": "L183",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testdrift_test_twiss_alpha_emergence",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": ".test_twiss_alpha_emergence()"
     },
     {
@@ -8065,8 +8142,8 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testdrift_test_attached_gaussian_fit_tracks_alpha_analytically",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": ".test_attached_gaussian_fit_tracks_alpha_analytically()"
     },
     {
@@ -8076,8 +8153,8 @@
       "source_location": "L232",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitting",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "testfitting"
     },
     {
@@ -8087,8 +8164,8 @@
       "source_location": "L235",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitting_test_fit_parameters_match_input",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": ".test_fit_parameters_match_input()"
     },
     {
@@ -8109,8 +8186,8 @@
       "source_location": "L267",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitting_test_sigma_gamma_calculation",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": ".test_sigma_gamma_calculation()"
     },
     {
@@ -8120,8 +8197,8 @@
       "source_location": "L278",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitting_test_chirp_is_finite",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": ".test_chirp_is_finite()"
     },
     {
@@ -8153,8 +8230,8 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testfitquality_test_non_gaussian_data_high_ks_excess",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 44,
+      "community_name": "TestFitQuality",
       "norm_label": ".test_non_gaussian_data_high_ks_excess()"
     },
     {
@@ -8186,8 +8263,8 @@
       "source_location": "L383",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testintegration_test_full_pipeline",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": ".test_full_pipeline()"
     },
     {
@@ -8197,8 +8274,8 @@
       "source_location": "L425",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testintegration_test_sample_gaussian_bunch_delegates",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": ".test_sample_gaussian_bunch_delegates()"
     },
     {
@@ -8241,8 +8318,8 @@
       "source_location": "L511",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testedgecases_test_small_number_of_particles",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": ".test_small_number_of_particles()"
     },
     {
@@ -8263,8 +8340,8 @@
       "source_location": "L533",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_testchirpanddispersion_test_chirp_creates_z_gamma_correlation",
-      "community": 18,
-      "community_name": "sample_gaussian_canonical",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": ".test_chirp_creates_z_gamma_correlation()"
     },
     {
@@ -8483,8 +8560,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_152",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "test vacuum propagation."
     },
     {
@@ -8494,8 +8571,8 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_155",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "verify x -> x + x' * l."
     },
     {
@@ -8505,8 +8582,8 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_171",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "verify z, thx, thy, gamma unchanged by drift."
     },
     {
@@ -8516,8 +8593,8 @@
       "source_location": "L184",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_184",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "verify twiss alpha emerges from waist + drift."
     },
     {
@@ -8527,8 +8604,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_203",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "verify drift() analytically propagates bunch.gaussian_fit's alpha         in loc"
     },
     {
@@ -8538,8 +8615,8 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_233",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "test structured gaussian fitting."
     },
     {
@@ -8549,8 +8626,8 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_236",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "verify fitted parameters match input beam."
     },
     {
@@ -8571,8 +8648,8 @@
       "source_location": "L268",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_268",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "verify sigma_gamma is correctly calculated from fit."
     },
     {
@@ -8582,8 +8659,8 @@
       "source_location": "L279",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_279",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 35,
+      "community_name": "drift",
       "norm_label": "verify chirp is computed and finite for uncorrelated sampling."
     },
     {
@@ -8615,8 +8692,8 @@
       "source_location": "L318",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_318",
-      "community": 19,
-      "community_name": "test_bunch_improvements.py",
+      "community": 44,
+      "community_name": "TestFitQuality",
       "norm_label": "verify non-gaussian data produces high ks excess."
     },
     {
@@ -8648,8 +8725,8 @@
       "source_location": "L384",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_384",
-      "community": 35,
-      "community_name": "drift",
+      "community": 38,
+      "community_name": "DirectAdapter",
       "norm_label": "test complete pipeline: sample -> drift -> fit -> evaluate."
     },
     {
@@ -8659,8 +8736,8 @@
       "source_location": "L426",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_426",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "verify sample_gaussian_bunch delegates to canonical sampling."
     },
     {
@@ -8703,8 +8780,8 @@
       "source_location": "L512",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_512",
-      "community": 52,
-      "community_name": "TestEdgeCases",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "test with very small number of particles."
     },
     {
@@ -8725,8 +8802,8 @@
       "source_location": "L534",
       "_origin": "ast",
       "id": "tests_test_bunch_improvements_rationale_534",
-      "community": 18,
-      "community_name": "sample_gaussian_canonical",
+      "community": 49,
+      "community_name": "Model Tasks (Xigma-i, Analytical model, All models)",
       "norm_label": "verify chirp creates measurable z-\u03b3 correlation."
     },
     {
@@ -8928,21 +9005,32 @@
       "norm_label": "test_cupy_oom_retry_covers_diagnostics_binning_too()"
     },
     {
-      "label": "test_estimate_chunk_size_numpy_returns_n_particles_unchanged()",
+      "label": "test_estimate_chunk_size_numba_returns_n_particles_unchanged()",
       "file_type": "code",
       "source_file": "tests/test_xigma_chunking.py",
       "source_location": "L161",
       "_origin": "ast",
-      "id": "tests_test_xigma_chunking_test_estimate_chunk_size_numpy_returns_n_particles_unchanged",
+      "id": "tests_test_xigma_chunking_test_estimate_chunk_size_numba_returns_n_particles_unchanged",
       "community": 16,
       "community_name": "cache.py",
-      "norm_label": "test_estimate_chunk_size_numpy_returns_n_particles_unchanged()"
+      "norm_label": "test_estimate_chunk_size_numba_returns_n_particles_unchanged()"
+    },
+    {
+      "label": "test_estimate_chunk_size_numpy_bounded_by_n_particles()",
+      "file_type": "code",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L168",
+      "_origin": "ast",
+      "id": "tests_test_xigma_chunking_test_estimate_chunk_size_numpy_bounded_by_n_particles",
+      "community": 16,
+      "community_name": "cache.py",
+      "norm_label": "test_estimate_chunk_size_numpy_bounded_by_n_particles()"
     },
     {
       "label": "test_estimate_chunk_size_cupy_bounded_by_n_particles()",
       "file_type": "code",
       "source_file": "tests/test_xigma_chunking.py",
-      "source_location": "L167",
+      "source_location": "L182",
       "_origin": "ast",
       "id": "tests_test_xigma_chunking_test_estimate_chunk_size_cupy_bounded_by_n_particles",
       "community": 16,
@@ -8992,6 +9080,28 @@
       "community": 16,
       "community_name": "cache.py",
       "norm_label": "regression test for a review finding: the oom-retry halving must     protect the"
+    },
+    {
+      "label": "numba's own per-particle compiled loop already avoids the     O(n*n_steps) blowu",
+      "file_type": "rationale",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L162",
+      "_origin": "ast",
+      "id": "tests_test_xigma_chunking_rationale_162",
+      "community": 16,
+      "community_name": "cache.py",
+      "norm_label": "numba's own per-particle compiled loop already avoids the     o(n*n_steps) blowu"
+    },
+    {
+      "label": "Regression test for a follow-on user report: 'numpy' used to be     exempted fro",
+      "file_type": "rationale",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L169",
+      "_origin": "ast",
+      "id": "tests_test_xigma_chunking_rationale_169",
+      "community": 16,
+      "community_name": "cache.py",
+      "norm_label": "regression test for a follow-on user report: 'numpy' used to be     exempted fro"
     },
     {
       "label": "README.md",
@@ -9580,7 +9690,7 @@
       "label": "User-specified tasks (pending)",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "L296",
+      "source_location": "L304",
       "_origin": "ast",
       "id": "claude_user_specified_tasks_pending",
       "community": 10,
@@ -9591,7 +9701,7 @@
       "label": "GUI",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "L300",
+      "source_location": "L308",
       "_origin": "ast",
       "id": "claude_gui",
       "community": 10,
@@ -9602,7 +9712,7 @@
       "label": "Xigma-i",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "L312",
+      "source_location": "L320",
       "_origin": "ast",
       "id": "claude_xigma_i",
       "community": 10,
@@ -9613,7 +9723,7 @@
       "label": "Analytical model",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "L319",
+      "source_location": "L327",
       "_origin": "ast",
       "id": "claude_analytical_model",
       "community": 10,
@@ -9624,7 +9734,7 @@
       "label": "All models",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "L325",
+      "source_location": "L333",
       "_origin": "ast",
       "id": "claude_all_models",
       "community": 10,
@@ -9635,7 +9745,7 @@
       "label": "graphify",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "L331",
+      "source_location": "L339",
       "_origin": "ast",
       "id": "claude_graphify",
       "community": 10,
@@ -9753,9 +9863,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "modeladapter protocol",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "models_api_modeladapter"
     },
     {
@@ -9809,9 +9919,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "discover_models() registry function",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "models_api_discover_models"
     },
     {
@@ -9823,9 +9933,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "unavailableadapter",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "models_api_unavailableadapter"
     },
     {
@@ -10089,9 +10199,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "kascadeadapter",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "models_kascade_kascadeadapter"
     },
     {
@@ -10103,9 +10213,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "xigmaadapter",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "models_xigma_i_xigmaadapter"
     },
     {
@@ -10117,9 +10227,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "directadapter (delta)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "models_xigma_i_directadapter"
     },
     {
@@ -10131,9 +10241,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "analytical adapter",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "models_analytical_adapter"
     },
     {
@@ -10215,9 +10325,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "spectrum_from_particles (production table-free paths)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_xigma_i_spectrum_from_particles"
     },
     {
@@ -10691,9 +10801,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "gui calculations section (planned feature)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "tmp_context_gui_calculations_section"
     },
     {
@@ -10705,9 +10815,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "gui tasks (pending)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_gui_tasks"
     },
     {
@@ -10719,9 +10829,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "model tasks (xigma-i, analytical model, all models)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks"
     },
     {
@@ -10775,9 +10885,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "sampledspectrum (unbinned results)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "io_sampled_spectrum"
     },
     {
@@ -10789,9 +10899,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "binnedspectrum (pre-binned results)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "io_binned_spectrum"
     },
     {
@@ -11993,9 +12103,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "xigma-i: use gui streaming, query vram, cap allocation at ~70%",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks_xigma_i_streaming_gpu"
     },
     {
@@ -12007,9 +12117,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "xigma-i: implement crossing angle (changes only polarization factor; geometric overlap uses photon density)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks_xigma_i_crossing_angle"
     },
     {
@@ -12021,9 +12131,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "xigma-i: drop '-i' suffix, rename to just xigma",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks_xigma_i_rename"
     },
     {
@@ -12035,9 +12145,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "xigma-i: consider gamma-axis rescaling analogous to a0 rescaling (change mean energy without recomputing stages 0-1)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks_xigma_i_gamma_rescaling"
     },
     {
@@ -12049,9 +12159,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "analytical model: include foci displacement",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks_analytical_foci_displacement"
     },
     {
@@ -12063,9 +12173,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "analytical model: consider closed-form total yield for non-round beams",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks_analytical_nonround_beam"
     },
     {
@@ -12077,9 +12187,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "analytical model: collimated spectrum from total yield, collimation angle, spectrum width (convolution of single-electron spectrum with energy distribution and possibly a0)",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks_analytical_collimated_spectrum"
     },
     {
@@ -12091,9 +12201,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 32,
+      "community": 17,
       "norm_label": "all models: implement jitter and averaging over shots",
-      "community_name": "Electron Beam I/O Spec v0.1 (short)",
+      "community_name": "fit_gaussian",
       "id": "docs_models_tasks_all_models_jitter"
     },
     {
@@ -14356,7 +14466,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1549",
+      "source_location": "L1647",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app",
@@ -14798,7 +14908,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1147",
+      "source_location": "L1169",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -14810,7 +14920,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1321",
+      "source_location": "L1343",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_collimation_rad",
@@ -14822,7 +14932,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1083",
+      "source_location": "L1105",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_laser_fields_si",
@@ -14846,7 +14956,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1253",
+      "source_location": "L1275",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_on_start",
@@ -14858,7 +14968,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1008",
+      "source_location": "L1030",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_derived",
@@ -14942,7 +15052,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1179",
+      "source_location": "L1201",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -14966,7 +15076,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1054",
+      "source_location": "L1076",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_derived",
@@ -15013,7 +15123,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1166",
+      "source_location": "L1188",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -15025,7 +15135,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1323",
+      "source_location": "L1345",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_collimation_rad",
@@ -15037,7 +15147,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1088",
+      "source_location": "L1110",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_laser_fields_si",
@@ -15073,7 +15183,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1009",
+      "source_location": "L1031",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_derived",
@@ -15154,7 +15264,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1140",
+      "source_location": "L1162",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15264,7 +15374,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1320",
+      "source_location": "L1342",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15297,7 +15407,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1077",
+      "source_location": "L1099",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15341,7 +15451,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1212",
+      "source_location": "L1234",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15374,7 +15484,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1228",
+      "source_location": "L1250",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15385,7 +15495,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1355",
+      "source_location": "L1377",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15396,7 +15506,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1301",
+      "source_location": "L1323",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15418,7 +15528,18 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1516",
+      "source_location": "L1578",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_gui_app_comptonguiapp",
+      "target": "src_gammaforge_gui_app_comptonguiapp_render_angle_resolved_spectra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1546",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15429,7 +15550,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1462",
+      "source_location": "L1492",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15440,7 +15561,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L968",
+      "source_location": "L980",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15451,7 +15572,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1398",
+      "source_location": "L1422",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15473,7 +15594,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1500",
+      "source_location": "L1530",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15484,7 +15605,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1418",
+      "source_location": "L1443",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15495,7 +15616,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1485",
+      "source_location": "L1515",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15506,7 +15627,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1477",
+      "source_location": "L1507",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15583,7 +15704,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1006",
+      "source_location": "L1028",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15594,7 +15715,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1327",
+      "source_location": "L1349",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15605,7 +15726,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L987",
+      "source_location": "L1009",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp",
@@ -15749,7 +15870,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1550",
+      "source_location": "L1648",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_main",
@@ -16242,7 +16363,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1265",
+      "source_location": "L1287",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_on_start",
@@ -16276,7 +16397,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1317",
+      "source_location": "L1339",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_poll_queue",
@@ -16299,7 +16420,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L966",
+      "source_location": "L978",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_plot_area",
@@ -16311,7 +16432,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L991",
+      "source_location": "L1013",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_wire_live_updates",
@@ -16323,7 +16444,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1002",
+      "source_location": "L1024",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_wire_live_updates",
@@ -16335,7 +16456,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1046",
+      "source_location": "L1068",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_derived",
@@ -16348,7 +16469,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1014",
+      "source_location": "L1036",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_derived",
@@ -16359,7 +16480,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1053",
+      "source_location": "L1075",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_derived",
@@ -16372,7 +16493,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1019",
+      "source_location": "L1041",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_derived",
@@ -16384,7 +16505,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1020",
+      "source_location": "L1042",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_derived",
@@ -16394,10 +16515,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1007",
+      "source_location": "L1029",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_gui_app_rationale_1007",
+      "source": "src_gammaforge_gui_app_rationale_1029",
       "target": "src_gammaforge_gui_app_comptonguiapp_update_derived",
       "confidence_score": 1.0
     },
@@ -16406,7 +16527,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1193",
+      "source_location": "L1215",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -16419,7 +16540,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1092",
+      "source_location": "L1114",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_laser_fields_si",
@@ -16431,7 +16552,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1105",
+      "source_location": "L1127",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_laser_fields_si",
@@ -16441,10 +16562,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1078",
+      "source_location": "L1100",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_gui_app_rationale_1078",
+      "source": "src_gammaforge_gui_app_rationale_1100",
       "target": "src_gammaforge_gui_app_comptonguiapp_laser_fields_si",
       "confidence_score": 1.0
     },
@@ -16453,7 +16574,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1140",
+      "source_location": "L1162",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -16466,7 +16587,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1171",
+      "source_location": "L1193",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -16477,7 +16598,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1140",
+      "source_location": "L1162",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -16490,7 +16611,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1176",
+      "source_location": "L1198",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -16502,7 +16623,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1157",
+      "source_location": "L1179",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
@@ -16513,7 +16634,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1233",
+      "source_location": "L1255",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_on_start",
@@ -16524,10 +16645,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1141",
+      "source_location": "L1163",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_gui_app_rationale_1141",
+      "source": "src_gammaforge_gui_app_rationale_1163",
       "target": "src_gammaforge_gui_app_comptonguiapp_build_beam_and_laser",
       "confidence_score": 1.0
     },
@@ -16536,7 +16657,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1212",
+      "source_location": "L1234",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_model_extra_fields",
@@ -16548,7 +16669,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1268",
+      "source_location": "L1290",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_on_start",
@@ -16559,10 +16680,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1213",
+      "source_location": "L1235",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_gui_app_rationale_1213",
+      "source": "src_gammaforge_gui_app_rationale_1235",
       "target": "src_gammaforge_gui_app_comptonguiapp_model_extra_fields",
       "confidence_score": 1.0
     },
@@ -16572,7 +16693,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1255",
+      "source_location": "L1277",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_on_start",
@@ -16584,7 +16705,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1250",
+      "source_location": "L1272",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_on_start",
@@ -16596,7 +16717,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1257",
+      "source_location": "L1279",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_on_start",
@@ -16608,7 +16729,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1267",
+      "source_location": "L1289",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_on_start",
@@ -16619,7 +16740,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1316",
+      "source_location": "L1338",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_poll_queue",
@@ -16631,7 +16752,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1443",
+      "source_location": "L1468",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_spectrum",
@@ -16643,7 +16764,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1331",
+      "source_location": "L1353",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_outputs",
@@ -16655,7 +16776,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1334",
+      "source_location": "L1356",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_outputs",
@@ -16667,7 +16788,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1353",
+      "source_location": "L1375",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_outputs",
@@ -16680,7 +16801,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1348",
+      "source_location": "L1370",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_update_outputs",
@@ -16690,10 +16811,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1356",
+      "source_location": "L1378",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_gui_app_rationale_1356",
+      "source": "src_gammaforge_gui_app_rationale_1378",
       "target": "src_gammaforge_gui_app_comptonguiapp_photon_fluxes",
       "confidence_score": 1.0
     },
@@ -16702,7 +16823,19 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1416",
+      "source_location": "L1441",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_gui_app_comptonguiapp_render_plots",
+      "target": "src_gammaforge_gui_app_comptonguiapp_render_angle_resolved_spectra",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1440",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_plots",
@@ -16714,7 +16847,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1402",
+      "source_location": "L1426",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_plots",
@@ -16726,7 +16859,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1415",
+      "source_location": "L1439",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_plots",
@@ -16738,7 +16871,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1399",
+      "source_location": "L1423",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_plots",
@@ -16750,7 +16883,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1414",
+      "source_location": "L1438",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_plots",
@@ -16763,7 +16896,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1437",
+      "source_location": "L1462",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_spectrum",
@@ -16774,7 +16907,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1525",
+      "source_location": "L1555",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_angular_distribution",
@@ -16786,7 +16919,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1503",
+      "source_location": "L1533",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_spatial_distribution",
@@ -16797,49 +16930,72 @@
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
-      "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1488",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "src_gammaforge_gui_app_comptonguiapp_render_temporal_envelope",
-      "target": "src_gammaforge_gui_app_comptonguiapp_render_unavailable",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "INFERRED",
-      "confidence_score": 0.8,
-      "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1486",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "src_gammaforge_gui_app_comptonguiapp_render_temporal_envelope",
-      "target": "src_gammaforge_io_photons_find_slice"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "INFERRED",
-      "confidence_score": 0.8,
-      "source_file": "src/gammaforge/gui/app.py",
-      "source_location": "L1501",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "src_gammaforge_gui_app_comptonguiapp_render_spatial_distribution",
-      "target": "src_gammaforge_io_photons_find_slice"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "INFERRED",
-      "confidence_score": 0.8,
       "source_file": "src/gammaforge/gui/app.py",
       "source_location": "L1518",
       "weight": 1.0,
       "_origin": "ast",
+      "source": "src_gammaforge_gui_app_comptonguiapp_render_temporal_envelope",
+      "target": "src_gammaforge_gui_app_comptonguiapp_render_unavailable",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1516",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_gui_app_comptonguiapp_render_temporal_envelope",
+      "target": "src_gammaforge_io_photons_find_slice"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1531",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_gui_app_comptonguiapp_render_spatial_distribution",
+      "target": "src_gammaforge_io_photons_find_slice"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1548",
+      "weight": 1.0,
+      "_origin": "ast",
       "source": "src_gammaforge_gui_app_comptonguiapp_render_angular_distribution",
       "target": "src_gammaforge_io_photons_find_slice"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1587",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_gui_app_comptonguiapp_render_angle_resolved_spectra",
+      "target": "src_gammaforge_io_photons_find_slice"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/gui/app.py",
+      "source_location": "L1579",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_gui_app_rationale_1579",
+      "target": "src_gammaforge_gui_app_comptonguiapp_render_angle_resolved_spectra",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
@@ -20170,7 +20326,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L328",
+      "source_location": "L352",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_integrate_trajectory_core",
@@ -20288,7 +20444,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L591",
+      "source_location": "L619",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
@@ -20300,7 +20456,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L376",
+      "source_location": "L400",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
@@ -22235,7 +22391,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L337",
+      "source_location": "L361",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_integrate_trajectory_core",
@@ -23965,7 +24121,19 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L302",
+      "source_location": "L230",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_models_xigma_i_particles_estimate_chunk_size",
+      "target": "valueerror"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/gammaforge/models/xigma_i/particles.py",
+      "source_location": "L326",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample",
@@ -24013,7 +24181,19 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L42",
+      "source_location": "L82",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_estimate_s_chunk",
+      "target": "valueerror"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
+      "source_location": "L45",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_xp_for",
@@ -24419,7 +24599,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L48",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_misc",
+      "target": "src_gammaforge_misc_available_ram_bytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/misc.py",
+      "source_location": "L50",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_misc",
@@ -24430,7 +24621,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L11",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_misc",
@@ -24441,7 +24632,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L34",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_misc",
@@ -24452,7 +24643,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L42",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_misc",
@@ -24512,7 +24703,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L19",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
@@ -24535,10 +24726,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L12",
+      "source_location": "L14",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_misc_rationale_12",
+      "source": "src_gammaforge_misc_rationale_14",
       "target": "src_gammaforge_misc_detect_device",
       "confidence_score": 1.0
     },
@@ -24582,10 +24773,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L35",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_misc_rationale_35",
+      "source": "src_gammaforge_misc_rationale_37",
       "target": "src_gammaforge_misc_get_xp",
       "confidence_score": 1.0
     },
@@ -24629,10 +24820,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L43",
+      "source_location": "L45",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_misc_rationale_43",
+      "source": "src_gammaforge_misc_rationale_45",
       "target": "src_gammaforge_misc_to_host",
       "confidence_score": 1.0
     },
@@ -24688,10 +24879,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/misc.py",
-      "source_location": "L49",
+      "source_location": "L51",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_misc_rationale_49",
+      "source": "src_gammaforge_misc_rationale_51",
       "target": "src_gammaforge_misc_available_vram_bytes",
       "confidence_score": 1.0
     },
@@ -24712,7 +24903,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L206",
+      "source_location": "L224",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_estimate_chunk_size",
@@ -24736,12 +24927,95 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L56",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_estimate_s_chunk",
       "target": "src_gammaforge_misc_available_vram_bytes",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/misc.py",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_misc_rationale_63",
+      "target": "src_gammaforge_misc_available_ram_bytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/models/xigma_i/particles.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_models_xigma_i_particles",
+      "target": "src_gammaforge_misc_available_ram_bytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/models/xigma_i/particles.py",
+      "source_location": "L227",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_models_xigma_i_particles_estimate_chunk_size",
+      "target": "src_gammaforge_misc_available_ram_bytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
+      "source_location": "L15",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles",
+      "target": "src_gammaforge_misc_available_ram_bytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_estimate_s_chunk",
+      "target": "src_gammaforge_misc_available_ram_bytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
+      "source_location": "L138",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_angle_integrated_spectrum_chunking_test_available_ram_bytes_returns_positive_int",
+      "target": "src_gammaforge_misc_available_ram_bytes"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L175",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_xigma_chunking_test_estimate_chunk_size_numpy_bounded_by_n_particles",
+      "target": "src_gammaforge_misc_available_ram_bytes"
     },
     {
       "relation": "rationale_for",
@@ -28170,7 +28444,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L495",
+      "source_location": "L523",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles",
@@ -28181,7 +28455,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L305",
+      "source_location": "L329",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles",
@@ -28203,7 +28477,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L214",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles",
@@ -28214,7 +28488,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L572",
+      "source_location": "L600",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles",
@@ -28225,7 +28499,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L360",
+      "source_location": "L384",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles",
@@ -28292,7 +28566,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L390",
+      "source_location": "L414",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
@@ -28362,7 +28636,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L410",
+      "source_location": "L434",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
@@ -28397,7 +28671,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L413",
+      "source_location": "L437",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
@@ -28420,7 +28694,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L392",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
@@ -28443,7 +28717,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L396",
+      "source_location": "L420",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
@@ -28466,7 +28740,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L588",
+      "source_location": "L616",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
@@ -28478,7 +28752,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L374",
+      "source_location": "L398",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
@@ -28512,7 +28786,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L300",
+      "source_location": "L324",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample",
@@ -28524,7 +28798,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L282",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample",
@@ -28535,10 +28809,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L220",
+      "source_location": "L244",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_particles_rationale_220",
+      "source": "src_gammaforge_models_xigma_i_particles_rationale_244",
       "target": "src_gammaforge_models_xigma_i_particles_push_and_sample",
       "confidence_score": 1.0
     },
@@ -28547,7 +28821,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L385",
+      "source_location": "L409",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
@@ -28558,10 +28832,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L307",
+      "source_location": "L331",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_particles_rationale_307",
+      "source": "src_gammaforge_models_xigma_i_particles_rationale_331",
       "target": "src_gammaforge_models_xigma_i_particles_integrate_trajectory_core",
       "confidence_score": 1.0
     },
@@ -28569,10 +28843,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L365",
+      "source_location": "L389",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_particles_rationale_365",
+      "source": "src_gammaforge_models_xigma_i_particles_rationale_389",
       "target": "src_gammaforge_models_xigma_i_particles_push_and_sample_vectorized",
       "confidence_score": 1.0
     },
@@ -28581,7 +28855,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L595",
+      "source_location": "L623",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
@@ -28592,10 +28866,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L496",
+      "source_location": "L524",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_particles_rationale_496",
+      "source": "src_gammaforge_models_xigma_i_particles_rationale_524",
       "target": "src_gammaforge_models_xigma_i_particles_get_numba_kernel",
       "confidence_score": 1.0
     },
@@ -28603,10 +28877,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/particles.py",
-      "source_location": "L573",
+      "source_location": "L601",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_particles_rationale_573",
+      "source": "src_gammaforge_models_xigma_i_particles_rationale_601",
       "target": "src_gammaforge_models_xigma_i_particles_push_and_sample_numba",
       "confidence_score": 1.0
     },
@@ -28862,7 +29136,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L64",
+      "source_location": "L90",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles",
@@ -28873,7 +29147,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L131",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles",
@@ -28884,7 +29158,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L45",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles",
@@ -28895,7 +29169,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L31",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles",
@@ -28918,7 +29192,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L91",
+      "source_location": "L118",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_angle_integrated_spectrum",
@@ -28930,7 +29204,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L176",
+      "source_location": "L208",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_direct_binning_spectrum",
@@ -28941,10 +29215,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L32",
+      "source_location": "L35",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_32",
+      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_35",
       "target": "src_gammaforge_models_xigma_i_spectrum_from_particles_xp_for",
       "confidence_score": 1.0
     },
@@ -28953,7 +29227,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L99",
+      "source_location": "L126",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_angle_integrated_spectrum",
@@ -28964,10 +29238,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L46",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_46",
+      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_49",
       "target": "src_gammaforge_models_xigma_i_spectrum_from_particles_estimate_s_chunk",
       "confidence_score": 1.0
     },
@@ -28977,7 +29251,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L58",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking_test_estimate_s_chunk_cupy_bounded_by_n_s",
@@ -28989,20 +29263,32 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L53",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "tests_test_angle_integrated_spectrum_chunking_test_estimate_s_chunk_numpy_returns_n_s_unchanged",
+      "source": "tests_test_angle_integrated_spectrum_chunking_test_estimate_s_chunk_numpy_bounded_by_n_s",
+      "target": "src_gammaforge_models_xigma_i_spectrum_from_particles_estimate_s_chunk"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
+      "source_location": "L83",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_angle_integrated_spectrum_chunking_test_numpy_auto_chunk_avoids_ram_blowup_at_reported_scale",
       "target": "src_gammaforge_models_xigma_i_spectrum_from_particles_estimate_s_chunk"
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L65",
+      "source_location": "L91",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_65",
+      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_91",
       "target": "src_gammaforge_models_xigma_i_spectrum_from_particles_angle_integrated_spectrum",
       "confidence_score": 1.0
     },
@@ -29010,10 +29296,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/gammaforge/models/xigma_i/spectrum_from_particles.py",
-      "source_location": "L133",
+      "source_location": "L165",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_133",
+      "source": "src_gammaforge_models_xigma_i_spectrum_from_particles_rationale_165",
       "target": "src_gammaforge_models_xigma_i_spectrum_from_particles_direct_binning_spectrum",
       "confidence_score": 1.0
     },
@@ -32961,7 +33247,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L29",
+      "source_location": "L39",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
@@ -32972,7 +33258,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L74",
+      "source_location": "L137",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_angle_integrated_spectrum_chunking",
+      "target": "tests_test_angle_integrated_spectrum_chunking_test_available_ram_bytes_returns_positive_int",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
+      "source_location": "L101",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
@@ -32983,7 +33280,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L63",
+      "source_location": "L90",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
@@ -32994,7 +33291,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L96",
+      "source_location": "L123",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
@@ -33005,7 +33302,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L57",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
@@ -33016,18 +33313,29 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L52",
+      "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
-      "target": "tests_test_angle_integrated_spectrum_chunking_test_estimate_s_chunk_numpy_returns_n_s_unchanged",
+      "target": "tests_test_angle_integrated_spectrum_chunking_test_estimate_s_chunk_numpy_bounded_by_n_s",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L36",
+      "source_location": "L75",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_angle_integrated_spectrum_chunking",
+      "target": "tests_test_angle_integrated_spectrum_chunking_test_numpy_auto_chunk_avoids_ram_blowup_at_reported_scale",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
@@ -33038,7 +33346,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L46",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking",
@@ -33061,7 +33369,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L86",
+      "source_location": "L113",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking_test_cupy_auto_chunk_avoids_oom_at_reported_scale",
@@ -33073,7 +33381,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L64",
+      "source_location": "L91",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking_test_cupy_chunked_matches_numpy_unchunked",
@@ -33085,7 +33393,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L101",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking_test_cupy_oom_retry_halves_chunk_and_succeeds",
@@ -33097,7 +33405,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L37",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking_test_numpy_chunked_matches_unchunked_exactly",
@@ -33109,7 +33417,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L47",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_angle_integrated_spectrum_chunking_test_scalar_s_still_returns_scalar",
@@ -33120,10 +33428,21 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L75",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "tests_test_angle_integrated_spectrum_chunking_rationale_75",
+      "source": "tests_test_angle_integrated_spectrum_chunking_rationale_76",
+      "target": "tests_test_angle_integrated_spectrum_chunking_test_numpy_auto_chunk_avoids_ram_blowup_at_reported_scale",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
+      "source_location": "L102",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_angle_integrated_spectrum_chunking_rationale_102",
       "target": "tests_test_angle_integrated_spectrum_chunking_test_cupy_auto_chunk_avoids_oom_at_reported_scale",
       "confidence_score": 1.0
     },
@@ -33131,10 +33450,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_angle_integrated_spectrum_chunking.py",
-      "source_location": "L97",
+      "source_location": "L124",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "tests_test_angle_integrated_spectrum_chunking_rationale_97",
+      "source": "tests_test_angle_integrated_spectrum_chunking_rationale_124",
       "target": "tests_test_angle_integrated_spectrum_chunking_test_cupy_oom_retry_halves_chunk_and_succeeds",
       "confidence_score": 1.0
     },
@@ -34169,7 +34488,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_xigma_chunking.py",
-      "source_location": "L167",
+      "source_location": "L182",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_xigma_chunking",
@@ -34184,7 +34503,18 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_xigma_chunking",
-      "target": "tests_test_xigma_chunking_test_estimate_chunk_size_numpy_returns_n_particles_unchanged",
+      "target": "tests_test_xigma_chunking_test_estimate_chunk_size_numba_returns_n_particles_unchanged",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L168",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_xigma_chunking",
+      "target": "tests_test_xigma_chunking_test_estimate_chunk_size_numpy_bounded_by_n_particles",
       "confidence_score": 1.0
     },
     {
@@ -34395,6 +34725,28 @@
       "_origin": "ast",
       "source": "tests_test_xigma_chunking_rationale_141",
       "target": "tests_test_xigma_chunking_test_cupy_oom_retry_covers_diagnostics_binning_too",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L162",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_xigma_chunking_rationale_162",
+      "target": "tests_test_xigma_chunking_test_estimate_chunk_size_numba_returns_n_particles_unchanged",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/test_xigma_chunking.py",
+      "source_location": "L169",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tests_test_xigma_chunking_rationale_169",
+      "target": "tests_test_xigma_chunking_test_estimate_chunk_size_numpy_bounded_by_n_particles",
       "confidence_score": 1.0
     },
     {
@@ -34852,7 +35204,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "CLAUDE.md",
-      "source_location": "L331",
+      "source_location": "L339",
       "weight": 1.0,
       "_origin": "ast",
       "source": "claude_agents_md",
@@ -34885,7 +35237,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "CLAUDE.md",
-      "source_location": "L296",
+      "source_location": "L304",
       "weight": 1.0,
       "_origin": "ast",
       "source": "claude_agents_md",
@@ -34984,7 +35336,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "CLAUDE.md",
-      "source_location": "L325",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast",
       "source": "claude_user_specified_tasks_pending",
@@ -34995,7 +35347,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "CLAUDE.md",
-      "source_location": "L319",
+      "source_location": "L327",
       "weight": 1.0,
       "_origin": "ast",
       "source": "claude_user_specified_tasks_pending",
@@ -35006,7 +35358,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "CLAUDE.md",
-      "source_location": "L300",
+      "source_location": "L308",
       "weight": 1.0,
       "_origin": "ast",
       "source": "claude_user_specified_tasks_pending",
@@ -35017,7 +35369,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "CLAUDE.md",
-      "source_location": "L312",
+      "source_location": "L320",
       "weight": 1.0,
       "_origin": "ast",
       "source": "claude_user_specified_tasks_pending",
@@ -39503,5 +39855,5 @@
       "source_file": "docs/refactor/core-simulation-api.md"
     }
   ],
-  "built_at_commit": "c807a82465185296d64bb649187b1c0f2ba8721f"
+  "built_at_commit": "8300234ff50f8388420647e9969058ddea061929"
 }

@@ -963,6 +963,18 @@ class ComptonGUIApp(tk.Tk):
         self.canvas_a = FigureCanvasTkAgg(self.fig_a, master=self.tab_angular)
         self.canvas_a.get_tk_widget().pack(fill="both", expand=True)
 
+        # Tab 5: Angle-Resolved Spectra -- four (energy, angle) slices/
+        # projections of the same joint (AXIS_ENERGY, AXIS_THETA_X,
+        # AXIS_THETA_Y) data _render_angular_distribution's ang3d fallback
+        # already reads, see _render_angle_resolved_spectra.
+        self.tab_angle_resolved = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_angle_resolved, text="Angle-Resolved Spectra")
+        self.fig_ar = plt.Figure(figsize=(11, 7.2))
+        ((self.ax_ar_tx0, self.ax_ar_ty0),
+         (self.ax_ar_tx_sum, self.ax_ar_ty_sum)) = self.fig_ar.subplots(2, 2)
+        self.canvas_ar = FigureCanvasTkAgg(self.fig_ar, master=self.tab_angle_resolved)
+        self.canvas_ar.get_tk_widget().pack(fill="both", expand=True)
+
         self._render_placeholder()
 
     def _render_placeholder(self):
@@ -982,6 +994,16 @@ class ComptonGUIApp(tk.Tk):
             ax.set_title(title); ax.set_xticks([]); ax.set_yticks([])
             fig.tight_layout()
             canvas.draw()
+
+        for ax, title in ((self.ax_ar_tx0, r"$s$-$\theta_x$ at $\theta_y=0$"),
+                           (self.ax_ar_ty0, r"$s$-$\theta_y$ at $\theta_x=0$"),
+                           (self.ax_ar_tx_sum, r"$s$-$\theta_x$, summed over $\theta_y$"),
+                           (self.ax_ar_ty_sum, r"$s$-$\theta_y$, summed over $\theta_x$")):
+            ax.clear()
+            ax.text(0.5, 0.5, "Press Calculate to run", ha="center", va="center")
+            ax.set_title(title); ax.set_xticks([]); ax.set_yticks([])
+        self.fig_ar.tight_layout()
+        self.canvas_ar.draw()
 
     # ---- live (no-run) updates -----------------------------------------
     def _wire_live_updates(self):
@@ -1390,7 +1412,9 @@ class ComptonGUIApp(tk.Tk):
         total_flux = total_yield(res) * self.rep_rate_hz
         if tx is None or ty is None:
             return total_flux, 0.0, None
-        rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
+        n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
+        rng_result = self.active_adapter.spectrum_in_angular_range(
+            (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
         coll_flux = (rng_result.n_photons_in_range or 0.0) * self.rep_rate_hz
         return total_flux, coll_flux, None
 
@@ -1414,6 +1438,7 @@ class ComptonGUIApp(tk.Tk):
         self._render_temporal_envelope(res)
         self._render_spatial_distribution(res)
         self._render_angular_distribution(res)
+        self._render_angle_resolved_spectra(res)
 
     def _render_spectrum(self, res, cmask):
         self.ax_spec.clear()
@@ -1446,8 +1471,13 @@ class ComptonGUIApp(tk.Tk):
                 # wide-range energy+angle joint slice -- see _photon_fluxes'
                 # docstring for why re-integrating that cache here used to
                 # produce a "collimated" curve that could spike far above the
-                # true 4*pi spectrum near the Compton edge.
-                rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
+                # true 4*pi spectrum near the Compton edge. n_energy is
+                # explicit here (not the adapter's own default of 96/65) so
+                # the "Energy bins" field actually controls this curve's
+                # resolution too, not just the "all (4*pi)" one above.
+                n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
+                rng_result = self.active_adapter.spectrum_in_angular_range(
+                    (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
                 coll_spec = rng_result.spectrum
                 E_coll = coll_spec.axes.get(AXIS_ENERGY)
                 if E_coll is not None and E_coll.size:
@@ -1544,6 +1574,74 @@ class ComptonGUIApp(tk.Tk):
         self.ax_a.set_title("Photon angular distribution (energy-integrated)")
         self.fig_a.tight_layout()
         self.canvas_a.draw()
+
+    def _render_angle_resolved_spectra(self, res):
+        """Four (energy, angle) views of the same joint (AXIS_ENERGY,
+        AXIS_THETA_X, AXIS_THETA_Y) slice _render_angular_distribution's
+        ang3d fallback already reads (no new adapter/engine call, a pure
+        aggregation of already-present data): on-axis slices at the other
+        transverse angle's nearest-to-zero grid point, and the two
+        one-angle-summed (i.e. energy vs. one angle, integrated over the
+        other) projections."""
+        axes_ar = (self.ax_ar_tx0, self.ax_ar_ty0, self.ax_ar_tx_sum, self.ax_ar_ty_sum)
+        ang3d = find_slice(res.photon_slices, AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
+        if ang3d is None:
+            for ax in axes_ar:
+                ax.clear()
+                ax.text(0.5, 0.5, "N/A (no angle-resolved spectrum data)",
+                        ha="center", va="center")
+                ax.set_xticks([]); ax.set_yticks([])
+            self.ax_ar_tx0.set_title(r"$s$-$\theta_x$ at $\theta_y=0$")
+            self.ax_ar_ty0.set_title(r"$s$-$\theta_y$ at $\theta_x=0$")
+            self.ax_ar_tx_sum.set_title(r"$s$-$\theta_x$, summed over $\theta_y$")
+            self.ax_ar_ty_sum.set_title(r"$s$-$\theta_y$, summed over $\theta_x$")
+            self.fig_ar.tight_layout()
+            self.canvas_ar.draw()
+            return
+
+        # ``axes``' iteration order matches ``distr``'s dimension order, but
+        # different adapters may order that dict differently -- reorder
+        # explicitly, same as _render_angular_distribution's ang3d branch.
+        names = list(ang3d.axes.keys())
+        order = [names.index(AXIS_THETA_X), names.index(AXIS_THETA_Y), names.index(AXIS_ENERGY)]
+        arr = np.moveaxis(ang3d.distr, order, [0, 1, 2])  # (theta_x, theta_y, energy)
+        theta_x = ang3d.axes[AXIS_THETA_X]
+        theta_y = ang3d.axes[AXIS_THETA_Y]
+        E_keV = ang3d.axes[AXIS_ENERGY] / 1e3
+        ix0 = int(np.argmin(np.abs(theta_x)))
+        iy0 = int(np.argmin(np.abs(theta_y)))
+        dtx, dty = np.gradient(theta_x), np.gradient(theta_y)
+
+        for ax in axes_ar:
+            ax.clear()
+
+        # Top row: on-axis slices at the other angle's nearest-to-zero point.
+        self.ax_ar_tx0.pcolormesh(E_keV, theta_x * 1e3, arr[:, iy0, :], shading="auto")
+        self.ax_ar_tx0.set_title(r"$s$-$\theta_x$ at $\theta_y \approx$"
+                                  f" {theta_y[iy0] * 1e3:.3g} mrad")
+
+        self.ax_ar_ty0.pcolormesh(E_keV, theta_y * 1e3, arr[ix0, :, :], shading="auto")
+        self.ax_ar_ty0.set_title(r"$s$-$\theta_y$ at $\theta_x \approx$"
+                                  f" {theta_x[ix0] * 1e3:.3g} mrad")
+
+        # Bottom row: summed (quadrature-weighted) over the other angle.
+        d2N_dE_dtx = np.einsum("ijk,j->ik", arr, dty)
+        self.ax_ar_tx_sum.pcolormesh(E_keV, theta_x * 1e3, d2N_dE_dtx, shading="auto")
+        self.ax_ar_tx_sum.set_title(r"$s$-$\theta_x$, summed over $\theta_y$")
+
+        d2N_dE_dty = np.einsum("ijk,i->jk", arr, dtx)
+        self.ax_ar_ty_sum.pcolormesh(E_keV, theta_y * 1e3, d2N_dE_dty, shading="auto")
+        self.ax_ar_ty_sum.set_title(r"$s$-$\theta_y$, summed over $\theta_x$")
+
+        for ax, ylabel in ((self.ax_ar_tx0, r"$\theta_x$ [mrad]"),
+                            (self.ax_ar_ty0, r"$\theta_y$ [mrad]"),
+                            (self.ax_ar_tx_sum, r"$\theta_x$ [mrad]"),
+                            (self.ax_ar_ty_sum, r"$\theta_y$ [mrad]")):
+            ax.set_xlabel(r"photon energy $\hbar\omega_\gamma$ [keV]")
+            ax.set_ylabel(ylabel)
+
+        self.fig_ar.tight_layout()
+        self.canvas_ar.draw()
 
 
 def main():
