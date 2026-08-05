@@ -213,6 +213,9 @@ class ComptonGUIApp(tk.Tk):
         # them while the panel is in display mode (otherwise the
         # ``_update_derived`` callback would clobber our output values).
         self._electron_traces: list[tuple[tk.StringVar, str]] = []
+        # Debounce id for theta_x_col_mrad/theta_y_col_mrad's live-typing
+        # trace -- see _on_collimation_field_changed.
+        self._collim_after_id: str | None = None
 
         # --- build layout ---
         self._build_menu()
@@ -1021,9 +1024,18 @@ class ComptonGUIApp(tk.Tk):
         self._waist_convention_var.trace_add("write", lambda *a: self._update_derived())
         self._waist_input_mode.trace_add("write", lambda *a: self._update_derived())
         for k in ("theta_x_col_mrad", "theta_y_col_mrad"):
-            self.fields[k].trace_add("write", lambda *a: self._update_outputs())
-        for k in ("theta_x_col_mrad", "theta_y_col_mrad"):
-            self.fields[k].trace_add("write", lambda *a: self._update_outputs())
+            self.fields[k].trace_add("write", lambda *a: self._on_collimation_field_changed())
+
+    def _on_collimation_field_changed(self):
+        """theta_x_col_mrad/theta_y_col_mrad's trace fires on every
+        keystroke (StringVar 'write', not just Enter/blur) -- debounce so
+        typing a multi-digit value doesn't fire _update_outputs() (and the
+        spectrum_in_angular_range() query(s) inside it) once per digit.
+        No effect on Calculate-triggered updates, which don't go through
+        this path."""
+        if self._collim_after_id is not None:
+            self.after_cancel(self._collim_after_id)
+        self._collim_after_id = self.after(200, self._update_outputs)
 
     def _update_derived(self):
         """Refresh electron and laser values derived from the current fields."""
@@ -1352,8 +1364,22 @@ class ComptonGUIApp(tk.Tk):
         res, interaction = self.res, self.interaction_used
         tx, ty = self._collimation_rad()
 
+        # One shared on-demand query for whatever this update needs a
+        # collimation-windowed grid for (collimated flux, collimated
+        # spectrum curve, angle-resolved panel) -- computed at most ONCE
+        # per _update_outputs() call rather than once per caller. None if
+        # no window is set, or the active model has no
+        # spectrum_in_angular_range (kascade uses cmask directly on raw
+        # macrophoton samples instead; analytical has neither).
+        rng_result = None
+        if (tx is not None and ty is not None and res.macrophoton is None
+                and hasattr(self.active_adapter, "spectrum_in_angular_range")):
+            n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
+            rng_result = self.active_adapter.spectrum_in_angular_range(
+                (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
+
         # --- fluxes and statistics (branch on result shape) ---
-        total_flux, coll_flux, cmask = self._photon_fluxes(res, tx, ty)
+        total_flux, coll_flux, cmask = self._photon_fluxes(res, tx, ty, rng_result)
         self.stat_lbls["total_flux"].config(text=f"{total_flux:.3e} ph/s")
         self.stat_lbls["coll_flux"].config(text=f"{coll_flux:.3e} ph/s")
 
@@ -1372,31 +1398,30 @@ class ComptonGUIApp(tk.Tk):
             interaction.laser.wavelength_m.to_unit("meter").magnitude)
         self.stat_lbls["recoil_q"].config(text=f"{recoil_q:.6f}")
 
-        self._render_plots(res, cmask, interaction)
+        self._render_plots(res, cmask, interaction, rng_result)
 
-    def _photon_fluxes(self, res, tx, ty):
+    def _photon_fluxes(self, res, tx, ty, rng_result):
         """Return (total_flux, collimated_flux, cmask_or_None) [ph/s].
 
         cmask is only meaningful (and only returned) when ``res.macrophoton``
         is present (kascade), where _render_plots uses it to mask the raw
         photon array directly (exact, no grid involved).
 
-        Otherwise, collimated flux comes from an on-demand
-        active_adapter.spectrum_in_angular_range() query -- a fresh grid
-        sized for the ACTUAL requested window -- rather than re-integrating
-        the cached, wide-range energy+angle joint slice (used only by the
-        Angular Distribution tab's visualization). That used to double as
-        the "collimated flux" source here too, but its grid is sized for a
-        4*pi overview, not a tight collimation window: e.g. delta's
-        default 9x9 cache captures just 1 grid point inside the GUI's own
-        default 0.05 mrad window, and reusing that point's full (much wider)
-        cache-grid cell as its effective solid angle overcounts badly --
-        confirmed producing a "collimated" spectrum peaking ~260x above the
-        true 4*pi spectrum near the Compton edge. spectrum_in_angular_range
-        already exists precisely to avoid this (it was fixed earlier this
-        session to evaluate the physics kernel fresh at the requested
-        window, not mask/reuse a cache) -- this just routes through it here
-        too, still no MC re-run (reuses the cached per-particle arrays).
+        Otherwise, collimated flux comes from ``rng_result``
+        (``_update_outputs``'s single shared ``spectrum_in_angular_range()``
+        query for this update, sized for the ACTUAL requested window)
+        rather than re-integrating the cached, wide-range energy+angle
+        joint slice (used only by the Angular Distribution tab's
+        visualization). That used to double as the "collimated flux"
+        source here too, but its grid is sized for a 4*pi overview, not a
+        tight collimation window: e.g. delta's default 9x9 cache captures
+        just 1 grid point inside the GUI's own default 0.05 mrad window,
+        and reusing that point's full (much wider) cache-grid cell as its
+        effective solid angle overcounts badly -- confirmed producing a
+        "collimated" spectrum peaking ~260x above the true 4*pi spectrum
+        near the Compton edge. spectrum_in_angular_range already exists
+        precisely to avoid this, still no MC re-run (reuses the cached
+        per-particle arrays).
         """
         if res.macrophoton is not None:
             mp = res.macrophoton
@@ -1410,17 +1435,14 @@ class ComptonGUIApp(tk.Tk):
             return total_flux, coll_flux, cmask
 
         total_flux = total_yield(res) * self.rep_rate_hz
-        if tx is None or ty is None:
+        if rng_result is None:
             return total_flux, 0.0, None
-        n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
-        rng_result = self.active_adapter.spectrum_in_angular_range(
-            (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
         coll_flux = (rng_result.n_photons_in_range or 0.0) * self.rep_rate_hz
         return total_flux, coll_flux, None
 
     # ---- plotting -------------------------------------------------------
-    def _render_plots(self, res, cmask, interaction):
-        self._render_spectrum(res, cmask)
+    def _render_plots(self, res, cmask, interaction, rng_result):
+        self._render_spectrum(res, cmask, rng_result)
 
         if res.electrons is not None:
             self._render_electron_state(interaction.electrons, res.electrons)
@@ -1438,9 +1460,9 @@ class ComptonGUIApp(tk.Tk):
         self._render_temporal_envelope(res)
         self._render_spatial_distribution(res)
         self._render_angular_distribution(res)
-        self._render_angle_resolved_spectra(res)
+        self._render_angle_resolved_spectra(res, rng_result)
 
-    def _render_spectrum(self, res, cmask):
+    def _render_spectrum(self, res, cmask, rng_result):
         self.ax_spec.clear()
         if res.macrophoton is not None:
             mp = res.macrophoton
@@ -1465,19 +1487,13 @@ class ComptonGUIApp(tk.Tk):
                 dNdE_per_keV = spec.distr * 1e3
                 self.ax_spec.plot(E_keV, dNdE_per_keV, color="0.4", label="all (4*pi)")
 
-            tx, ty = self._collimation_rad()
-            if tx is not None and ty is not None:
-                # On-demand query at a grid sized for THIS window, not the
-                # wide-range energy+angle joint slice -- see _photon_fluxes'
-                # docstring for why re-integrating that cache here used to
-                # produce a "collimated" curve that could spike far above the
-                # true 4*pi spectrum near the Compton edge. n_energy is
-                # explicit here (not the adapter's own default of 96/65) so
-                # the "Energy bins" field actually controls this curve's
-                # resolution too, not just the "all (4*pi)" one above.
-                n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
-                rng_result = self.active_adapter.spectrum_in_angular_range(
-                    (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
+            # rng_result: _update_outputs' single shared on-demand query for
+            # this update (None if no collimation window is set, or the
+            # model has no spectrum_in_angular_range) -- see its own
+            # docstring for why re-integrating the wide-range joint slice
+            # here instead used to produce a "collimated" curve that could
+            # spike far above the true 4*pi spectrum near the Compton edge.
+            if rng_result is not None:
                 coll_spec = rng_result.spectrum
                 E_coll = coll_spec.axes.get(AXIS_ENERGY)
                 if E_coll is not None and E_coll.size:
@@ -1575,37 +1591,30 @@ class ComptonGUIApp(tk.Tk):
         self.fig_a.tight_layout()
         self.canvas_a.draw()
 
-    def _render_angle_resolved_spectra(self, res):
+    def _render_angle_resolved_spectra(self, res, rng_result):
         """Four (energy, angle) views: on-axis slices at the other
         transverse angle's nearest-to-zero grid point, and the two
         one-angle-summed (i.e. energy vs. one angle, integrated over the
         other) projections.
 
-        Data source: if a collimation window is set (theta_x_col_mrad/
-        theta_y_col_mrad on the Compton Photons tab) and the active model
-        supports it, a fresh on-demand spectrum_in_angular_range() query
-        sized for THAT window -- mirrors _render_spectrum's "collimated"
-        curve and _photon_fluxes' collimated-flux stat, both of which
-        already avoid reslicing the coarse generous grid run() precomputes
-        (see their docstrings for why: a tight collimation window can
-        capture just one or two points of that wide-range grid, badly
-        overcounting). angle_energy_grid is the joint (theta_x, theta_y,
-        energy) grid the same call already builds internally before
-        collapsing it to spectrum_in_angular_range's own 1D angle-
-        integrated spectrum -- exposing it costs nothing extra to compute.
-        Falls back to the joint (AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
-        slice from res.photon_slices (the coarse generous window) when no
-        collimation window is set, or the model has no
-        spectrum_in_angular_range (kascade, analytical)."""
+        Data source: ``rng_result`` -- _update_outputs' single shared
+        on-demand spectrum_in_angular_range() query for this update (None
+        if no collimation window is set, or the model has no
+        spectrum_in_angular_range) -- sized for the ACTUAL collimation
+        window, mirroring _render_spectrum's "collimated" curve and
+        _photon_fluxes' collimated-flux stat (see their docstrings for why
+        reslicing the coarse generous grid run() precomputes instead used
+        to badly overcount: a tight collimation window can capture just
+        one or two points of that wide-range grid). angle_energy_grid is
+        the joint (theta_x, theta_y, energy) grid that same call already
+        builds internally before collapsing it to spectrum_in_angular_
+        range's own 1D angle-integrated spectrum -- exposing it costs
+        nothing extra to compute. Falls back to the joint (AXIS_ENERGY,
+        AXIS_THETA_X, AXIS_THETA_Y) slice from res.photon_slices (the
+        coarse generous window) when rng_result is None."""
         axes_ar = (self.ax_ar_tx0, self.ax_ar_ty0, self.ax_ar_tx_sum, self.ax_ar_ty_sum)
 
-        ang3d = None
-        tx, ty = self._collimation_rad()
-        if tx is not None and ty is not None and hasattr(self.active_adapter, "spectrum_in_angular_range"):
-            n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
-            rng_result = self.active_adapter.spectrum_in_angular_range(
-                (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
-            ang3d = rng_result.angle_energy_grid
+        ang3d = rng_result.angle_energy_grid if rng_result is not None else None
         if ang3d is None:
             ang3d = find_slice(res.photon_slices, AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
         if ang3d is None:
