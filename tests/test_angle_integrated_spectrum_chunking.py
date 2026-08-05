@@ -6,6 +6,13 @@ allocation. Unlike particles.push_and_sample, n_particles here can be
 several million while len(s) is only a few hundred, so this is the
 opposite chunking axis from test_xigma_chunking.py's coverage.
 
+Both backends are covered, not just cupy: a follow-on user report showed
+the SAME unchunked-broadcast bug on the numpy path (5,000,000 particles x
+1,024 energy bins exhausted 128GB of system RAM) -- the original fix only
+chunked backend='cupy' on the (wrong) assumption that plain numpy is
+bounded by system RAM without needing to check it. See
+_estimate_s_chunk's docstring and gammaforge.misc.available_ram_bytes.
+
 Needs the dev-install (see this repo's top-level CLAUDE.md). GPU-only
 cases are skipped when cupy/CUDA isn't usable. Run with
 `python3 -m pytest tests/test_angle_integrated_spectrum_chunking.py -v`.
@@ -16,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from gammaforge.misc import available_vram_bytes
+from gammaforge.misc import available_ram_bytes, available_vram_bytes
 from gammaforge.models.xigma_i.spectrum_from_particles import (
     _estimate_s_chunk,
     angle_integrated_spectrum,
@@ -24,6 +31,9 @@ from gammaforge.models.xigma_i.spectrum_from_particles import (
 
 _HAS_GPU = available_vram_bytes() is not None
 skip_no_gpu = pytest.mark.skipif(not _HAS_GPU, reason="no CUDA-capable GPU/cupy usable")
+_HAS_RAM_QUERY = available_ram_bytes() is not None
+skip_no_ram_query = pytest.mark.skipif(
+    not _HAS_RAM_QUERY, reason="available_ram_bytes() unsupported on this platform")
 
 
 def _gamma_weight(n, seed=0):
@@ -49,14 +59,31 @@ def test_scalar_s_still_returns_scalar():
     assert np.ndim(out) == 0
 
 
-def test_estimate_s_chunk_numpy_returns_n_s_unchanged():
-    assert _estimate_s_chunk(5_000_000, 337, 'numpy') == 337
+@skip_no_ram_query
+def test_estimate_s_chunk_numpy_bounded_by_n_s():
+    chunk = _estimate_s_chunk(5_000_000, 337, 'numpy')
+    assert 0 < chunk <= 337
 
 
 @skip_no_gpu
 def test_estimate_s_chunk_cupy_bounded_by_n_s():
     chunk = _estimate_s_chunk(5_000_000, 337, 'cupy')
     assert 0 < chunk <= 337
+
+
+@skip_no_ram_query
+def test_numpy_auto_chunk_avoids_ram_blowup_at_reported_scale():
+    """Regression test for the follow-on report: 5,000,000 particles x
+    1,024 energy bins exhausted 128GB of system RAM on the numpy backend,
+    because _estimate_s_chunk originally never chunked backend='numpy' at
+    all. chunk=None must now return something well below n_s (i.e.
+    actually chunking), keeping the peak per-array footprint bounded
+    regardless of how much RAM this test machine has."""
+    n_particles, n_s = 5_000_000, 1024
+    chunk = _estimate_s_chunk(n_particles, n_s, 'numpy')
+    assert chunk < n_s
+    peak_bytes = n_particles * chunk * 8
+    assert peak_bytes < 4e9  # a handful of such temporaries should still fit comfortably
 
 
 @skip_no_gpu
@@ -104,6 +131,12 @@ def test_cupy_oom_retry_halves_chunk_and_succeeds():
 
     out = angle_integrated_spectrum(gamma, weight, s, backend='cupy', chunk=n_s - 1)
     assert out.shape[0] == n_s
+
+
+@skip_no_ram_query
+def test_available_ram_bytes_returns_positive_int():
+    ram = available_ram_bytes()
+    assert isinstance(ram, int) and ram > 0
 
 
 if __name__ == "__main__":

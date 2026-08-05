@@ -1390,7 +1390,9 @@ class ComptonGUIApp(tk.Tk):
         total_flux = total_yield(res) * self.rep_rate_hz
         if tx is None or ty is None:
             return total_flux, 0.0, None
-        rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
+        n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
+        rng_result = self.active_adapter.spectrum_in_angular_range(
+            (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
         coll_flux = (rng_result.n_photons_in_range or 0.0) * self.rep_rate_hz
         return total_flux, coll_flux, None
 
@@ -1446,8 +1448,13 @@ class ComptonGUIApp(tk.Tk):
                 # wide-range energy+angle joint slice -- see _photon_fluxes'
                 # docstring for why re-integrating that cache here used to
                 # produce a "collimated" curve that could spike far above the
-                # true 4*pi spectrum near the Compton edge.
-                rng_result = self.active_adapter.spectrum_in_angular_range((-tx, tx), (-ty, ty))
+                # true 4*pi spectrum near the Compton edge. n_energy is
+                # explicit here (not the adapter's own default of 96/65) so
+                # the "Energy bins" field actually controls this curve's
+                # resolution too, not just the "all (4*pi)" one above.
+                n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
+                rng_result = self.active_adapter.spectrum_in_angular_range(
+                    (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
                 coll_spec = rng_result.spectrum
                 E_coll = coll_spec.axes.get(AXIS_ENERGY)
                 if E_coll is not None and E_coll.size:

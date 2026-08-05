@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 try:
@@ -54,4 +56,29 @@ def available_vram_bytes() -> int | None:
         free, _total = cp.cuda.Device().mem_info
         return int(free)
     except Exception:
+        return None
+
+
+def available_ram_bytes() -> int | None:
+    """Available system RAM in bytes (POSIX sysconf), or None if the query
+    isn't supported on this platform -- the CPU-backend analogue of
+    available_vram_bytes(), used to bound numpy-backend chunk sizing the
+    same way cupy-backend chunking is bounded by free VRAM.
+
+    "Plain numpy is bounded by system RAM, so it doesn't need chunking"
+    was this codebase's original assumption for numpy-backend paths (see
+    particles.estimate_chunk_size's docstring) -- wrong at large enough
+    problem sizes: a 5,000,000-particle x 1,024-point broadcast is over
+    100GB with only a handful of live float64 temporaries, enough to
+    exhaust RAM on a well-provisioned workstation (confirmed by a user
+    report). Unlike a cupy OutOfMemoryError, an oversized host allocation
+    on Linux can trigger the kernel OOM-killer (or heavy swapping) rather
+    than a catchable Python exception, so this proactive estimate is the
+    primary defense for the numpy path, not a fallback behind a retry
+    loop -- see spectrum_from_particles._estimate_s_chunk/
+    particles.estimate_chunk_size.
+    """
+    try:
+        return int(os.sysconf('SC_AVPHYS_PAGES') * os.sysconf('SC_PAGESIZE'))
+    except (ValueError, OSError, AttributeError):
         return None

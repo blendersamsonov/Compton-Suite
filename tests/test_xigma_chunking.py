@@ -24,7 +24,7 @@ import pytest
 
 from gammaforge.io.bunch import sample_gaussian_bunch
 from gammaforge.io.units import LIGHT_TIME_CONTEXT
-from gammaforge.misc import available_vram_bytes
+from gammaforge.misc import available_ram_bytes, available_vram_bytes
 from gammaforge.models.xigma_i import particles
 from gammaforge.validation.scenarios import BASELINE
 
@@ -158,9 +158,24 @@ def test_cupy_oom_retry_covers_diagnostics_binning_too():
     assert diagnostics.spatial_envelope is not None
 
 
-def test_estimate_chunk_size_numpy_returns_n_particles_unchanged():
-    assert particles.estimate_chunk_size(123_456, 64, 'numpy') == 123_456
+def test_estimate_chunk_size_numba_returns_n_particles_unchanged():
+    """numba's own per-particle compiled loop already avoids the
+    O(n*n_steps) blowup this function exists to bound -- nothing to
+    chunk there, unlike 'numpy' (see the next test)."""
     assert particles.estimate_chunk_size(123_456, 64, 'numba') == 123_456
+
+
+def test_estimate_chunk_size_numpy_bounded_by_n_particles():
+    """Regression test for a follow-on user report: 'numpy' used to be
+    exempted from chunking on the assumption that system RAM bounds it --
+    wrong at large enough n_particles*n_steps (a related unchunked
+    broadcast exhausted 128GB of RAM). 'numpy' is now chunked against
+    gammaforge.misc.available_ram_bytes() the same way 'cupy' is chunked
+    against available_vram_bytes()."""
+    if available_ram_bytes() is None:
+        pytest.skip("available_ram_bytes() unsupported on this platform")
+    chunk = particles.estimate_chunk_size(5_000_000, 64, 'numpy')
+    assert 0 < chunk <= 5_000_000
 
 
 @skip_no_gpu
