@@ -12,6 +12,21 @@ brute-force table quadrature with no production caller.
 """
 import numpy as np
 
+from gammaforge.misc import available_vram_bytes
+
+# angle_integrated_spectrum's OOM-retry bound, mirroring particles.py's
+# push_and_sample chunking: halve the remaining s-chunk on a cupy
+# OutOfMemoryError, up to this many times, before giving up and re-raising.
+_MAX_OOM_HALVINGS = 6
+
+# Calibration for _estimate_s_chunk: the (n_particles, chunk)-shaped
+# broadcast in angle_integrated_spectrum (y, shape, and the final
+# particle_weight*shape/gamma**2 product) keeps ~3 float64 temporaries of
+# that shape concurrently live; rounded up for headroom against other GPU
+# processes / cupy-version drift, same reasoning as particles.py's
+# _BYTES_PER_PARTICLE_STEP.
+_BYTES_PER_PARTICLE_S_PAIR = 60
+
 
 def _xp_for(backend):
     """Resolves backend='numpy'|'cupy' to its array module. cupy is imported
@@ -27,7 +42,26 @@ def _xp_for(backend):
     raise ValueError(f"backend must be 'numpy' or 'cupy', got {backend!r}")
 
 
-def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy'):
+def _estimate_s_chunk(n_particles, n_s, backend, safety_frac=0.7):
+    """Auto-sized s-axis chunk for angle_integrated_spectrum's cupy path,
+    from currently free VRAM -- the particle axis (n_particles, can be
+    several million) is never chunked (gamma/particle_weight are cheap, O(n)
+    1D arrays); only the (n_particles, chunk)-shaped broadcast temporaries
+    need bounding. Returns n_s unchanged (don't chunk) for backend !=
+    'cupy' or if the VRAM query fails, same convention as
+    particles.estimate_chunk_size.
+    """
+    if backend != 'cupy':
+        return n_s
+    free_bytes = available_vram_bytes()
+    if free_bytes is None:
+        return n_s
+    budget = free_bytes * safety_frac
+    chunk = int(budget / (_BYTES_PER_PARTICLE_S_PAIR * max(n_particles, 1)))
+    return max(1, min(chunk, n_s))
+
+
+def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy', chunk=None):
     """dN/ds integrated over all emission solid angle, from real Stage 0/1
     macroparticles. A single electron's angle-integrated spectral shape
     depends only on its own gamma (not its transverse angle), via the
@@ -42,15 +76,55 @@ def angle_integrated_spectrum(gamma, particle_weight, s, backend='numpy'):
     pattern as deposition.py/particles.py. gamma/particle_weight/s are
     converted to the target module if not already; the whole computation is
     elementwise/reduction, so there's nothing GPU-specific to write.
+    chunk: if given (and less than len(s)), the (n_particles, len(s))
+    broadcast runs on `chunk`-sized slices of `s` instead of all at once,
+    writing into the matching slice of the output -- each s value's result
+    depends on no other s value, so this is an exact repartition, not an
+    approximation. None (default) auto-sizes from free VRAM on
+    backend='cupy' via _estimate_s_chunk (no chunking on 'numpy' -- system
+    RAM, not the tight VRAM budget, bounds that path). Needed because unlike
+    push_and_sample's Stage 0 trajectory integration, this reduction has no
+    chunking of its own: n_particles can be several million while s is only
+    a few hundred points, so the naive (n_particles, len(s)) broadcast can
+    be tens of GB in one allocation (see CLAUDE.md CUDA-OOM notes).
     """
     xp = _xp_for(backend)
     gamma, particle_weight = xp.asarray(gamma), xp.asarray(particle_weight)
     s_arr = xp.atleast_1d(xp.asarray(s, dtype=xp.float64))
-    gamma = gamma[:, None]
-    y = s_arr[None, :] / gamma**2
-    shape = 1.5 * (1.0 - 2.0 * y * (1.0 - y))
-    shape = xp.where((y < 0) | (y > 1), 0.0, shape)
-    out = xp.sum(particle_weight[:, None] * shape / gamma**2, axis=0)
+    gamma2 = (gamma ** 2)[:, None]
+
+    n_particles = gamma.shape[0]
+    n_s = s_arr.shape[0]
+    if chunk is None:
+        chunk = _estimate_s_chunk(n_particles, n_s, backend)
+    chunk = max(1, min(int(chunk), n_s))
+
+    is_cupy = xp is not np
+    oom_exc = xp.cuda.memory.OutOfMemoryError if is_cupy else ()
+
+    out = xp.empty(n_s, dtype=xp.float64)
+    start = 0
+    cur_chunk = chunk
+    halvings = 0
+    while start < n_s:
+        end = min(start + cur_chunk, n_s)
+        try:
+            y = s_arr[None, start:end] / gamma2
+            shape = 1.5 * (1.0 - 2.0 * y * (1.0 - y))
+            shape = xp.where((y < 0) | (y > 1), 0.0, shape)
+            out[start:end] = xp.sum(particle_weight[:, None] * shape / gamma2, axis=0)
+        except oom_exc:
+            if halvings >= _MAX_OOM_HALVINGS or cur_chunk <= 1:
+                raise
+            cur_chunk = max(1, cur_chunk // 2)
+            halvings += 1
+            xp.get_default_memory_pool().free_all_blocks()
+            continue
+        if is_cupy:
+            del y, shape
+            xp.get_default_memory_pool().free_all_blocks()
+        start = end
+
     return out if np.ndim(s) else out[0]
 
 

@@ -444,7 +444,8 @@ class DirectAdapter:
             else:
                 s_lo, s_hi = 0.0, 1.1 * gamma_0 ** 2
             s_grid = np.linspace(s_lo, s_hi, n_e)
-            dNds_tot = spectrum_from_particles.angle_integrated_spectrum(gamma_h, w_h, s_grid)
+            dNds_tot = to_host(spectrum_from_particles.angle_integrated_spectrum(
+                gamma, w, s_grid, backend=push_backend), device)
             E_eV = s_grid * s_scale_MeV * 1e6
             dNdE_per_eV = dNds_tot / s_scale_MeV / 1e6
             photon_slices.append(PhasespaceSlice(axes={AXIS_ENERGY: E_eV}, distr=dNdE_per_eV))
@@ -479,8 +480,8 @@ class DirectAdapter:
         for i, x0 in enumerate(theta_x_grid):
             for j, y0 in enumerate(theta_y_grid):
                 hist = spectrum_from_particles.direct_binning_spectrum(
-                    gamma_h, tx_h, ty_h, w_h, a0_h, x0, y0, s_edges, laser.phi_pol)
-                d2NdEdOmega[i, j, :] = hist / s_scale_MeV / 1e6
+                    gamma, tx, ty, w, a0, x0, y0, s_edges, laser.phi_pol, backend=push_backend)
+                d2NdEdOmega[i, j, :] = to_host(hist, device) / s_scale_MeV / 1e6
         E_ang_eV = s_centers * s_scale_MeV * 1e6
 
         # QUICK FIX, FLAGGED FOR FUTURE INVESTIGATION: direct_binning_spectrum's
