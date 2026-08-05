@@ -71,6 +71,21 @@ def test_estimate_s_chunk_cupy_bounded_by_n_s():
     assert 0 < chunk <= 337
 
 
+def test_estimate_s_chunk_capped_regardless_of_free_memory(monkeypatch):
+    """Regression test for a follow-on user report: on a well-provisioned
+    machine (128GB RAM), _estimate_s_chunk originally sized the chunk as a
+    FRACTION of whatever memory was free, growing to the hundreds and
+    using ~100GB for a computation a clean benchmark showed runs equally
+    fast at chunk~8-16 (see _MAX_S_CHUNK's docstring). The chunk must stay
+    at the fixed performance ceiling even when free memory is enormous."""
+    import gammaforge.models.xigma_i.spectrum_from_particles as sfp
+    monkeypatch.setattr(sfp, "available_ram_bytes", lambda: 128 * 10**9)
+    chunk = sfp._estimate_s_chunk(5_000_000, 1024, 'numpy')
+    assert chunk <= sfp._MAX_S_CHUNK
+    peak_bytes = 5_000_000 * chunk * 8
+    assert peak_bytes < 2e9
+
+
 @skip_no_ram_query
 def test_numpy_auto_chunk_avoids_ram_blowup_at_reported_scale():
     """Regression test for the follow-on report: 5,000,000 particles x

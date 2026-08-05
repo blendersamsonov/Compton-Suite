@@ -330,7 +330,15 @@ class XigmaAdapter:
         return AngularRangeSpectrumResult(
             spectrum=PhasespaceSlice(axes={AXIS_ENERGY: E_eV}, distr=dNdE_per_eV),
             theta_x_range=theta_x_range, theta_y_range=theta_y_range,
-            n_photons_in_range=n_photons_in_range)
+            n_photons_in_range=n_photons_in_range,
+            angle_energy_grid=PhasespaceSlice(
+                # d2NdEdOmega is already host numpy here -- calculate_angular_
+                # spectrum_4d's own GPU branch already calls .get() before
+                # returning (see spectrum4d.py), so no further to_host() needed
+                # (and would error: to_host('gpu', already-numpy) calls a
+                # nonexistent .get()).
+                axes={AXIS_THETA_X: theta_x, AXIS_THETA_Y: theta_y, AXIS_ENERGY: E_eV},
+                distr=d2NdEdOmega))
 
 
 # ---------------------------------------------------------------------------
@@ -592,4 +600,7 @@ class DirectAdapter:
         spectrum = PhasespaceSlice(axes={AXIS_ENERGY: E_eV}, distr=dNdE_per_eV)
         return AngularRangeSpectrumResult(
             spectrum=spectrum, theta_x_range=theta_x_range, theta_y_range=theta_y_range,
-            n_photons_in_range=n_photons_in_range)
+            n_photons_in_range=n_photons_in_range,
+            angle_energy_grid=PhasespaceSlice(
+                axes={AXIS_THETA_X: theta_x_grid, AXIS_THETA_Y: theta_y_grid, AXIS_ENERGY: E_eV},
+                distr=d2NdEdOmega))

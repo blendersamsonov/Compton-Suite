@@ -82,12 +82,22 @@ class AngularRangeSpectrumResult:
     ``ModelAdapter.spectrum_in_angular_range()`` (xigma-i/delta only). This
     is a live recompute against cached engine/table state, not part of the
     static :class:`Results` a ``run()`` call returns.
+
+    ``angle_energy_grid``: the joint (theta_x, theta_y, energy) grid
+    ``spectrum`` is itself collapsed from (``einsum``'d over the two angle
+    axes) -- both adapters already materialise this internally before
+    collapsing it, so exposing it is free (no extra compute), and lets a
+    caller that wants a genuine 2D angle-resolved view (not just the
+    angle-integrated 1D spectrum) reuse the SAME collimation-window-sized
+    query instead of falling back to a generic, uncollimated grid. ``None``
+    only if a caller explicitly opts out (no current caller does).
     """
 
     spectrum: PhasespaceSlice
     theta_x_range: tuple[float, float]
     theta_y_range: tuple[float, float]
     n_photons_in_range: float | None = None
+    angle_energy_grid: PhasespaceSlice | None = None
 
 
 @dataclass

@@ -1576,15 +1576,38 @@ class ComptonGUIApp(tk.Tk):
         self.canvas_a.draw()
 
     def _render_angle_resolved_spectra(self, res):
-        """Four (energy, angle) views of the same joint (AXIS_ENERGY,
-        AXIS_THETA_X, AXIS_THETA_Y) slice _render_angular_distribution's
-        ang3d fallback already reads (no new adapter/engine call, a pure
-        aggregation of already-present data): on-axis slices at the other
+        """Four (energy, angle) views: on-axis slices at the other
         transverse angle's nearest-to-zero grid point, and the two
         one-angle-summed (i.e. energy vs. one angle, integrated over the
-        other) projections."""
+        other) projections.
+
+        Data source: if a collimation window is set (theta_x_col_mrad/
+        theta_y_col_mrad on the Compton Photons tab) and the active model
+        supports it, a fresh on-demand spectrum_in_angular_range() query
+        sized for THAT window -- mirrors _render_spectrum's "collimated"
+        curve and _photon_fluxes' collimated-flux stat, both of which
+        already avoid reslicing the coarse generous grid run() precomputes
+        (see their docstrings for why: a tight collimation window can
+        capture just one or two points of that wide-range grid, badly
+        overcounting). angle_energy_grid is the joint (theta_x, theta_y,
+        energy) grid the same call already builds internally before
+        collapsing it to spectrum_in_angular_range's own 1D angle-
+        integrated spectrum -- exposing it costs nothing extra to compute.
+        Falls back to the joint (AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
+        slice from res.photon_slices (the coarse generous window) when no
+        collimation window is set, or the model has no
+        spectrum_in_angular_range (kascade, analytical)."""
         axes_ar = (self.ax_ar_tx0, self.ax_ar_ty0, self.ax_ar_tx_sum, self.ax_ar_ty_sum)
-        ang3d = find_slice(res.photon_slices, AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
+
+        ang3d = None
+        tx, ty = self._collimation_rad()
+        if tx is not None and ty is not None and hasattr(self.active_adapter, "spectrum_in_angular_range"):
+            n_energy_bins = max(1, int(float(self.fields["n_energy_bins"].get())))
+            rng_result = self.active_adapter.spectrum_in_angular_range(
+                (-tx, tx), (-ty, ty), n_energy=n_energy_bins)
+            ang3d = rng_result.angle_energy_grid
+        if ang3d is None:
+            ang3d = find_slice(res.photon_slices, AXIS_ENERGY, AXIS_THETA_X, AXIS_THETA_Y)
         if ang3d is None:
             for ax in axes_ar:
                 ax.clear()
