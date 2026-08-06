@@ -60,6 +60,23 @@ from gammaforge.models.api import (
 # See deposition.retarget_a0.
 DEFAULT_A0_MAX = 0.5
 
+# spectrum_in_angular_range's n_energy ceiling for the LIVE, GUI-triggered
+# query path (collimated spectrum curve, collimated-flux stat, angle-
+# resolved panel -- all fired automatically, debounced but not user-
+# initiated, whenever the collimation-angle fields change). Measured cost
+# is ~linear in n_energy and NOT cheap: XigmaAdapter's angular_spectrum
+# kernel took ~0.4s/unit on CPU/numba (n_energy=64 -> 27s; a user-set
+# n_energy=2048 measured at 14+ minutes, effectively hanging the GUI) and
+# ~0.03s/unit on GPU (n_energy=2048 -> 50s). Neither is acceptable for an
+# automatic, non-"Calculate" update, so n_energy passed to this method is
+# capped here regardless of what the caller (typically the GUI's "Energy
+# bins" field, meant for the deliberate one-shot main spectrum output, NOT
+# this live path) requests. CPU keeps the pre-existing small default (96)
+# rather than trying to force an already-marginal ~40s cost lower still;
+# GPU gets a more generous cap since it's ~15x faster per unit.
+_MAX_LIVE_N_ENERGY_CPU = 96
+_MAX_LIVE_N_ENERGY_GPU = 256
+
 
 def _theta_grid(gamma0: float, n_points: int = 33,
                 theta_range: tuple[float, float] | None = None) -> np.ndarray:
@@ -301,11 +318,22 @@ class XigmaAdapter:
         second, purpose-built kernel call over the cached table instead of
         reslicing the coarse generous grid ``run()`` precomputes for the
         collimation-window UI fields.
+
+        ``n_energy`` is capped at ``_MAX_LIVE_N_ENERGY_CPU``/``_GPU``
+        regardless of what's requested -- this method is called from the
+        GUI's automatic (collimation-field-change-triggered) update path,
+        not a user-initiated "Calculate", and the kernel's cost is
+        expensive and linear in ``n_energy`` (see those constants'
+        docstring); a caller wanting the FULL requested resolution for a
+        deliberate, one-shot computation should use ``TabulatedEngine.
+        spectrum()``/``angle_integrated_spectrum`` instead (chunked, no
+        per-call ceiling).
         """
         if self.engine is None or self.engine.table is None:
             raise RuntimeError("XigmaAdapter.spectrum_in_angular_range: run() must be called first")
         laser = self.interaction.laser
         xp = get_xp(self.device)
+        n_energy = min(n_energy, _MAX_LIVE_N_ENERGY_GPU if self.device == 'gpu' else _MAX_LIVE_N_ENERGY_CPU)
 
         gamma_0 = self.interaction.electrons.gaussian_fit.gamma0
         theta_x = _theta_grid(gamma_0, n_points=n_points, theta_range=theta_x_range)
@@ -569,11 +597,22 @@ class DirectAdapter:
         Mirrors ``XigmaAdapter.spectrum_in_angular_range`` (xigma-i's own
         version), which already evaluates its kernel at observation points
         for exactly this reason.
+
+        ``n_energy`` is capped the same way ``XigmaAdapter.
+        spectrum_in_angular_range`` caps it -- see
+        ``_MAX_LIVE_N_ENERGY_CPU``/``_GPU``'s docstring. This method's own
+        dominant cost is the ``n_points**2`` loop over ``direct_binning_
+        spectrum`` calls (each O(n_particles), not benchmarked separately
+        for its own n_energy dependence, which only affects each call's
+        histogram bin count), but the same "this is an automatic, non-
+        Calculate update path" reasoning applies regardless -- capped for
+        consistency and safety rather than assuming a milder profile.
         """
         from . import spectrum_from_particles
 
         if self.gamma is None:
             raise RuntimeError("DirectAdapter.spectrum_in_angular_range: run() must be called first")
+        n_energy = min(n_energy, _MAX_LIVE_N_ENERGY_GPU if self.device == 'gpu' else _MAX_LIVE_N_ENERGY_CPU)
 
         gamma_0 = self.interaction.electrons.gaussian_fit.gamma0
         theta_x_grid = np.linspace(theta_x_range[0], theta_x_range[1], n_points)

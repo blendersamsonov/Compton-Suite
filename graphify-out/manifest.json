@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   "tests/test_analytical.py": {
-    "mtime": 1785931465.3556378,
-    "ast_hash": "deeba3807ffa18f5b4d5669101abe412",
+    "mtime": 1786019829.2904532,
+    "ast_hash": "b4b0639fe4cce824c44920110f73a5e7",
     "semantic_hash": ""
   },
   ".opencode/opencode.json": {
@@ -20,13 +20,13 @@
     "semantic_hash": "3ea725724bc8ebe483c9f13d6aa1124f"
   },
   "AGENTS.md": {
-    "mtime": 1785947682.4308817,
-    "ast_hash": "f2896d410c63201119e77c7beae9235b",
+    "mtime": 1786020020.715763,
+    "ast_hash": "3d74fa445596f750a958a0cab2dc45b8",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1785947682.4308817,
-    "ast_hash": "f2896d410c63201119e77c7beae9235b",
+    "mtime": 1786020020.715763,
+    "ast_hash": "3d74fa445596f750a958a0cab2dc45b8",
     "semantic_hash": ""
   },
   "scripts/headless_test.py": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/gui/app.py": {
-    "mtime": 1785946971.0934289,
-    "ast_hash": "ae1e17128fd8c6fea6ca6d80aec13e49",
+    "mtime": 1785950471.0743425,
+    "ast_hash": "99b25feaec6dc858de14d17b7ea42c8c",
     "semantic_hash": ""
   },
   "src/gammaforge/io/__init__.py": {
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/models/analytical.py": {
-    "mtime": 1785931465.3465815,
-    "ast_hash": "6fcc9d50b5bc31b6c5004f37a568d5f4",
+    "mtime": 1786019756.068393,
+    "ast_hash": "5a2642dedb1c5b042d59442ab4ef5a51",
     "semantic_hash": ""
   },
   "src/gammaforge/models/api.py": {
@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/adapter.py": {
-    "mtime": 1785946943.7838843,
-    "ast_hash": "4a9d9b2acc8a7fe1784a737c00f6bbae",
+    "mtime": 1785950123.9376643,
+    "ast_hash": "3da7e0b5896c472aa0c20ca9179d4bd6",
     "semantic_hash": ""
   },
   "src/gammaforge/models/xigma_i/config.py": {
@@ -367,6 +367,11 @@
   "tests/test_angle_integrated_spectrum_chunking.py": {
     "mtime": 1785946786.8076692,
     "ast_hash": "a48c91d8487906f9dac66653d2350ac1",
+    "semantic_hash": ""
+  },
+  "tests/test_spectrum_in_angular_range_cap.py": {
+    "mtime": 1785950233.5282826,
+    "ast_hash": "2da723a49d167b2fb349604e19cca45f",
     "semantic_hash": ""
   }
 }
