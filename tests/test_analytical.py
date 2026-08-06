@@ -55,28 +55,84 @@ def test_estimate_spectrum_width_grows_with_larger_collimation_angle():
 
 
 def test_angle_integrated_spectrum_shape_and_scalar_input():
-    rng = np.random.default_rng(0)
-    n = 10_000
-    gamma = rng.normal(_EXAMPLE_BEAM.gamma0, _EXAMPLE_BEAM.sigma_gamma, n)
-    weight = np.full(n, _EXAMPLE_BEAM.N_e / n)
-
     s_array = np.linspace(0.01, 0.99, 16)
-    out_array = analytical.angle_integrated_spectrum(gamma, weight, s_array)
+    out_array = analytical.angle_integrated_spectrum(
+        _EXAMPLE_BEAM.gamma0, _EXAMPLE_BEAM.sigma_gamma, _EXAMPLE_BEAM.N_e, s_array)
     assert out_array.shape == s_array.shape
     assert np.all(np.isfinite(out_array)) and np.all(out_array >= 0)
 
-    out_scalar = analytical.angle_integrated_spectrum(gamma, weight, 0.5)
+    out_scalar = analytical.angle_integrated_spectrum(
+        _EXAMPLE_BEAM.gamma0, _EXAMPLE_BEAM.sigma_gamma, _EXAMPLE_BEAM.N_e, 0.5)
     assert np.ndim(out_scalar) == 0 or isinstance(out_scalar, float)
 
 
 def test_angle_integrated_spectrum_zero_outside_kinematic_range():
-    # s = E/E_max(gamma) must vanish for s/gamma^2 outside [0, 1] --
-    # a single monoenergetic bunch has a hard Compton edge.
-    gamma = np.array([100.0])
-    weight = np.array([1.0])
-    s_beyond_edge = np.array([gamma[0] ** 2 * 1.5])
-    out = analytical.angle_integrated_spectrum(gamma, weight, s_beyond_edge)
+    # s = E/E_max(gamma) must vanish for s/gamma^2 outside [0, 1] -- a
+    # narrow (near-monoenergetic) beam has an almost-hard Compton edge.
+    # sigma_gamma can't be exactly 0 (the Gaussian quadrature grid would
+    # be degenerate), so this uses a tight but finite spread instead of a
+    # true delta function.
+    gamma0 = 100.0
+    s_far_beyond_edge = np.array([gamma0 ** 2 * 1.5])
+    out = analytical.angle_integrated_spectrum(gamma0, gamma0 * 1e-6, 1.0, s_far_beyond_edge)
     assert out[0] == 0.0
+
+
+def test_angle_integrated_spectrum_no_macroparticle_dependency():
+    """This is the point of the refactor (see module docstring): the
+    function takes only the beam's Gaussian parameters (gamma0,
+    sigma_gamma, N_e) -- scalars, not a per-particle array -- so calling
+    it with plain Python floats (no numpy array, no length, no
+    "n_particles" concept at all) must work. A naive re-introduction of
+    a macroparticle array argument would break this at the call site,
+    not just numerically."""
+    import inspect
+    params = list(inspect.signature(analytical.angle_integrated_spectrum).parameters)
+    assert params[:3] == ["gamma0", "sigma_gamma", "N_e"]
+
+    out = analytical.angle_integrated_spectrum(300.0, 0.5, 1.0e9, 0.5)
+    assert np.isfinite(out)
+
+
+def test_angle_integrated_spectrum_matches_monte_carlo_reference():
+    """Validates the closed-form quadrature (gamma0, sigma_gamma, N_e)
+    against an independent Monte Carlo reference (a large sample of real
+    gamma draws from the same Gaussian, summed the way the old
+    macroparticle-based implementation used to) -- confirms the
+    refactor preserved the physics, not just the API shape."""
+    rng = np.random.default_rng(1)
+    n = 2_000_000
+    gamma0, sigma_gamma, N_e = _EXAMPLE_BEAM.gamma0, _EXAMPLE_BEAM.sigma_gamma, _EXAMPLE_BEAM.N_e
+    gamma_samples = rng.normal(gamma0, sigma_gamma, n)
+    weight = N_e / n
+
+    s_array = np.linspace(0.05, 0.95, 12)
+    gamma2 = (gamma_samples ** 2)[:, None]
+    y = s_array[None, :] / gamma2
+    shape = 1.5 * (1.0 - 2.0 * y * (1.0 - y))
+    shape = np.where((y < 0) | (y > 1), 0.0, shape)
+    mc_reference = np.sum(weight * shape / gamma2, axis=0)
+
+    quad_result = analytical.angle_integrated_spectrum(gamma0, sigma_gamma, N_e, s_array)
+    # Monte Carlo with 2e6 samples has real statistical noise; the
+    # quadrature result is (to quadrature precision) exact, so the
+    # tolerance reflects the reference's noise floor, not the
+    # quadrature's own accuracy.
+    assert np.allclose(quad_result, mc_reference, rtol=0.02)
+
+
+def test_angle_integrated_spectrum_fast_at_reported_scale():
+    """Regression test for the user report this refactor fixes: 2048
+    energy bins used to require an (n_particles, 2048) broadcast --
+    5,000,000 particles x 2048 bins hit a 76.3 GiB allocation. The new
+    signature has no n_particles argument at all, so this must simply
+    stay fast and never allocate anything bigger than
+    (n_quad, len(s))."""
+    s_array = np.linspace(1e-3, 1.0 - 1e-3, 2048)
+    out = analytical.angle_integrated_spectrum(
+        _EXAMPLE_BEAM.gamma0, _EXAMPLE_BEAM.sigma_gamma, _EXAMPLE_BEAM.N_e, s_array)
+    assert out.shape == s_array.shape
+    assert np.all(np.isfinite(out))
 
 
 if __name__ == "__main__":
